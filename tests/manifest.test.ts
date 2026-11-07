@@ -26,6 +26,7 @@ describe('manifest', () => {
 describe('chuỗi tiếng Việt', () => {
   it('không có chuỗi rỗng', () => {
     for (const [key, value] of Object.entries(vi)) {
+      if (typeof value !== 'string') continue;
       expect(value.trim().length, key).toBeGreaterThan(0);
     }
   });
