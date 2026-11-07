@@ -1,0 +1,16 @@
+name: Đề xuất tính năng
+description: Ý tưởng giúp đọc nhanh hoặc tập trung hơn
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Bạn đang gặp khó khăn gì khi đọc?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Bạn muốn ReadFocus làm gì?
+    validations:
+      required: true

@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Trước T1 chưa có package-lock.json: bỏ qua các bước npm để CI không đỏ.
+      - name: Detect project
+        id: detect
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Chưa có package-lock.json — bỏ qua các bước build (dự án chưa scaffold)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        if: steps.detect.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Typecheck
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run typecheck
+
+      - name: Lint
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run lint
+
+      - name: Test
+        if: steps.detect.outputs.ready == 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run build
+
+      - name: Package
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run package
+
+      - name: Check no remote code
+        if: steps.detect.outputs.ready == 'true'
+        run: |
+          # MV3 cấm tải code từ xa; v0 cũng không được gọi mạng.
+          if grep -rEn "https?://(cdn|unpkg|cdnjs|esm\.sh|jsdelivr)" dist/ --include='*.js' --include='*.html'; then
+            echo "::error::Phát hiện tham chiếu CDN trong dist/"
+            exit 1
+          fi
+
+      - name: Upload build
+        if: steps.detect.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: readfocus-${{ github.sha }}
+          path: release/*.zip
+          retention-days: 14
+          if-no-files-found: error

@@ -1,0 +1,33 @@
+name: Báo lỗi
+description: Có gì đó chạy không đúng
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Chuyện gì xảy ra?
+      description: Mô tả lỗi và điều bạn mong đợi.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Các bước tái hiện
+      placeholder: |
+        1. Mở file ...
+        2. Bấm ...
+    validations:
+      required: true
+  - type: dropdown
+    id: doctype
+    attributes:
+      label: Loại tài liệu
+      options: [Sách, Paper, Slide bài giảng, Bản scan, Khác]
+  - type: input
+    id: version
+    attributes:
+      label: Phiên bản ReadFocus và Chrome
+      placeholder: ReadFocus 0.1.0, Chrome 131
+  - type: markdown
+    attributes:
+      value: Vui lòng **không đính kèm file PDF có bản quyền**. Nếu cần, mô tả cấu trúc file (số trang, có mục lục không, một hay hai cột).

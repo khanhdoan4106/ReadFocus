@@ -1,0 +1,22 @@
+node_modules/
+dist/
+release/
+*.zip
+*.crx
+*.pem
+coverage/
+.vite/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# PDF thật để thử tay — không commit (có thể có bản quyền)
+samples/
+*.pdf
+!tests/fixtures/*.pdf
