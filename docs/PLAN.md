@@ -108,9 +108,10 @@ Mỗi mục có: tiêu đề, trang bắt đầu, trang kết thúc, cấp, số
 
 Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nhóm B** (T4–T7) trên `feat/v0-reading-core`, **Nhóm C** (T8–T11) trên `feat/v0-focus-polish`. Xong mỗi nhóm thì push và mở PR vào `main`.
 
-- [ ] **T1** Scaffold: Vite, TS strict, Preact, crxjs, ESLint/Prettier, Vitest, `manifest.json` MV3 tối thiểu, đủ 6 script ở bảng trên (kể cả `scripts/package.mjs`), icon tạm. CI trong `.github/workflows/ci.yml` phải chạy xanh.
-- [ ] **T2** Viewer: mở file bằng picker hoặc kéo thả; render pdf.js có virtualize; text layer; zoom; điều hướng trang.
-- [ ] **T3** Storage: hash SHA-256, schema IndexedDB, lưu và khôi phục trang cuối đang đọc.
+- [x] **T1** Scaffold: Vite, TS strict, Preact, crxjs, ESLint/Prettier, Vitest, `manifest.json` MV3 tối thiểu, đủ 6 script ở bảng trên (kể cả `scripts/package.mjs`), icon tạm. CI trong `.github/workflows/ci.yml` phải chạy xanh.
+- [x] **T2a** Viewer cơ bản: mở file bằng picker hoặc kéo thả; pdf.js render một trang + text layer; zoom; điều hướng trang; trạng thái lỗi (PDF hỏng, có mật khẩu, quá lớn). Có test cho logic phân trang/zoom.
+- [x] **T2b** Viewer cuộn liên tục: virtualize theo vùng nhìn thấy, text layer cho từng trang, theo dõi trang đang đọc, nhảy tới trang.
+- [x] **T3** Storage: hash SHA-256, schema IndexedDB, lưu và khôi phục trang cuối đang đọc.
 - [ ] **T4** Trích văn bản tăng dần + `profile.ts` + phát hiện bản scan + cảnh báo trên 100 trang. Script tạo PDF fixture trong `scripts/`. Có test.
 - [ ] **T5** `toc.ts`, đủ 4 tầng fallback, có test; UI tab Mục lục.
 - [ ] **T6** `search.ts` + chuẩn hóa tiếng Việt, có test; UI tab Tìm kiếm + highlight.

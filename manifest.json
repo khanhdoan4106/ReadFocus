@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "ReadFocus",
+  "version": "0.1.0",
+  "description": "Đọc PDF dễ chịu hơn: mục lục tự động, tìm kiếm, ước tính thời gian đọc và chế độ tập trung.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Mở ReadFocus",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "permissions": ["storage"]
+}
