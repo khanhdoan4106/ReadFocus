@@ -129,6 +129,90 @@ body {
   text-align: center;
 }
 
+.toolbar__profile {
+  font-size: 0.8125rem;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  white-space: nowrap;
+}
+
+/* ---------- Notice bar ---------- */
+
+.notice {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.notice__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.notice__text {
+  margin: 0;
+}
+
+.notice__text--warning {
+  color: var(--danger);
+}
+
+.notice__field {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.notice__field input {
+  width: 4.5rem;
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.4rem;
+}
+
+.notice__button {
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .notice__button {
+    color: #0d1210;
+  }
+}
+
+.notice__error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+}
+
+.notice__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.notice__progress progress {
+  width: 8rem;
+  accent-color: var(--accent);
+}
+
 /* ---------- Content ---------- */
 
 .content {

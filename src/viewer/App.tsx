@@ -2,16 +2,48 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
+import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { vi } from '../i18n/vi';
-import { loadProgress, recordDocumentOpen, saveProgress } from '../storage/db';
+import {
+  clearPageTexts,
+  loadProgress,
+  recordDocumentOpen,
+  savePageTexts,
+  saveProgress,
+} from '../storage/db';
+import { extractRange, INDEX_PAGE_LIMIT, readOutlineDepth } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
 
+type Analysis =
+  | { phase: 'idle' }
+  | { phase: 'extracting'; done: number; total: number }
+  | { phase: 'done'; profile: DocumentProfile }
+  | { phase: 'error' };
+
+type IndexRange = {
+  from: string;
+  to: string;
+};
+
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
+
+function profileLabel(kind: DocKind): string {
+  switch (kind) {
+    case 'book':
+      return vi.profileBook;
+    case 'paper':
+      return vi.profilePaper;
+    case 'slides':
+      return vi.profileSlides;
+    case 'unknown':
+      return vi.profileUnknown;
+  }
+}
 
 async function hashData(data: ArrayBuffer): Promise<string | null> {
   try {
@@ -49,6 +81,9 @@ export function App() {
   const [scale, setScale] = useState(1);
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   const [isDragging, setIsDragging] = useState(false);
+  const [analysis, setAnalysis] = useState<Analysis>({ phase: 'idle' });
+  const [indexRange, setIndexRange] = useState<IndexRange | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -58,9 +93,12 @@ export function App() {
   pageNumberRef.current = pageNumber;
   // Trang đích trong lúc chờ nhảy tới tiến độ đã lưu; `null` khi không khôi phục.
   const restoringRef = useRef<number | null>(null);
+  // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
+  const analysisTokenRef = useRef(0);
 
   useEffect(() => {
     return () => {
+      analysisTokenRef.current += 1;
       void closeRef.current?.();
       closeRef.current = null;
       docRef.current = null;
@@ -78,6 +116,51 @@ export function App() {
       scroller.scrollTo({ top: Math.max(slot.offsetTop - 8, 0) });
     }
   }, []);
+
+  const runExtraction = useCallback(
+    async (pdfDoc: PDFDocumentProxy, from: number, to: number, id: string | null) => {
+      const token = analysisTokenRef.current + 1;
+      analysisTokenRef.current = token;
+      const total = to - from + 1;
+      setRangeError(null);
+      setAnalysis({ phase: 'extracting', done: 0, total });
+
+      if (id) void clearPageTexts(id);
+
+      const pending: { page: number; text: string }[] = [];
+      const flush = () => {
+        if (!id || pending.length === 0) return;
+        void savePageTexts(id, pending.splice(0, pending.length));
+      };
+
+      try {
+        const depth = await readOutlineDepth(pdfDoc);
+        const samples: PageSample[] = [];
+
+        await extractRange(pdfDoc, {
+          from,
+          to,
+          shouldStop: () => analysisTokenRef.current !== token,
+          onPage: (page) => {
+            samples.push(page);
+            pending.push({ page: page.page, text: page.text });
+            if (pending.length >= 10) flush();
+            if (analysisTokenRef.current === token) {
+              setAnalysis({ phase: 'extracting', done: samples.length, total });
+            }
+          },
+        });
+        flush();
+
+        if (analysisTokenRef.current !== token) return;
+        setAnalysis({ phase: 'done', profile: buildProfile(samples, { outlineDepth: depth }) });
+      } catch {
+        flush();
+        if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
+      }
+    },
+    [],
+  );
 
   const goToPage = useCallback(
     (next: number) => {
@@ -137,6 +220,16 @@ export function App() {
         });
       }
 
+      setIndexRange(null);
+      setRangeError(null);
+      setAnalysis({ phase: 'idle' });
+
+      if (result.doc.numPages > INDEX_PAGE_LIMIT) {
+        setIndexRange({ from: '1', to: String(INDEX_PAGE_LIMIT) });
+      } else {
+        void runExtraction(result.doc, 1, result.doc.numPages, hash);
+      }
+
       if (resumePage > 1) {
         setTimeout(() => {
           scrollToPage(resumePage);
@@ -145,7 +238,7 @@ export function App() {
         }, 0);
       }
     },
-    [scrollToPage],
+    [runExtraction, scrollToPage],
   );
 
   const handleMeasured = useCallback((page: number, size: PageSize) => {
@@ -240,8 +333,38 @@ export function App() {
     goToPage(parsed);
   };
 
+  const startIndexing = () => {
+    if (!doc || !indexRange) return;
+
+    const from = Number.parseInt(indexRange.from, 10);
+    const to = Number.parseInt(indexRange.to, 10);
+    if (
+      !Number.isInteger(from) ||
+      !Number.isInteger(to) ||
+      from < 1 ||
+      to < from ||
+      to > doc.numPages
+    ) {
+      setRangeError(vi.indexRangeInvalid);
+      return;
+    }
+    if (to - from + 1 > INDEX_PAGE_LIMIT) {
+      setRangeError(vi.indexRangeTooLong(INDEX_PAGE_LIMIT));
+      return;
+    }
+
+    setIndexRange(null);
+    void runExtraction(doc, from, to, docId);
+  };
+
   const totalPages = doc?.numPages ?? 0;
   const fallbackSize = pageSizes[1] ?? FALLBACK_PAGE_SIZE;
+  const showNotice =
+    status === 'ready' &&
+    (indexRange !== null ||
+      analysis.phase === 'extracting' ||
+      analysis.phase === 'error' ||
+      (analysis.phase === 'done' && analysis.profile.isScanned));
 
   return (
     <div
@@ -284,6 +407,10 @@ export function App() {
         <span class="toolbar__name" title={fileName}>
           {fileName || vi.fileNameUnknown}
         </span>
+
+        {status === 'ready' && analysis.phase === 'done' && (
+          <span class="toolbar__profile">{profileLabel(analysis.profile.kind)}</span>
+        )}
 
         <div class="toolbar__group">
           <button
@@ -351,6 +478,71 @@ export function App() {
           </button>
         </div>
       </header>
+
+      {showNotice && (
+        <section class="notice" aria-live="polite">
+          {indexRange && (
+            <form
+              class="notice__form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                startIndexing();
+              }}
+            >
+              <p class="notice__text">{vi.longDocWarning(INDEX_PAGE_LIMIT)}</p>
+              <label class="notice__field">
+                {vi.indexFrom}
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={indexRange.from}
+                  onInput={(event) =>
+                    setIndexRange({ ...indexRange, from: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <label class="notice__field">
+                {vi.indexTo}
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={indexRange.to}
+                  onInput={(event) =>
+                    setIndexRange({ ...indexRange, to: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <button type="submit" class="notice__button">
+                {vi.indexStart}
+              </button>
+              {rangeError && (
+                <p class="notice__error" role="alert">
+                  {rangeError}
+                </p>
+              )}
+            </form>
+          )}
+
+          {analysis.phase === 'extracting' && (
+            <div class="notice__progress">
+              <progress value={analysis.done} max={analysis.total} />
+              <span>{vi.extracting(analysis.done, analysis.total)}</span>
+            </div>
+          )}
+
+          {analysis.phase === 'done' && analysis.profile.isScanned && (
+            <p class="notice__text notice__text--warning">{vi.scannedWarning}</p>
+          )}
+
+          {analysis.phase === 'error' && (
+            <p class="notice__text notice__text--warning" role="alert">
+              {vi.extractFailed}
+            </p>
+          )}
+        </section>
+      )}
 
       <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
         {status === 'empty' && (

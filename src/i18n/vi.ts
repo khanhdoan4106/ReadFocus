@@ -29,6 +29,23 @@ export const vi = {
   retry: 'Chọn file khác',
 
   fileNameUnknown: 'Tài liệu không tên',
+
+  profileBook: 'Sách',
+  profilePaper: 'Bài báo',
+  profileSlides: 'Slide',
+  profileUnknown: 'Chưa rõ loại',
+
+  extracting: (done: number, total: number) => `Đang trích văn bản… ${done}/${total} trang`,
+  extractFailed: 'Không trích được văn bản của tài liệu này.',
+  scannedWarning:
+    'Tài liệu này là bản scan, không có lớp chữ. Bản v0 chưa hỗ trợ OCR; bạn vẫn xem PDF và dùng chế độ tập trung được.',
+  longDocWarning: (limit: number) =>
+    `Tài liệu dài hơn ${limit} trang. Chọn khoảng trang cần lập chỉ mục — việc xem PDF không bị giới hạn.`,
+  indexFrom: 'Từ trang',
+  indexTo: 'Đến trang',
+  indexStart: 'Lập chỉ mục',
+  indexRangeInvalid: 'Khoảng trang không hợp lệ.',
+  indexRangeTooLong: (limit: number) => `Mỗi lần chỉ lập chỉ mục tối đa ${limit} trang.`,
 } as const;
 
 export type Messages = typeof vi;
