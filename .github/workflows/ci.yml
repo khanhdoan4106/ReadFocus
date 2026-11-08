@@ -31,7 +31,7 @@ jobs:
             echo "::notice::Chưa có package-lock.json — bỏ qua các bước build (dự án chưa scaffold)."
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.detect.outputs.ready == 'true'
         with:
           node-version-file: .nvmrc
