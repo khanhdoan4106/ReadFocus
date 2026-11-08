@@ -28,10 +28,11 @@ Phiên có thể bị cắt bất cứ lúc nào. Vì vậy:
   - công cụ báo sắp tóm tắt hoặc compact ngữ cảnh;
   - đã xong khoảng 3–4 task trong phiên này.
 - Khi dừng, làm đúng thứ tự:
-  1. Đưa code về trạng thái build được. Nếu task dở dang chưa build được, commit lên nhánh hiện tại với message bắt đầu bằng `wip:`.
-  2. Cập nhật `PROGRESS.md` thật cụ thể: đang dở ở file nào, hàm nào, bước tiếp theo chính xác là gì.
-  3. Commit.
-  4. In ra dòng: `ĐÃ LƯU TIẾN TRÌNH — phiên sau bắt đầu từ: <task/bước>`.
+  1. Tắt mọi dev server và tiến trình chạy ngầm (vite dev/preview, watcher) trước khi kết thúc phiên.
+  2. Đưa code về trạng thái build được. Nếu task dở dang chưa build được, commit lên nhánh hiện tại với message bắt đầu bằng `wip:`.
+  3. Cập nhật `PROGRESS.md` thật cụ thể: đang dở ở file nào, hàm nào, bước tiếp theo chính xác là gì.
+  4. Commit.
+  5. In ra dòng: `ĐÃ LƯU TIẾN TRÌNH — phiên sau bắt đầu từ: <task/bước>`.
 - Không bắt đầu một task lớn khi không chắc còn đủ ngữ cảnh để làm xong. Trong trường hợp đó, chia task nhỏ ra trong `docs/PLAN.md` trước.
 - Hạn chế đọc thừa để tiết kiệm ngữ cảnh: đọc file theo đoạn cần thiết, không in toàn bộ `node_modules`, log build dài hay file PDF.
 
