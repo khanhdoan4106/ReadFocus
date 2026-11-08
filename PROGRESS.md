@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v0-reading-core`
-- Task đang làm: T4 — Trích văn bản tăng dần + `profile.ts` (chưa bắt đầu)
-- Bước tiếp theo chính xác: viết `src/core/profile.ts` (phân loại book/paper/slides/unknown, phát hiện bản scan), script tạo PDF fixture trong `scripts/`, trích text theo trang tăng dần (không chặn UI), cảnh báo tài liệu trên 100 trang; có test Vitest.
+- Task đang làm: T5 — `toc.ts` + UI tab Mục lục (chưa bắt đầu)
+- Bước tiếp theo chính xác: implement `src/core/toc.ts` với 4 tầng fallback (outline PDF → heuristic tiêu đề → gom slide → chia mỗi 10 trang), viết test Vitest, rồi làm UI tab Mục lục (bấm để nhảy trang, làm nổi bật mục đang đọc).
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -12,11 +12,12 @@
 - [x] T2b — Viewer cuộn liên tục: `PageList` dựng khung mọi trang theo kích thước thật, chỉ render canvas + text layer cho các trang gần vùng nhìn thấy (`computeVisiblePages` trong `src/core/virtualize.ts`, 6 test); theo dõi trang đang đọc khi cuộn; nhảy tới trang giữ đúng trang neo khi zoom; trang lỗi render báo `errorInvalid` (commit d525795). Đã smoke-test bản production trên PDF 6 trang: cuộn tới trang 5 render đúng trang 4–6, nút ←/→ và ô nhập nhảy đúng, zoom 156%→200%→150% vẫn ở trang 5.
 - [x] T3 — Storage: `src/core/hash.ts` (SHA-256 bằng `crypto.subtle`, 3 test), `src/core/progress.ts` (`sanitizeProgress`, 6 test), `src/storage/db.ts` với `idb` tạo 7 object store (`documents`, `pages`, `toc`, `searchIndex`, `progress`, `stats`, `settings`); viewer băm file, ghi metadata, lưu trang đang đọc sau 400 ms và khôi phục khi mở lại cùng file (commit fcf29b4). Đã smoke-test bản production: đọc tới trang 4, tải lại trang rồi mở lại file thì nhảy đúng trang 4, IndexedDB có đúng bản ghi `documents` và `progress`.
 - [x] Fix T3 — Khi mở lại tài liệu, `PageList` báo trang 1 ở vị trí cuộn ban đầu và ghi đè trang vừa khôi phục trước khi lệnh cuộn chạy. Thêm `acceptPageReport`/`canPersistProgress` trong `src/core/progress.ts` (4 test) và cổng `restoringRef` ở `App.tsx`: bỏ qua báo cáo trang và không ghi tiến độ cho tới khi nhảy xong tới trang khôi phục (commit 7df2c63).
+- [x] T4 — Trích văn bản tăng dần + phân loại tài liệu: `src/core/text.ts` (ghép text pdf.js, chuẩn hoá, đếm từ; 8 test), `src/core/profile.ts` (`buildProfile`, `outlineDepth`, phát hiện bản scan; 11 test), `src/viewer/extract.ts` (trích từng trang, nhường UI giữa các trang, đọc độ sâu outline), lưu văn bản theo trang vào IndexedDB (`savePageTexts`, `clearPageTexts`). Viewer hiện nhãn loại tài liệu (Sách/Bài báo/Slide/Chưa rõ), thanh tiến độ trích, cảnh báo bản scan và form chọn khoảng trang khi tài liệu dài hơn 100 trang. Thêm `scripts/make-fixtures.mjs` (script `npm run fixtures`) tạo 4 PDF fixture tự sinh trong `tests/fixtures/`; đã kiểm tra cả 4 file mở được bằng pdf.js trong Node và trích đúng text/kích thước trang.
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
-- CI chưa từng chạy thật trên Linux. Toàn bộ lệnh CI chạy tay trên Windows đều pass; cần theo dõi PR nhóm A.
-- PR nhóm A (`feat/v0-foundation` → `main`) chưa mở tính đến hết T3.
+- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhánh `feat/v0-reading-core` sẽ mở PR nhóm B sau T7.
+- PR nhóm A (`feat/v0-foundation` → `main`) đã merge qua PR #4; ba PR Dependabot nâng action lên v7 cũng đã merge.
 - `docs/PLAN.md` đã tách T2 thành T2a/T2b.
 - **Cảnh báo khi test tự động**: pdf.js v6 dùng `requestAnimationFrame` để render, nên khi cửa sổ Chrome test bị ẩn/che, render treo ở `renderTask.promise` và text layer rỗng. Đây là hành vi của pdf.js (tab ẩn cũng bị throttle), không phải lỗi app; khi test bằng công cụ browser phải thay tạm `window.requestAnimationFrame` bằng `setTimeout` trong trang. Sự kiện `scroll` thật cũng có thể không phát khi tab không hiển thị — khi đó phải `dispatchEvent(new Event('scroll'))`.
 
@@ -37,13 +38,18 @@
 - **Băm SHA-256 chạy song song với việc mở pdf.js** trên cùng buffer: giữ được yêu cầu hiển thị trang đầu nhanh, vẫn biết trang cần khôi phục trước khi render. Nếu `crypto.subtle` lỗi thì vẫn cho đọc, chỉ không lưu tiến độ (`hashData` trả `null`).
 - **Lưu tiến độ sau 400 ms kể từ lần đổi trang cuối**, tránh ghi IndexedDB liên tục khi cuộn; lỗi lưu trữ bị nuốt im lặng để không chặn việc đọc.
 - **`sanitizeProgress` kiểm tra dữ liệu đọc từ IndexedDB** (trang không hợp lệ, vượt số trang, thiếu `updatedAt`) trước khi dùng, vì dữ liệu có thể do bản cũ ghi hoặc bị hỏng.
+- **Heuristic phân loại tài liệu** (`buildProfile`): trang có ít hơn 5 từ coi như không có lớp chữ; bản scan khi dưới 50% trang có chữ; slide khi ≥60% trang ngang và trung bình ≤120 từ/trang có chữ; paper khi có cả "Abstract/Tóm tắt" và "References/Tài liệu tham khảo"; sách khi outline sâu ≥2 cấp hoặc có "Chương/Chapter" + số. Thứ tự ưu tiên slide → paper → sách để hình dạng trang thắng dấu hiệu chữ.
+- **Trích văn bản chạy nền, mỗi trang xong nghỉ một nhịp `setTimeout(0)`** và lưu theo lô 10 trang vào object store `pages`; không đọc lại cache khi mở lại (T6 sẽ dùng lại store này cho chỉ mục tìm kiếm, lúc đó mới cần bỏ qua trích lại).
+- **Tài liệu >100 trang không tự trích**: hiện form chọn khoảng trang (mặc định 1–100), chặn khoảng >100 trang và khoảng ngoài tài liệu. Việc xem PDF vẫn không giới hạn, đúng PLAN.
+- **Fixture PDF tự sinh bằng `scripts/make-fixtures.mjs`** (tự viết writer PDF tối giản, không thêm dependency): 4 file book/paper/slides/scanned trong `tests/fixtures/`, dùng cho thử tay và đối chiếu heuristic; đã xác nhận pdf.js trong Node đọc được text và kích thước trang.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
 - Load unpacked `dist/` trong `chrome://extensions`, xác nhận: extension hiện tên ReadFocus, icon hiển thị rõ ở 16/48/128, bấm icon trên toolbar mở tab `viewer.html`.
 - Trong viewer: mở một PDF thật (sách/paper nhiều trang), thử kéo thả, cuộn liên tục, nhảy trang, zoom, ←/→; báo lỗi nếu chữ trong text layer lệch khỏi chữ trên canvas hoặc nếu cuộn bị giật khi tài liệu dài.
 - Kiểm tra lưu tiến độ: đọc tới một trang giữa, đóng tab, mở lại bằng nút toolbar rồi mở đúng file đó — viewer phải nhảy về trang đã đọc. Mở một file khác phải bắt đầu từ trang 1.
-- Review PR nhóm A trên GitHub (chưa merge).
+- Kiểm tra T4 bằng 4 file trong `tests/fixtures/` (chạy `npm run fixtures` nếu chưa có): `book.pdf` phải hiện nhãn "Sách", `paper.pdf` → "Bài báo", `slides.pdf` → "Slide", `scanned.pdf` → cảnh báo bản scan. Thử một PDF thật >100 trang để xem form chọn khoảng trang và tiến độ trích.
+- Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
 - `preact` — UI nhẹ theo stack đã chốt.
