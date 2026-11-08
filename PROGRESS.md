@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v0-foundation`
+- Nhánh hiện tại: `feat/v0-reading-core`
 - Task đang làm: T4 — Trích văn bản tăng dần + `profile.ts` (chưa bắt đầu)
-- Bước tiếp theo chính xác: viết `src/core/profile.ts` (phân loại book/paper/slides/unknown, phát hiện bản scan), script tạo PDF fixture trong `scripts/`, trích text theo trang tăng dần (không chặn UI), cảnh báo tài liệu trên 100 trang; có test Vitest. Sau đó mở PR nhóm A nếu chưa mở.
+- Bước tiếp theo chính xác: viết `src/core/profile.ts` (phân loại book/paper/slides/unknown, phát hiện bản scan), script tạo PDF fixture trong `scripts/`, trích text theo trang tăng dần (không chặn UI), cảnh báo tài liệu trên 100 trang; có test Vitest.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -11,6 +11,7 @@
 - [x] T2a — Viewer cơ bản: chọn file + kéo thả, pdf.js bundle worker cục bộ, render canvas + text layer, zoom theo nấc + vừa chiều rộng, điều hướng trang (nút, ô nhập, ←/→), lỗi not-pdf/quá lớn/mật khẩu/hỏng (commit 1a21c5c). Đã smoke-test trong trình duyệt: PDF 1 trang render đúng canvas 940×1217, text layer đọc được chữ, zoom 123% → 125%, file .txt báo lỗi đúng.
 - [x] T2b — Viewer cuộn liên tục: `PageList` dựng khung mọi trang theo kích thước thật, chỉ render canvas + text layer cho các trang gần vùng nhìn thấy (`computeVisiblePages` trong `src/core/virtualize.ts`, 6 test); theo dõi trang đang đọc khi cuộn; nhảy tới trang giữ đúng trang neo khi zoom; trang lỗi render báo `errorInvalid` (commit d525795). Đã smoke-test bản production trên PDF 6 trang: cuộn tới trang 5 render đúng trang 4–6, nút ←/→ và ô nhập nhảy đúng, zoom 156%→200%→150% vẫn ở trang 5.
 - [x] T3 — Storage: `src/core/hash.ts` (SHA-256 bằng `crypto.subtle`, 3 test), `src/core/progress.ts` (`sanitizeProgress`, 6 test), `src/storage/db.ts` với `idb` tạo 7 object store (`documents`, `pages`, `toc`, `searchIndex`, `progress`, `stats`, `settings`); viewer băm file, ghi metadata, lưu trang đang đọc sau 400 ms và khôi phục khi mở lại cùng file (commit fcf29b4). Đã smoke-test bản production: đọc tới trang 4, tải lại trang rồi mở lại file thì nhảy đúng trang 4, IndexedDB có đúng bản ghi `documents` và `progress`.
+- [x] Fix T3 — Khi mở lại tài liệu, `PageList` báo trang 1 ở vị trí cuộn ban đầu và ghi đè trang vừa khôi phục trước khi lệnh cuộn chạy. Thêm `acceptPageReport`/`canPersistProgress` trong `src/core/progress.ts` (4 test) và cổng `restoringRef` ở `App.tsx`: bỏ qua báo cáo trang và không ghi tiến độ cho tới khi nhảy xong tới trang khôi phục (commit 7df2c63).
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
