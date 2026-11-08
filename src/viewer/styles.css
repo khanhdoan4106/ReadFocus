@@ -134,10 +134,38 @@ body {
 .content {
   flex: 1;
   overflow: auto;
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   padding: 24px;
+}
+
+.content--document {
+  display: block;
+  padding-bottom: 48px;
+}
+
+.page-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.page-slot {
+  display: flex;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.page-slot__placeholder {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  opacity: 0.6;
 }
 
 .status {

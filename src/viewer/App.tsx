@@ -2,11 +2,13 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { vi } from '../i18n/vi';
+import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfFile } from './pdf';
-import { PdfPage } from './PdfPage';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
+
+const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
 
 function errorMessage(reason: ErrorReason): string {
   switch (reason) {
@@ -32,12 +34,15 @@ export function App() {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageDraft, setPageDraft] = useState('1');
   const [scale, setScale] = useState(1);
+  const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   const [isDragging, setIsDragging] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
   const docRef = useRef<PDFDocumentProxy | null>(null);
   const closeRef = useRef<(() => Promise<void>) | null>(null);
+  const pageNumberRef = useRef(pageNumber);
+  pageNumberRef.current = pageNumber;
 
   useEffect(() => {
     return () => {
@@ -50,6 +55,23 @@ export function App() {
   useEffect(() => {
     setPageDraft(String(pageNumber));
   }, [pageNumber]);
+
+  const scrollToPage = useCallback((page: number) => {
+    const scroller = contentRef.current;
+    const slot = scroller?.querySelector<HTMLElement>(`.page-slot[data-page="${page}"]`);
+    if (scroller && slot) {
+      scroller.scrollTo({ top: Math.max(slot.offsetTop - 8, 0) });
+    }
+  }, []);
+
+  const goToPage = useCallback(
+    (next: number) => {
+      const target = clampPage(next, docRef.current?.numPages ?? 1);
+      setPageNumber(target);
+      scrollToPage(target);
+    },
+    [scrollToPage],
+  );
 
   const handleFile = useCallback(async (file: File) => {
     setStatus('opening');
@@ -65,21 +87,54 @@ export function App() {
     docRef.current = result.doc;
     closeRef.current = result.close;
 
-    const firstPage = await result.doc.getPage(1);
-    const pageWidth = firstPage.getViewport({ scale: 1 }).width;
+    const baseViewport = (await result.doc.getPage(1)).getViewport({ scale: 1 });
     const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
 
     setDoc(result.doc);
     setFileName(file.name);
     setPageNumber(1);
     setPageDraft('1');
-    setScale(availableWidth > 0 ? fitWidthScale(pageWidth, availableWidth) : 1);
+    setPageSizes({ 1: { width: baseViewport.width, height: baseViewport.height } });
+    setScale(availableWidth > 0 ? fitWidthScale(baseViewport.width, availableWidth) : 1);
     setStatus('ready');
   }, []);
 
-  const goToPage = useCallback((next: number) => {
-    setPageNumber(clampPage(next, docRef.current?.numPages ?? 1));
+  const handleMeasured = useCallback((page: number, size: PageSize) => {
+    setPageSizes((previous) => {
+      const existing = previous[page];
+      if (
+        existing &&
+        Math.abs(existing.width - size.width) < 0.5 &&
+        Math.abs(existing.height - size.height) < 0.5
+      ) {
+        return previous;
+      }
+      return { ...previous, [page]: size };
+    });
   }, []);
+
+  const handleRenderError = useCallback(() => {
+    setError('render');
+    setStatus('error');
+  }, []);
+
+  const handleCurrentPageChange = useCallback((page: number) => {
+    setPageNumber(page);
+  }, []);
+
+  const previousScaleRef = useRef(scale);
+  const anchorPageRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (previousScaleRef.current === scale) return;
+    previousScaleRef.current = scale;
+    const target = anchorPageRef.current ?? pageNumberRef.current;
+    anchorPageRef.current = null;
+    const timer = setTimeout(() => {
+      scrollToPage(target);
+      setPageNumber(target);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [scale, scrollToPage]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -90,26 +145,30 @@ export function App() {
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        goToPage(pageNumber + 1);
+        goToPage(pageNumberRef.current + 1);
       } else if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        goToPage(pageNumber - 1);
+        goToPage(pageNumberRef.current - 1);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [goToPage, pageNumber, status]);
+  }, [goToPage, status]);
 
-  const handleZoom = (direction: 1 | -1) => setScale((current) => stepZoom(current, direction));
+  const handleZoom = (direction: 1 | -1) => {
+    anchorPageRef.current = pageNumberRef.current;
+    setScale((current) => stepZoom(current, direction));
+  };
 
   const handleFitWidth = () => {
     if (!doc) return;
-    void doc.getPage(pageNumber).then((page) => {
-      const pageWidth = page.getViewport({ scale: 1 }).width;
-      const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
-      if (availableWidth > 0) setScale(fitWidthScale(pageWidth, availableWidth));
-    });
+    const baseSize = pageSizes[pageNumberRef.current] ?? pageSizes[1] ?? FALLBACK_PAGE_SIZE;
+    const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
+    if (availableWidth > 0) {
+      anchorPageRef.current = pageNumberRef.current;
+      setScale(fitWidthScale(baseSize.width, availableWidth));
+    }
   };
 
   const commitPageDraft = () => {
@@ -121,12 +180,8 @@ export function App() {
     goToPage(parsed);
   };
 
-  const handleRenderError = useCallback(() => {
-    setError('render');
-    setStatus('error');
-  }, []);
-
   const totalPages = doc?.numPages ?? 0;
+  const fallbackSize = pageSizes[1] ?? FALLBACK_PAGE_SIZE;
 
   return (
     <div
@@ -176,7 +231,7 @@ export function App() {
             class="toolbar__button"
             aria-label={vi.previousPage}
             disabled={status !== 'ready' || pageNumber <= 1}
-            onClick={() => goToPage(pageNumber - 1)}
+            onClick={() => goToPage(pageNumberRef.current - 1)}
           >
             ←
           </button>
@@ -200,7 +255,7 @@ export function App() {
             class="toolbar__button"
             aria-label={vi.nextPage}
             disabled={status !== 'ready' || pageNumber >= totalPages}
-            onClick={() => goToPage(pageNumber + 1)}
+            onClick={() => goToPage(pageNumberRef.current + 1)}
           >
             →
           </button>
@@ -237,7 +292,7 @@ export function App() {
         </div>
       </header>
 
-      <main class="content" ref={contentRef}>
+      <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
         {status === 'empty' && (
           <div class="empty">
             <h1>{vi.appName}</h1>
@@ -263,10 +318,14 @@ export function App() {
         )}
 
         {status === 'ready' && doc && (
-          <PdfPage
+          <PageList
             doc={doc}
-            pageNumber={pageNumber}
             scale={scale}
+            sizes={pageSizes}
+            fallbackSize={fallbackSize}
+            scrollerRef={contentRef}
+            onMeasured={handleMeasured}
+            onCurrentPageChange={handleCurrentPageChange}
             onRenderError={handleRenderError}
           />
         )}
