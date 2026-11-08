@@ -2,6 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
+import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { vi } from '../i18n/vi';
 import { loadProgress, recordDocumentOpen, saveProgress } from '../storage/db';
 import { PageList, type PageSize } from './PageList';
@@ -55,6 +56,8 @@ export function App() {
   const closeRef = useRef<(() => Promise<void>) | null>(null);
   const pageNumberRef = useRef(pageNumber);
   pageNumberRef.current = pageNumber;
+  // Trang đích trong lúc chờ nhảy tới tiến độ đã lưu; `null` khi không khôi phục.
+  const restoringRef = useRef<number | null>(null);
 
   useEffect(() => {
     return () => {
@@ -113,6 +116,9 @@ export function App() {
       const stored = hash ? await loadProgress(hash, result.doc.numPages) : null;
       const resumePage = stored?.page ?? 1;
 
+      // Chặn báo cáo trang và ghi tiến độ cho tới khi cuộn xong tới trang khôi phục.
+      restoringRef.current = resumePage > 1 ? resumePage : null;
+
       setDoc(result.doc);
       setDocId(hash);
       setFileName(file.name);
@@ -135,6 +141,7 @@ export function App() {
         setTimeout(() => {
           scrollToPage(resumePage);
           setPageNumber(resumePage);
+          restoringRef.current = null;
         }, 0);
       }
     },
@@ -161,13 +168,15 @@ export function App() {
   }, []);
 
   const handleCurrentPageChange = useCallback((page: number) => {
-    setPageNumber(page);
+    const accepted = acceptPageReport(page, restoringRef.current);
+    if (accepted !== null) setPageNumber(accepted);
   }, []);
 
   // Ghi tiến độ sau khi người dùng dừng cuộn một nhịp, tránh ghi IndexedDB liên tục.
   useEffect(() => {
     if (status !== 'ready' || !docId) return;
     const timer = setTimeout(() => {
+      if (!canPersistProgress(restoringRef.current)) return;
       void saveProgress(docId, pageNumber);
     }, 400);
     return () => clearTimeout(timer);

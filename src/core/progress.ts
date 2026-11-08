@@ -8,6 +8,24 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Chọn trang để cập nhật từ báo cáo của danh sách trang.
+ *
+ * Khi mở lại tài liệu, danh sách trang báo trang 1 (vị trí cuộn lúc đó) trước khi
+ * lệnh nhảy tới trang khôi phục chạy xong. Nhận báo cáo đó sẽ ghi đè trang vừa khôi
+ * phục, nên trong lúc chờ khôi phục chỉ chấp nhận đúng trang đích. Trả về `null`
+ * nghĩa là bỏ qua báo cáo.
+ */
+export function acceptPageReport(reported: number, restoringTo: number | null): number | null {
+  if (restoringTo === null) return reported;
+  return reported === restoringTo ? reported : null;
+}
+
+/** Chưa nhảy xong tới trang khôi phục thì không được ghi tiến độ. */
+export function canPersistProgress(restoringTo: number | null): boolean {
+  return restoringTo === null;
+}
+
+/**
  * Chuẩn hoá tiến độ đọc lấy từ IndexedDB: dữ liệu có thể cũ, hỏng hoặc
  * trỏ tới trang không còn tồn tại. Trả về `null` nếu không dùng được.
  */
