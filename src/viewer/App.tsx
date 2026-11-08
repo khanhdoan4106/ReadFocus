@@ -1,14 +1,25 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { vi } from '../i18n/vi';
+import { loadProgress, recordDocumentOpen, saveProgress } from '../storage/db';
 import { PageList, type PageSize } from './PageList';
-import { MAX_FILE_BYTES, openPdfFile } from './pdf';
+import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
 
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
+
+async function hashData(data: ArrayBuffer): Promise<string | null> {
+  try {
+    return await sha256Hex(data);
+  } catch {
+    // Không băm được vẫn phải cho đọc, chỉ là không lưu/khôi phục tiến độ.
+    return null;
+  }
+}
 
 function errorMessage(reason: ErrorReason): string {
   switch (reason) {
@@ -30,6 +41,7 @@ export function App() {
   const [status, setStatus] = useState<Status>('empty');
   const [error, setError] = useState<ErrorReason>('unknown');
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
+  const [docId, setDocId] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [pageNumber, setPageNumber] = useState(1);
   const [pageDraft, setPageDraft] = useState('1');
@@ -73,31 +85,61 @@ export function App() {
     [scrollToPage],
   );
 
-  const handleFile = useCallback(async (file: File) => {
-    setStatus('opening');
-    const result = await openPdfFile(file);
+  const handleFile = useCallback(
+    async (file: File) => {
+      setStatus('opening');
+      const read = await readPdfFile(file);
 
-    if (!result.ok) {
-      setError(result.reason);
-      setStatus('error');
-      return;
-    }
+      if (!read.ok) {
+        setError(read.reason);
+        setStatus('error');
+        return;
+      }
 
-    await closeRef.current?.();
-    docRef.current = result.doc;
-    closeRef.current = result.close;
+      const [result, hash] = await Promise.all([openPdfData(read.data), hashData(read.data)]);
 
-    const baseViewport = (await result.doc.getPage(1)).getViewport({ scale: 1 });
-    const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
+      if (!result.ok) {
+        setError(result.reason);
+        setStatus('error');
+        return;
+      }
 
-    setDoc(result.doc);
-    setFileName(file.name);
-    setPageNumber(1);
-    setPageDraft('1');
-    setPageSizes({ 1: { width: baseViewport.width, height: baseViewport.height } });
-    setScale(availableWidth > 0 ? fitWidthScale(baseViewport.width, availableWidth) : 1);
-    setStatus('ready');
-  }, []);
+      await closeRef.current?.();
+      docRef.current = result.doc;
+      closeRef.current = result.close;
+
+      const baseViewport = (await result.doc.getPage(1)).getViewport({ scale: 1 });
+      const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
+      const stored = hash ? await loadProgress(hash, result.doc.numPages) : null;
+      const resumePage = stored?.page ?? 1;
+
+      setDoc(result.doc);
+      setDocId(hash);
+      setFileName(file.name);
+      setPageNumber(resumePage);
+      setPageDraft(String(resumePage));
+      setPageSizes({ 1: { width: baseViewport.width, height: baseViewport.height } });
+      setScale(availableWidth > 0 ? fitWidthScale(baseViewport.width, availableWidth) : 1);
+      setStatus('ready');
+
+      if (hash) {
+        void recordDocumentOpen({
+          id: hash,
+          name: file.name,
+          size: file.size,
+          pageCount: result.doc.numPages,
+        });
+      }
+
+      if (resumePage > 1) {
+        setTimeout(() => {
+          scrollToPage(resumePage);
+          setPageNumber(resumePage);
+        }, 0);
+      }
+    },
+    [scrollToPage],
+  );
 
   const handleMeasured = useCallback((page: number, size: PageSize) => {
     setPageSizes((previous) => {
@@ -121,6 +163,15 @@ export function App() {
   const handleCurrentPageChange = useCallback((page: number) => {
     setPageNumber(page);
   }, []);
+
+  // Ghi tiến độ sau khi người dùng dừng cuộn một nhịp, tránh ghi IndexedDB liên tục.
+  useEffect(() => {
+    if (status !== 'ready' || !docId) return;
+    const timer = setTimeout(() => {
+      void saveProgress(docId, pageNumber);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [docId, pageNumber, status]);
 
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
