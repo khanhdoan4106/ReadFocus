@@ -1,16 +1,39 @@
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import { useEffect, useRef } from 'preact/hooks';
+import { matchesQuery } from '../core/search';
 import type { PageSize } from './PageList';
+
+export type TextHighlight = {
+  query: string;
+  ignoreDiacritics: boolean;
+};
 
 type PdfPageProps = {
   doc: PDFDocumentProxy;
   pageNumber: number;
   scale: number;
+  highlight?: TextHighlight | null;
   onMeasured: (page: number, size: PageSize) => void;
   onRenderError: () => void;
 };
 
-export function PdfPage({ doc, pageNumber, scale, onMeasured, onRenderError }: PdfPageProps) {
+function paintHighlight(container: HTMLElement, highlight: TextHighlight | null): void {
+  for (const span of container.querySelectorAll<HTMLElement>('span')) {
+    const matched =
+      highlight !== null &&
+      matchesQuery(span.textContent ?? '', highlight.query, highlight.ignoreDiacritics);
+    span.classList.toggle('textLayer__match', matched);
+  }
+}
+
+export function PdfPage({
+  doc,
+  pageNumber,
+  scale,
+  highlight,
+  onMeasured,
+  onRenderError,
+}: PdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
@@ -83,6 +106,18 @@ export function PdfPage({ doc, pageNumber, scale, onMeasured, onRenderError }: P
       textLayer?.cancel();
     };
   }, [doc, pageNumber, scale]);
+
+  // Text layer được dựng bất đồng bộ, nên vừa tô ngay vừa theo dõi thay đổi của nó.
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element) return;
+
+    const apply = () => paintHighlight(element, highlight ?? null);
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(element, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [highlight, doc, pageNumber, scale]);
 
   return (
     <div class="pdf-page" ref={pageRef}>

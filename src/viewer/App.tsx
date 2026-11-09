@@ -2,15 +2,62 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
+import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
+import { acceptPageReport, canPersistProgress } from '../core/progress';
+import {
+  addReadingSample,
+  emptyReadingSpeed,
+  MAX_ACTIVE_GAP_MS,
+  sanitizeReadingSpeed,
+  wordsPerMinute as learnedWordsPerMinute,
+  type ReadingSpeed,
+} from '../core/reading-time';
+import { buildSearchIndex, type SearchIndex } from '../core/search';
+import { countWords } from '../core/text';
+import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
-import { loadProgress, recordDocumentOpen, saveProgress } from '../storage/db';
+import {
+  clearPageTexts,
+  loadProgress,
+  loadSetting,
+  recordDocumentOpen,
+  savePageTexts,
+  saveProgress,
+  saveSetting,
+} from '../storage/db';
+import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { Sidebar } from './Sidebar';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
 
+type Analysis =
+  | { phase: 'idle' }
+  | { phase: 'extracting'; done: number; total: number }
+  | { phase: 'done'; profile: DocumentProfile }
+  | { phase: 'error' };
+
+type IndexRange = {
+  from: string;
+  to: string;
+};
+
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
+
+function profileLabel(kind: DocKind): string {
+  switch (kind) {
+    case 'book':
+      return vi.profileBook;
+    case 'paper':
+      return vi.profilePaper;
+    case 'slides':
+      return vi.profileSlides;
+    case 'unknown':
+      return vi.profileUnknown;
+  }
+}
 
 async function hashData(data: ArrayBuffer): Promise<string | null> {
   try {
@@ -48,6 +95,19 @@ export function App() {
   const [scale, setScale] = useState(1);
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   const [isDragging, setIsDragging] = useState(false);
+  const [analysis, setAnalysis] = useState<Analysis>({ phase: 'idle' });
+  const [indexRange, setIndexRange] = useState<IndexRange | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
+  const [toc, setToc] = useState<TocResult | null>(null);
+  const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
+  const [pageWords, setPageWords] = useState<Record<number, number>>({});
+  const [speed, setSpeed] = useState<ReadingSpeed>(emptyReadingSpeed);
+  const [highlight, setHighlight] = useState<{
+    page: number;
+    query: string;
+    ignoreDiacritics: boolean;
+  } | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -55,9 +115,21 @@ export function App() {
   const closeRef = useRef<(() => Promise<void>) | null>(null);
   const pageNumberRef = useRef(pageNumber);
   pageNumberRef.current = pageNumber;
+  // Trang đích trong lúc chờ nhảy tới tiến độ đã lưu; `null` khi không khôi phục.
+  const restoringRef = useRef<number | null>(null);
+  // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
+  const analysisTokenRef = useRef(0);
+  // Đồng hồ đọc: thời gian đang đọc trang hiện tại, chỉ cộng khi tab hiển thị.
+  const clockRef = useRef<{ page: number; activeMs: number; lastTick: number | null }>({
+    page: 1,
+    activeMs: 0,
+    lastTick: null,
+  });
+  const speedReadyRef = useRef(false);
 
   useEffect(() => {
     return () => {
+      analysisTokenRef.current += 1;
       void closeRef.current?.();
       closeRef.current = null;
       docRef.current = null;
@@ -76,6 +148,82 @@ export function App() {
     }
   }, []);
 
+  const runExtraction = useCallback(
+    async (pdfDoc: PDFDocumentProxy, from: number, to: number, id: string | null) => {
+      const token = analysisTokenRef.current + 1;
+      analysisTokenRef.current = token;
+      const total = to - from + 1;
+      setRangeError(null);
+      setAnalysis({ phase: 'extracting', done: 0, total });
+
+      if (id) void clearPageTexts(id);
+
+      const pending: { page: number; text: string }[] = [];
+      const flush = () => {
+        if (!id || pending.length === 0) return;
+        void savePageTexts(id, pending.splice(0, pending.length));
+      };
+
+      try {
+        const outline = await readOutline(pdfDoc);
+        const outlineDepth = outline.reduce((max, entry) => Math.max(max, entry.level), 0);
+        const samples: PageSample[] = [];
+        const tocPages: TocPage[] = [];
+
+        await extractRange(pdfDoc, {
+          from,
+          to,
+          shouldStop: () => analysisTokenRef.current !== token,
+          onPage: (page) => {
+            samples.push(page);
+            tocPages.push({
+              page: page.page,
+              text: page.text,
+              lines: page.lines,
+              width: page.width,
+              height: page.height,
+            });
+            pending.push({ page: page.page, text: page.text });
+            if (pending.length >= 10) flush();
+            if (analysisTokenRef.current === token) {
+              setAnalysis({ phase: 'extracting', done: samples.length, total });
+            }
+          },
+        });
+        flush();
+
+        if (analysisTokenRef.current !== token) return;
+        const profile = buildProfile(samples, { outlineDepth });
+        setAnalysis({ phase: 'done', profile });
+        setToc(
+          buildToc({
+            pages: tocPages,
+            outline,
+            pageCount: pdfDoc.numPages,
+            kind: profile.kind,
+          }),
+        );
+        setSearchIndex(
+          buildSearchIndex(tocPages.map((page) => ({ page: page.page, text: page.text }))),
+        );
+        setPageWords(
+          Object.fromEntries(tocPages.map((page) => [page.page, countWords(page.text)])),
+        );
+      } catch {
+        flush();
+        if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
+      }
+    },
+    [],
+  );
+
+  /** Tài liệu dài chưa trích văn bản vẫn hiện được outline ngay. */
+  const loadOutlineToc = useCallback(async (pdfDoc: PDFDocumentProxy, token: number) => {
+    const outline = await readOutline(pdfDoc);
+    if (analysisTokenRef.current !== token || outline.length === 0) return;
+    setToc(buildToc({ pages: [], outline, pageCount: pdfDoc.numPages }));
+  }, []);
+
   const goToPage = useCallback(
     (next: number) => {
       const target = clampPage(next, docRef.current?.numPages ?? 1);
@@ -83,6 +231,14 @@ export function App() {
       scrollToPage(target);
     },
     [scrollToPage],
+  );
+
+  const handleSearchResult = useCallback(
+    (page: number, query: string, ignoreDiacritics: boolean) => {
+      goToPage(page);
+      setHighlight({ page, query, ignoreDiacritics });
+    },
+    [goToPage],
   );
 
   const handleFile = useCallback(
@@ -113,6 +269,9 @@ export function App() {
       const stored = hash ? await loadProgress(hash, result.doc.numPages) : null;
       const resumePage = stored?.page ?? 1;
 
+      // Chặn báo cáo trang và ghi tiến độ cho tới khi cuộn xong tới trang khôi phục.
+      restoringRef.current = resumePage > 1 ? resumePage : null;
+
       setDoc(result.doc);
       setDocId(hash);
       setFileName(file.name);
@@ -121,6 +280,14 @@ export function App() {
       setPageSizes({ 1: { width: baseViewport.width, height: baseViewport.height } });
       setScale(availableWidth > 0 ? fitWidthScale(baseViewport.width, availableWidth) : 1);
       setStatus('ready');
+
+      // Tài liệu mới: bỏ mẫu đọc của tài liệu trước, bắt đầu đo từ trang khôi phục.
+      clockRef.current = {
+        page: resumePage,
+        activeMs: 0,
+        lastTick: document.visibilityState === 'visible' ? Date.now() : null,
+      };
+      setPageWords({});
 
       if (hash) {
         void recordDocumentOpen({
@@ -131,14 +298,31 @@ export function App() {
         });
       }
 
+      analysisTokenRef.current += 1;
+      const token = analysisTokenRef.current;
+      setToc(null);
+      setSearchIndex(null);
+      setHighlight(null);
+      setIndexRange(null);
+      setRangeError(null);
+      setAnalysis({ phase: 'idle' });
+
+      if (result.doc.numPages > INDEX_PAGE_LIMIT) {
+        setIndexRange({ from: '1', to: String(INDEX_PAGE_LIMIT) });
+        void loadOutlineToc(result.doc, token);
+      } else {
+        void runExtraction(result.doc, 1, result.doc.numPages, hash);
+      }
+
       if (resumePage > 1) {
         setTimeout(() => {
           scrollToPage(resumePage);
           setPageNumber(resumePage);
+          restoringRef.current = null;
         }, 0);
       }
     },
-    [scrollToPage],
+    [loadOutlineToc, runExtraction, scrollToPage],
   );
 
   const handleMeasured = useCallback((page: number, size: PageSize) => {
@@ -161,17 +345,84 @@ export function App() {
   }, []);
 
   const handleCurrentPageChange = useCallback((page: number) => {
-    setPageNumber(page);
+    const accepted = acceptPageReport(page, restoringRef.current);
+    if (accepted !== null) setPageNumber(accepted);
   }, []);
 
   // Ghi tiến độ sau khi người dùng dừng cuộn một nhịp, tránh ghi IndexedDB liên tục.
   useEffect(() => {
     if (status !== 'ready' || !docId) return;
     const timer = setTimeout(() => {
+      if (!canPersistProgress(restoringRef.current)) return;
       void saveProgress(docId, pageNumber);
     }, 400);
     return () => clearTimeout(timer);
   }, [docId, pageNumber, status]);
+
+  // Nạp tốc độ đọc đã học từ các phiên trước.
+  useEffect(() => {
+    void loadSetting<unknown>('readingSpeed').then((value) => {
+      if (value !== null) setSpeed(sanitizeReadingSpeed(value));
+      speedReadyRef.current = true;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!speedReadyRef.current) return;
+    void saveSetting('readingSpeed', speed);
+  }, [speed]);
+
+  // Đồng hồ chỉ chạy khi tab hiển thị; khoảng nghỉ dài hơn 2 phút không được tính.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const clock = clockRef.current;
+
+    const tick = () => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible') {
+        clock.lastTick = null;
+        return;
+      }
+      if (clock.lastTick === null) {
+        clock.lastTick = now;
+        return;
+      }
+      clock.activeMs += Math.min(Math.max(now - clock.lastTick, 0), MAX_ACTIVE_GAP_MS);
+      clock.lastTick = now;
+    };
+
+    const onVisibilityChange = () => {
+      clock.lastTick = null;
+      tick();
+    };
+
+    const timer = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    tick();
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clock.lastTick = null;
+    };
+  }, [status]);
+
+  // Rời trang thì chốt mẫu đọc của trang vừa xem để học tốc độ thực tế.
+  useEffect(() => {
+    const clock = clockRef.current;
+    if (clock.page === pageNumber) return;
+
+    const words = pageWords[clock.page] ?? 0;
+    if (words > 0 && clock.activeMs > 0) {
+      setSpeed((current) => addReadingSample(current, { words, activeMs: clock.activeMs }));
+    }
+
+    clock.page = pageNumber;
+    clock.activeMs = 0;
+    clock.lastTick = document.visibilityState === 'visible' ? Date.now() : null;
+  }, [pageNumber, pageWords]);
+
+  const readingWordsPerMinute = learnedWordsPerMinute(speed);
 
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
@@ -231,8 +482,38 @@ export function App() {
     goToPage(parsed);
   };
 
+  const startIndexing = () => {
+    if (!doc || !indexRange) return;
+
+    const from = Number.parseInt(indexRange.from, 10);
+    const to = Number.parseInt(indexRange.to, 10);
+    if (
+      !Number.isInteger(from) ||
+      !Number.isInteger(to) ||
+      from < 1 ||
+      to < from ||
+      to > doc.numPages
+    ) {
+      setRangeError(vi.indexRangeInvalid);
+      return;
+    }
+    if (to - from + 1 > INDEX_PAGE_LIMIT) {
+      setRangeError(vi.indexRangeTooLong(INDEX_PAGE_LIMIT));
+      return;
+    }
+
+    setIndexRange(null);
+    void runExtraction(doc, from, to, docId);
+  };
+
   const totalPages = doc?.numPages ?? 0;
   const fallbackSize = pageSizes[1] ?? FALLBACK_PAGE_SIZE;
+  const showNotice =
+    status === 'ready' &&
+    (indexRange !== null ||
+      analysis.phase === 'extracting' ||
+      analysis.phase === 'error' ||
+      (analysis.phase === 'done' && analysis.profile.isScanned));
 
   return (
     <div
@@ -275,6 +556,10 @@ export function App() {
         <span class="toolbar__name" title={fileName}>
           {fileName || vi.fileNameUnknown}
         </span>
+
+        {status === 'ready' && analysis.phase === 'done' && (
+          <span class="toolbar__profile">{profileLabel(analysis.profile.kind)}</span>
+        )}
 
         <div class="toolbar__group">
           <button
@@ -341,46 +626,138 @@ export function App() {
             {vi.zoomFitWidth}
           </button>
         </div>
+
+        <button
+          type="button"
+          class="toolbar__button"
+          aria-label={vi.tocTitle}
+          aria-expanded={sidebarOpen}
+          aria-controls="viewer-sidebar"
+          disabled={status !== 'ready'}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          {vi.tocTitle}
+        </button>
       </header>
 
-      <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
-        {status === 'empty' && (
-          <div class="empty">
-            <h1>{vi.appName}</h1>
-            <p class="empty__title">{vi.emptyTitle}</p>
-            <p class="empty__hint">{vi.emptyHint}</p>
-            <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-              {vi.chooseFile}
-            </button>
-            <p class="empty__drop">{vi.dropHint}</p>
-          </div>
-        )}
+      {showNotice && (
+        <section class="notice" aria-live="polite">
+          {indexRange && (
+            <form
+              class="notice__form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                startIndexing();
+              }}
+            >
+              <p class="notice__text">{vi.longDocWarning(INDEX_PAGE_LIMIT)}</p>
+              <label class="notice__field">
+                {vi.indexFrom}
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={indexRange.from}
+                  onInput={(event) =>
+                    setIndexRange({ ...indexRange, from: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <label class="notice__field">
+                {vi.indexTo}
+                <input
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  value={indexRange.to}
+                  onInput={(event) =>
+                    setIndexRange({ ...indexRange, to: event.currentTarget.value })
+                  }
+                />
+              </label>
+              <button type="submit" class="notice__button">
+                {vi.indexStart}
+              </button>
+              {rangeError && (
+                <p class="notice__error" role="alert">
+                  {rangeError}
+                </p>
+              )}
+            </form>
+          )}
 
-        {status === 'opening' && <p class="status">{vi.loading}</p>}
+          {analysis.phase === 'extracting' && (
+            <div class="notice__progress">
+              <progress value={analysis.done} max={analysis.total} />
+              <span>{vi.extracting(analysis.done, analysis.total)}</span>
+            </div>
+          )}
 
-        {status === 'error' && (
-          <div class="empty" role="alert">
-            <h1>{vi.errorTitle}</h1>
-            <p class="empty__hint">{errorMessage(error)}</p>
-            <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-              {vi.retry}
-            </button>
-          </div>
-        )}
+          {analysis.phase === 'done' && analysis.profile.isScanned && (
+            <p class="notice__text notice__text--warning">{vi.scannedWarning}</p>
+          )}
 
-        {status === 'ready' && doc && (
-          <PageList
-            doc={doc}
-            scale={scale}
-            sizes={pageSizes}
-            fallbackSize={fallbackSize}
-            scrollerRef={contentRef}
-            onMeasured={handleMeasured}
-            onCurrentPageChange={handleCurrentPageChange}
-            onRenderError={handleRenderError}
+          {analysis.phase === 'error' && (
+            <p class="notice__text notice__text--warning" role="alert">
+              {vi.extractFailed}
+            </p>
+          )}
+        </section>
+      )}
+
+      <div class="workspace">
+        <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
+          {status === 'empty' && (
+            <div class="empty">
+              <h1>{vi.appName}</h1>
+              <p class="empty__title">{vi.emptyTitle}</p>
+              <p class="empty__hint">{vi.emptyHint}</p>
+              <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
+                {vi.chooseFile}
+              </button>
+              <p class="empty__drop">{vi.dropHint}</p>
+            </div>
+          )}
+
+          {status === 'opening' && <p class="status">{vi.loading}</p>}
+
+          {status === 'error' && (
+            <div class="empty" role="alert">
+              <h1>{vi.errorTitle}</h1>
+              <p class="empty__hint">{errorMessage(error)}</p>
+              <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
+                {vi.retry}
+              </button>
+            </div>
+          )}
+
+          {status === 'ready' && doc && (
+            <PageList
+              doc={doc}
+              scale={scale}
+              sizes={pageSizes}
+              fallbackSize={fallbackSize}
+              highlight={highlight}
+              scrollerRef={contentRef}
+              onMeasured={handleMeasured}
+              onCurrentPageChange={handleCurrentPageChange}
+              onRenderError={handleRenderError}
+            />
+          )}
+        </main>
+
+        {status === 'ready' && sidebarOpen && (
+          <Sidebar
+            toc={toc}
+            currentPage={pageNumber}
+            building={analysis.phase === 'extracting'}
+            index={searchIndex}
+            wordsPerMinute={readingWordsPerMinute}
+            onSelectPage={goToPage}
+            onSelectResult={handleSearchResult}
           />
         )}
-      </main>
+      </div>
 
       {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}
     </div>

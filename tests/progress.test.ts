@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sanitizeProgress } from '../src/core/progress';
+import { acceptPageReport, canPersistProgress, sanitizeProgress } from '../src/core/progress';
 
 describe('sanitizeProgress', () => {
   it('giữ tiến độ hợp lệ', () => {
@@ -37,5 +37,25 @@ describe('sanitizeProgress', () => {
   it('trả null khi tài liệu không có trang nào', () => {
     expect(sanitizeProgress({ page: 2 }, 0)).toBeNull();
     expect(sanitizeProgress({ page: 2 }, Number.NaN)).toBeNull();
+  });
+});
+
+describe('acceptPageReport', () => {
+  it('nhận mọi báo cáo khi không khôi phục', () => {
+    expect(acceptPageReport(1, null)).toBe(1);
+    expect(acceptPageReport(9, null)).toBe(9);
+  });
+
+  it('bỏ qua báo cáo trang 1 khi đang chờ nhảy tới trang khôi phục', () => {
+    expect(acceptPageReport(1, 7)).toBeNull();
+  });
+
+  it('nhận đúng trang khôi phục', () => {
+    expect(acceptPageReport(7, 7)).toBe(7);
+  });
+
+  it('chỉ chặn ghi tiến độ trong lúc khôi phục', () => {
+    expect(canPersistProgress(7)).toBe(false);
+    expect(canPersistProgress(null)).toBe(true);
   });
 });

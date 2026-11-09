@@ -2,7 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { RefObject } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { computeVisiblePages, type PageOffset } from '../core/virtualize';
-import { PdfPage } from './PdfPage';
+import { PdfPage, type TextHighlight } from './PdfPage';
 
 export type PageSize = { width: number; height: number };
 
@@ -11,6 +11,7 @@ type PageListProps = {
   scale: number;
   sizes: Record<number, PageSize>;
   fallbackSize: PageSize;
+  highlight: (TextHighlight & { page: number }) | null;
   scrollerRef: RefObject<HTMLElement | null>;
   onMeasured: (page: number, size: PageSize) => void;
   onCurrentPageChange: (page: number) => void;
@@ -30,6 +31,7 @@ export function PageList({
   scale,
   sizes,
   fallbackSize,
+  highlight,
   scrollerRef,
   onMeasured,
   onCurrentPageChange,
@@ -105,6 +107,7 @@ export function PageList({
                 doc={doc}
                 pageNumber={pageNumber}
                 scale={scale}
+                highlight={highlight && highlight.page === pageNumber ? highlight : null}
                 onMeasured={onMeasured}
                 onRenderError={onRenderError}
               />
