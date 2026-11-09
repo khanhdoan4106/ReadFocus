@@ -53,6 +53,14 @@ export const vi = {
   tocBuilding: 'Đang lập mục lục…',
   tocPageRange: (start: number, end: number) =>
     start === end ? `Trang ${start}` : `Trang ${start}–${end}`,
+
+  searchTab: 'Tìm kiếm',
+  searchPlaceholder: 'Tìm trong tài liệu',
+  searchIgnoreDiacritics: 'Tìm không dấu',
+  searchHint: 'Nhập từ khoá để tìm trong các trang đã lập chỉ mục.',
+  searchNotReady: 'Đang chuẩn bị chỉ mục tìm kiếm…',
+  searchNoResults: (query: string) => `Không tìm thấy “${query}”.`,
+  searchResultCount: (count: number) => `${count} kết quả`,
 } as const;
 
 export type Messages = typeof vi;

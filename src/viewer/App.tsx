@@ -4,6 +4,7 @@ import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
+import { buildSearchIndex, type SearchIndex } from '../core/search';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import {
@@ -87,6 +88,12 @@ export function App() {
   const [indexRange, setIndexRange] = useState<IndexRange | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [toc, setToc] = useState<TocResult | null>(null);
+  const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
+  const [highlight, setHighlight] = useState<{
+    page: number;
+    query: string;
+    ignoreDiacritics: boolean;
+  } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -176,6 +183,9 @@ export function App() {
             kind: profile.kind,
           }),
         );
+        setSearchIndex(
+          buildSearchIndex(tocPages.map((page) => ({ page: page.page, text: page.text }))),
+        );
       } catch {
         flush();
         if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
@@ -198,6 +208,14 @@ export function App() {
       scrollToPage(target);
     },
     [scrollToPage],
+  );
+
+  const handleSearchResult = useCallback(
+    (page: number, query: string, ignoreDiacritics: boolean) => {
+      goToPage(page);
+      setHighlight({ page, query, ignoreDiacritics });
+    },
+    [goToPage],
   );
 
   const handleFile = useCallback(
@@ -252,6 +270,8 @@ export function App() {
       analysisTokenRef.current += 1;
       const token = analysisTokenRef.current;
       setToc(null);
+      setSearchIndex(null);
+      setHighlight(null);
       setIndexRange(null);
       setRangeError(null);
       setAnalysis({ phase: 'idle' });
@@ -621,6 +641,7 @@ export function App() {
               scale={scale}
               sizes={pageSizes}
               fallbackSize={fallbackSize}
+              highlight={highlight}
               scrollerRef={contentRef}
               onMeasured={handleMeasured}
               onCurrentPageChange={handleCurrentPageChange}
@@ -634,7 +655,9 @@ export function App() {
             toc={toc}
             currentPage={pageNumber}
             building={analysis.phase === 'extracting'}
+            index={searchIndex}
             onSelectPage={goToPage}
+            onSelectResult={handleSearchResult}
           />
         )}
       </div>
