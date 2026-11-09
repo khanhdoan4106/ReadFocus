@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { countWords, joinTextItems, normalizeText } from '../src/core/text';
+import { countWords, joinLineParts, joinTextItems, normalizeText } from '../src/core/text';
+
+function chunk(str: string, x: number, width: number, extra: { hasEOL?: boolean } = {}) {
+  return { str, transform: [10, 0, 0, 10, x, 700], width, ...extra };
+}
 
 describe('joinTextItems', () => {
   it('nối các mẩu text và xuống dòng theo hasEOL', () => {
-    expect(joinTextItems([{ str: 'Chương' }, { str: '1', hasEOL: true }, { str: 'Mở đầu' }])).toBe(
-      'Chương 1\nMở đầu',
-    );
+    expect(
+      joinTextItems([
+        chunk('Chương', 100, 40),
+        chunk('1', 145, 5, { hasEOL: true }),
+        chunk('Mở đầu', 100, 40),
+      ]),
+    ).toBe('Chương 1\nMở đầu');
   });
 
   it('bỏ qua mẩu rỗng hoặc không phải chuỗi', () => {
@@ -16,6 +24,34 @@ describe('joinTextItems', () => {
     expect(joinTextItems([{ str: '  quá   nhiều ' }, { str: ' khoảng trắng ' }])).toBe(
       'quá nhiều khoảng trắng',
     );
+  });
+
+  it('ghép liền các mẩu bị tách giữa từ, không chèn dấu cách', () => {
+    expect(joinTextItems([chunk('Ch', 100, 20), chunk('ương', 120, 36)])).toBe('Chương');
+  });
+
+  it('chèn dấu cách khi có khoảng cách ngang đáng kể mà thiếu glyph cách', () => {
+    expect(joinTextItems([chunk('Chương', 100, 40), chunk('một', 150, 20)])).toBe('Chương một');
+  });
+
+  it('không chèn thêm khi PDF đã có mẩu khoảng trắng', () => {
+    expect(
+      joinTextItems([chunk('Chương', 100, 40), chunk(' ', 140, 5), chunk('một', 145, 20)]),
+    ).toBe('Chương một');
+  });
+
+  it('không chèn dấu cách sau khi đã xuống dòng', () => {
+    expect(joinTextItems([chunk('Chương', 100, 40, { hasEOL: true }), chunk('một', 100, 20)])).toBe(
+      'Chương\nmột',
+    );
+  });
+});
+
+describe('joinLineParts', () => {
+  it('ghép một dòng có cả mẩu tách giữa từ và mẩu cách nhau', () => {
+    expect(
+      joinLineParts([chunk('Ch', 100, 20), chunk('ương', 120, 36), chunk('một', 170, 20)]),
+    ).toBe('Chương một');
   });
 });
 

@@ -1,6 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { PageSample } from '../core/profile';
-import { joinTextItems, normalizeText } from '../core/text';
+import { joinLineParts, joinTextItems, normalizeText } from '../core/text';
 import type { TocEntry, TocLine } from '../core/toc';
 
 /** Số trang tối đa lập chỉ mục trong một lần, theo PLAN. */
@@ -22,6 +22,7 @@ type RawTextItem = {
   type?: unknown;
   str?: unknown;
   transform?: number[];
+  width?: number;
   height?: number;
   fontName?: string;
 };
@@ -39,7 +40,7 @@ type PageRef = Parameters<PDFDocumentProxy['getPageIndex']>[0];
 type LineGroup = {
   y: number;
   x: number;
-  parts: string[];
+  items: RawTextItem[];
   fontSize: number;
   bold: boolean;
 };
@@ -67,11 +68,11 @@ function buildLines(items: readonly RawTextItem[], styles: RawStyles): TocLine[]
 
     let group = groups.find((candidate) => Math.abs(candidate.y - y) <= 2);
     if (!group) {
-      group = { y, x, parts: [], fontSize: 0, bold: false };
+      group = { y, x, items: [], fontSize: 0, bold: false };
       groups.push(group);
     }
 
-    group.parts.push(item.str);
+    group.items.push(item);
     group.x = Math.min(group.x, x);
     group.fontSize = Math.max(group.fontSize, fontSize);
     if (!group.bold) {
@@ -83,7 +84,7 @@ function buildLines(items: readonly RawTextItem[], styles: RawStyles): TocLine[]
   return groups
     .sort((a, b) => b.y - a.y || a.x - b.x)
     .map((group) => ({
-      text: normalizeText(group.parts.join(' ')),
+      text: normalizeText(joinLineParts(group.items)),
       fontSize: group.fontSize,
       bold: group.bold,
     }))
@@ -106,6 +107,9 @@ export async function extractPageText(
       content.items.map((item) => ({
         str: 'str' in item ? item.str : undefined,
         hasEOL: 'hasEOL' in item && item.hasEOL,
+        transform: 'transform' in item ? item.transform : undefined,
+        width: 'width' in item ? item.width : undefined,
+        height: 'height' in item ? item.height : undefined,
       })),
     ),
     lines: buildLines(content.items, content.styles),

@@ -6,94 +6,163 @@ endobj
 << /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R] /Count 4 >>
 endobj
 3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R >> >> /Contents 8 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R /F2 8 0 R >> >> /Contents 10 0 R >>
 endobj
 4 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R >> >> /Contents 9 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R /F2 8 0 R >> >> /Contents 11 0 R >>
 endobj
 5 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R >> >> /Contents 10 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R /F2 8 0 R >> >> /Contents 12 0 R >>
 endobj
 6 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R >> >> /Contents 11 0 R >>
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 960 540] /Resources << /Font << /F1 7 0 R /F2 8 0 R >> >> /Contents 13 0 R >>
 endobj
 7 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /FirstChar 32 /LastChar 255 /Widths [500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500] /Encoding /WinAnsiEncoding /ToUnicode 9 0 R >>
 endobj
 8 0 obj
-<< /Length 107 >>
-stream
-BT
-/F1 28 Tf
-60 450 Td
-(Lecture 1) Tj
-0 -22 Td
-(Three short bullets) Tj
-0 -22 Td
-(No long paragraphs) Tj
-ET
-endstream
+<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /FirstChar 32 /LastChar 255 /Widths [500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500 500] /Encoding /WinAnsiEncoding /ToUnicode 9 0 R >>
 endobj
 9 0 obj
-<< /Length 81 >>
+<< /Length 704 >>
 stream
-BT
-/F1 28 Tf
-60 450 Td
-(Why read faster) Tj
-0 -22 Td
-(Attention is limited) Tj
-ET
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo
+<< /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+32 beginbfchar
+<20> <0020>
+<31> <0031>
+<41> <0041>
+<46> <0046>
+<4C> <004C>
+<4E> <004E>
+<50> <0050>
+<52> <0052>
+<53> <0053>
+<54> <0054>
+<57> <0057>
+<61> <0061>
+<62> <0062>
+<63> <0063>
+<64> <0064>
+<65> <0065>
+<66> <0066>
+<67> <0067>
+<68> <0068>
+<69> <0069>
+<6B> <006B>
+<6C> <006C>
+<6D> <006D>
+<6E> <006E>
+<6F> <006F>
+<70> <0070>
+<72> <0072>
+<73> <0073>
+<74> <0074>
+<75> <0075>
+<77> <0077>
+<79> <0079>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
 endstream
 endobj
 10 0 obj
-<< /Length 97 >>
+<< /Length 209 >>
 stream
 BT
 /F1 28 Tf
-60 450 Td
-(Practice) Tj
-0 -22 Td
-(Skim) Tj
-0 -22 Td
-(Scan) Tj
-0 -22 Td
-(Focus) Tj
+/F1 28 Tf
+1 0 0 1 60 450 Tm
+<4C6563747572652031> Tj
+/F1 28 Tf
+1 0 0 1 60 428 Tm
+<54687265652073686F72742062756C6C657473> Tj
+/F1 28 Tf
+1 0 0 1 60 406 Tm
+<4E6F206C6F6E672070617261677261706873> Tj
 ET
 endstream
 endobj
 11 0 obj
-<< /Length 69 >>
+<< /Length 153 >>
 stream
 BT
 /F1 28 Tf
-60 450 Td
-(Summary) Tj
-0 -22 Td
-(Read with intent) Tj
+/F1 28 Tf
+1 0 0 1 60 450 Tm
+<576879207265616420666173746572> Tj
+/F1 28 Tf
+1 0 0 1 60 428 Tm
+<417474656E74696F6E206973206C696D69746564> Tj
 ET
 endstream
 endobj
 12 0 obj
+<< /Length 193 >>
+stream
+BT
+/F1 28 Tf
+/F1 28 Tf
+1 0 0 1 60 450 Tm
+<5072616374696365> Tj
+/F1 28 Tf
+1 0 0 1 60 428 Tm
+<536B696D> Tj
+/F1 28 Tf
+1 0 0 1 60 406 Tm
+<5363616E> Tj
+/F1 28 Tf
+1 0 0 1 60 384 Tm
+<466F637573> Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Length 129 >>
+stream
+BT
+/F1 28 Tf
+/F1 28 Tf
+1 0 0 1 60 450 Tm
+<53756D6D617279> Tj
+/F1 28 Tf
+1 0 0 1 60 428 Tm
+<52656164207769746820696E74656E74> Tj
+ET
+endstream
+endobj
+14 0 obj
 undefined
 endobj
 xref
-0 13
+0 15
 0000000000 65535 f 
 0000000009 00000 n 
 0000000058 00000 n 
 0000000133 00000 n 
-0000000259 00000 n 
-0000000385 00000 n 
-0000000512 00000 n 
-0000000639 00000 n 
-0000000709 00000 n 
-0000000867 00000 n 
-0000000998 00000 n 
-0000001146 00000 n 
-0000001266 00000 n 
+0000000270 00000 n 
+0000000407 00000 n 
+0000000544 00000 n 
+0000000681 00000 n 
+0000001729 00000 n 
+0000002779 00000 n 
+0000003534 00000 n 
+0000003795 00000 n 
+0000004000 00000 n 
+0000004245 00000 n 
+0000004426 00000 n 
 trailer
-<< /Size 13 /Root 1 0 R >>
+<< /Size 15 /Root 1 0 R >>
 startxref
-1292
+4452
 %%EOF
