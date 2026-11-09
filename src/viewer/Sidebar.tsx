@@ -1,4 +1,5 @@
 import { useState } from 'preact/hooks';
+import { estimateItemMinutes, estimateRemainingTime, roundedMinutes } from '../core/reading-time';
 import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
@@ -11,6 +12,7 @@ type SidebarProps = {
   currentPage: number;
   building: boolean;
   index: SearchIndex | null;
+  wordsPerMinute: number;
   onSelectPage: (page: number) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
 };
@@ -20,10 +22,13 @@ export function Sidebar({
   currentPage,
   building,
   index,
+  wordsPerMinute,
   onSelectPage,
   onSelectResult,
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('toc');
+  const remaining =
+    toc === null ? null : estimateRemainingTime(toc.items, currentPage, wordsPerMinute);
 
   return (
     <aside class="sidebar" id="viewer-sidebar">
@@ -55,28 +60,46 @@ export function Sidebar({
           ) : toc.items.length === 0 ? (
             <p class="sidebar__empty">{vi.tocEmpty}</p>
           ) : (
-            <ol class="toc">
-              {toc.items.map((item, index_) => {
-                const active = currentPage >= item.startPage && currentPage <= item.endPage;
-                const label = item.title || vi.tocPageRange(item.startPage, item.endPage);
+            <>
+              {remaining !== null && wordsPerMinute > 0 && (
+                <dl class="reading">
+                  <div class="reading__row">
+                    <dt>{vi.readingSectionLabel}</dt>
+                    <dd>{vi.readingMinutes(roundedMinutes(remaining.sectionMinutes))}</dd>
+                  </div>
+                  <div class="reading__row">
+                    <dt>{vi.readingTotalLabel}</dt>
+                    <dd>{vi.readingMinutes(roundedMinutes(remaining.totalMinutes))}</dd>
+                  </div>
+                </dl>
+              )}
+              <ol class="toc">
+                {toc.items.map((item, index_) => {
+                  const active = currentPage >= item.startPage && currentPage <= item.endPage;
+                  const label = item.title || vi.tocPageRange(item.startPage, item.endPage);
+                  const itemMinutes = roundedMinutes(estimateItemMinutes(item, wordsPerMinute));
 
-                return (
-                  <li key={`${item.startPage}-${item.level}-${index_}`}>
-                    <button
-                      type="button"
-                      class={`toc__item${active ? ' toc__item--active' : ''}`}
-                      style={{ paddingLeft: `${0.6 + Math.min(item.level - 1, 4) * 0.9}rem` }}
-                      aria-current={active ? 'location' : undefined}
-                      title={label}
-                      onClick={() => onSelectPage(item.startPage)}
-                    >
-                      <span class="toc__title">{label}</span>
-                      <span class="toc__page">{item.startPage}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
+                  return (
+                    <li key={`${item.startPage}-${item.level}-${index_}`}>
+                      <button
+                        type="button"
+                        class={`toc__item${active ? ' toc__item--active' : ''}`}
+                        style={{ paddingLeft: `${0.6 + Math.min(item.level - 1, 4) * 0.9}rem` }}
+                        aria-current={active ? 'location' : undefined}
+                        title={label}
+                        onClick={() => onSelectPage(item.startPage)}
+                      >
+                        <span class="toc__title">{label}</span>
+                        {itemMinutes > 0 && (
+                          <span class="toc__time">{vi.readingMinutes(itemMinutes)}</span>
+                        )}
+                        <span class="toc__page">{item.startPage}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
           )}
         </div>
       ) : (

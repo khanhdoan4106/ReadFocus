@@ -4,15 +4,26 @@ import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
+import {
+  addReadingSample,
+  emptyReadingSpeed,
+  MAX_ACTIVE_GAP_MS,
+  sanitizeReadingSpeed,
+  wordsPerMinute as learnedWordsPerMinute,
+  type ReadingSpeed,
+} from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
+import { countWords } from '../core/text';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import {
   clearPageTexts,
   loadProgress,
+  loadSetting,
   recordDocumentOpen,
   savePageTexts,
   saveProgress,
+  saveSetting,
 } from '../storage/db';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
@@ -89,6 +100,8 @@ export function App() {
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [toc, setToc] = useState<TocResult | null>(null);
   const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
+  const [pageWords, setPageWords] = useState<Record<number, number>>({});
+  const [speed, setSpeed] = useState<ReadingSpeed>(emptyReadingSpeed);
   const [highlight, setHighlight] = useState<{
     page: number;
     query: string;
@@ -106,6 +119,13 @@ export function App() {
   const restoringRef = useRef<number | null>(null);
   // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
   const analysisTokenRef = useRef(0);
+  // Đồng hồ đọc: thời gian đang đọc trang hiện tại, chỉ cộng khi tab hiển thị.
+  const clockRef = useRef<{ page: number; activeMs: number; lastTick: number | null }>({
+    page: 1,
+    activeMs: 0,
+    lastTick: null,
+  });
+  const speedReadyRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -186,6 +206,9 @@ export function App() {
         setSearchIndex(
           buildSearchIndex(tocPages.map((page) => ({ page: page.page, text: page.text }))),
         );
+        setPageWords(
+          Object.fromEntries(tocPages.map((page) => [page.page, countWords(page.text)])),
+        );
       } catch {
         flush();
         if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
@@ -258,6 +281,14 @@ export function App() {
       setScale(availableWidth > 0 ? fitWidthScale(baseViewport.width, availableWidth) : 1);
       setStatus('ready');
 
+      // Tài liệu mới: bỏ mẫu đọc của tài liệu trước, bắt đầu đo từ trang khôi phục.
+      clockRef.current = {
+        page: resumePage,
+        activeMs: 0,
+        lastTick: document.visibilityState === 'visible' ? Date.now() : null,
+      };
+      setPageWords({});
+
       if (hash) {
         void recordDocumentOpen({
           id: hash,
@@ -327,6 +358,71 @@ export function App() {
     }, 400);
     return () => clearTimeout(timer);
   }, [docId, pageNumber, status]);
+
+  // Nạp tốc độ đọc đã học từ các phiên trước.
+  useEffect(() => {
+    void loadSetting<unknown>('readingSpeed').then((value) => {
+      if (value !== null) setSpeed(sanitizeReadingSpeed(value));
+      speedReadyRef.current = true;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!speedReadyRef.current) return;
+    void saveSetting('readingSpeed', speed);
+  }, [speed]);
+
+  // Đồng hồ chỉ chạy khi tab hiển thị; khoảng nghỉ dài hơn 2 phút không được tính.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const clock = clockRef.current;
+
+    const tick = () => {
+      const now = Date.now();
+      if (document.visibilityState !== 'visible') {
+        clock.lastTick = null;
+        return;
+      }
+      if (clock.lastTick === null) {
+        clock.lastTick = now;
+        return;
+      }
+      clock.activeMs += Math.min(Math.max(now - clock.lastTick, 0), MAX_ACTIVE_GAP_MS);
+      clock.lastTick = now;
+    };
+
+    const onVisibilityChange = () => {
+      clock.lastTick = null;
+      tick();
+    };
+
+    const timer = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    tick();
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clock.lastTick = null;
+    };
+  }, [status]);
+
+  // Rời trang thì chốt mẫu đọc của trang vừa xem để học tốc độ thực tế.
+  useEffect(() => {
+    const clock = clockRef.current;
+    if (clock.page === pageNumber) return;
+
+    const words = pageWords[clock.page] ?? 0;
+    if (words > 0 && clock.activeMs > 0) {
+      setSpeed((current) => addReadingSample(current, { words, activeMs: clock.activeMs }));
+    }
+
+    clock.page = pageNumber;
+    clock.activeMs = 0;
+    clock.lastTick = document.visibilityState === 'visible' ? Date.now() : null;
+  }, [pageNumber, pageWords]);
+
+  const readingWordsPerMinute = learnedWordsPerMinute(speed);
 
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
@@ -656,6 +752,7 @@ export function App() {
             currentPage={pageNumber}
             building={analysis.phase === 'extracting'}
             index={searchIndex}
+            wordsPerMinute={readingWordsPerMinute}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
           />

@@ -360,6 +360,48 @@ body {
   color: inherit;
 }
 
+.toc__time {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.toc__item--active .toc__time {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* ---------- Reading time ---------- */
+
+.reading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-size: 0.8125rem;
+}
+
+.reading__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.reading__row dt {
+  color: var(--muted);
+}
+
+.reading__row dd {
+  margin: 0;
+  color: var(--fg);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Search ---------- */
 
 .search {

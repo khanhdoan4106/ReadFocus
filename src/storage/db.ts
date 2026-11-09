@@ -179,3 +179,22 @@ export async function savePageTexts(
     // Không lưu được văn bản thì vẫn cho người dùng đọc tiếp.
   }
 }
+
+export async function loadSetting<T>(key: string): Promise<T | null> {
+  try {
+    const db = await getDb();
+    const record = await db.get('settings', key);
+    return record === undefined ? null : (record.value as T);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSetting(key: string, value: unknown): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('settings', { key, value });
+  } catch {
+    // Không lưu được cài đặt thì vẫn cho người dùng đọc tiếp.
+  }
+}

@@ -54,6 +54,10 @@ export const vi = {
   tocPageRange: (start: number, end: number) =>
     start === end ? `Trang ${start}` : `Trang ${start}–${end}`,
 
+  readingSectionLabel: 'Còn mục này',
+  readingTotalLabel: 'Còn cả tài liệu',
+  readingMinutes: (minutes: number) => `${minutes} phút`,
+
   searchTab: 'Tìm kiếm',
   searchPlaceholder: 'Tìm trong tài liệu',
   searchIgnoreDiacritics: 'Tìm không dấu',
