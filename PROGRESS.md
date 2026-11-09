@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v0-reading-core`
-- Task đang làm: T5 — `toc.ts` + UI tab Mục lục (chưa bắt đầu)
-- Bước tiếp theo chính xác: implement `src/core/toc.ts` với 4 tầng fallback (outline PDF → heuristic tiêu đề → gom slide → chia mỗi 10 trang), viết test Vitest, rồi làm UI tab Mục lục (bấm để nhảy trang, làm nổi bật mục đang đọc).
+- Task đang làm: T6 — `search.ts` + chuẩn hoá tiếng Việt + UI tab Tìm kiếm/highlight (chưa bắt đầu)
+- Bước tiếp theo chính xác: viết `src/core/search.ts` (chuẩn hoá bỏ dấu tiếng Việt, MiniSearch theo đoạn có số trang, snippet) + test Vitest, rồi thêm tab Tìm kiếm vào `Sidebar.tsx`, nhảy tới trang và highlight text layer.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -13,6 +13,7 @@
 - [x] T3 — Storage: `src/core/hash.ts` (SHA-256 bằng `crypto.subtle`, 3 test), `src/core/progress.ts` (`sanitizeProgress`, 6 test), `src/storage/db.ts` với `idb` tạo 7 object store (`documents`, `pages`, `toc`, `searchIndex`, `progress`, `stats`, `settings`); viewer băm file, ghi metadata, lưu trang đang đọc sau 400 ms và khôi phục khi mở lại cùng file (commit fcf29b4). Đã smoke-test bản production: đọc tới trang 4, tải lại trang rồi mở lại file thì nhảy đúng trang 4, IndexedDB có đúng bản ghi `documents` và `progress`.
 - [x] Fix T3 — Khi mở lại tài liệu, `PageList` báo trang 1 ở vị trí cuộn ban đầu và ghi đè trang vừa khôi phục trước khi lệnh cuộn chạy. Thêm `acceptPageReport`/`canPersistProgress` trong `src/core/progress.ts` (4 test) và cổng `restoringRef` ở `App.tsx`: bỏ qua báo cáo trang và không ghi tiến độ cho tới khi nhảy xong tới trang khôi phục (commit 7df2c63).
 - [x] T4 — Trích văn bản tăng dần + phân loại tài liệu: `src/core/text.ts` (ghép text pdf.js, chuẩn hoá, đếm từ; 8 test), `src/core/profile.ts` (`buildProfile`, `outlineDepth`, phát hiện bản scan; 11 test), `src/viewer/extract.ts` (trích từng trang, nhường UI giữa các trang, đọc độ sâu outline), lưu văn bản theo trang vào IndexedDB (`savePageTexts`, `clearPageTexts`). Viewer hiện nhãn loại tài liệu (Sách/Bài báo/Slide/Chưa rõ), thanh tiến độ trích, cảnh báo bản scan và form chọn khoảng trang khi tài liệu dài hơn 100 trang. Thêm `scripts/make-fixtures.mjs` (script `npm run fixtures`) tạo 4 PDF fixture tự sinh trong `tests/fixtures/`; đã kiểm tra cả 4 file mở được bằng pdf.js trong Node và trích đúng text/kích thước trang.
+- [x] T5 — Mục lục: `src/core/toc.ts` với đủ 4 tầng fallback (outline → heuristic tiêu đề → gom slide cùng chủ đề → chia mỗi 10 trang), điền `endPage`/`wordCount`, 10 test. `src/viewer/extract.ts` gom text theo dòng kèm cỡ chữ/đậm và phân giải outline PDF thành số trang (`getDestination`/`getPageIndex`). `Sidebar.tsx` + tab Mục lục: danh sách thụt cấp, bấm để nhảy trang, mục đang đọc được làm nổi bật; nút Mục lục trên toolbar bật/tắt thanh bên. Đã smoke-test bản production trên 4 fixture: `book.pdf` → 3 mục Chapter 1/2/3, bấm Chapter 3 nhảy đúng trang 6 và đổi mục nổi bật; `paper.pdf` → Bài báo; `slides.pdf` → Slide với 4 mục theo slide; `scanned.pdf` → cảnh báo bản scan, không lỗi console.
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -42,6 +43,10 @@
 - **Trích văn bản chạy nền, mỗi trang xong nghỉ một nhịp `setTimeout(0)`** và lưu theo lô 10 trang vào object store `pages`; không đọc lại cache khi mở lại (T6 sẽ dùng lại store này cho chỉ mục tìm kiếm, lúc đó mới cần bỏ qua trích lại).
 - **Tài liệu >100 trang không tự trích**: hiện form chọn khoảng trang (mặc định 1–100), chặn khoảng >100 trang và khoảng ngoài tài liệu. Việc xem PDF vẫn không giới hạn, đúng PLAN.
 - **Fixture PDF tự sinh bằng `scripts/make-fixtures.mjs`** (tự viết writer PDF tối giản, không thêm dependency): 4 file book/paper/slides/scanned trong `tests/fixtures/`, dùng cho thử tay và đối chiếu heuristic; đã xác nhận pdf.js trong Node đọc được text và kích thước trang.
+- **Mục lục ưu tiên outline PDF**, phân giải `dest` bằng `getDestination`/`getPageIndex`; khi không có outline mới dùng heuristic tiêu đề: dòng ≤12 từ, ≤100 ký tự, khớp `Chương|Chapter|Phần|Part|Mục|Bài|số thứ tự`, và cỡ chữ ≥1,15 lần cỡ chữ thân bài (hoặc đậm với cỡ ≥1,02 lần). Cỡ chữ thân bài là cỡ chiếm nhiều ký tự nhất để tiêu đề lớn không làm lệch ngưỡng.
+- **Tầng slide gom theo tiêu đề dòng đầu trang**, bỏ hậu tố `(1)`, `- 2`, `(tiếp)` để các slide liên tiếp cùng chủ đề nhập một mục; slide không có tiêu đề dòng đầu bị bỏ qua và rơi xuống tầng chia 10 trang.
+- **Mục chia 10 trang để `title` rỗng**, UI hiện "Trang X–Y" qua `vi.tocPageRange`; core không chứa chuỗi hiển thị.
+- **Thanh bên một tab Mục lục** (đúng phạm vi T5), dựng sẵn `role="tablist"` để T6 thêm tab Tìm kiếm; bật/tắt bằng nút trên toolbar, mặc định mở. Với tài liệu >100 trang, outline được hiện ngay trước khi người dùng chọn khoảng trang.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -49,6 +54,7 @@
 - Trong viewer: mở một PDF thật (sách/paper nhiều trang), thử kéo thả, cuộn liên tục, nhảy trang, zoom, ←/→; báo lỗi nếu chữ trong text layer lệch khỏi chữ trên canvas hoặc nếu cuộn bị giật khi tài liệu dài.
 - Kiểm tra lưu tiến độ: đọc tới một trang giữa, đóng tab, mở lại bằng nút toolbar rồi mở đúng file đó — viewer phải nhảy về trang đã đọc. Mở một file khác phải bắt đầu từ trang 1.
 - Kiểm tra T4 bằng 4 file trong `tests/fixtures/` (chạy `npm run fixtures` nếu chưa có): `book.pdf` phải hiện nhãn "Sách", `paper.pdf` → "Bài báo", `slides.pdf` → "Slide", `scanned.pdf` → cảnh báo bản scan. Thử một PDF thật >100 trang để xem form chọn khoảng trang và tiến độ trích.
+- Kiểm tra T5: mở một PDF có bookmark thật, xác nhận mục lục nhiều cấp, bấm mục nhảy đúng trang, cuộn thì mục đang đọc được làm nổi bật, nút "Mục lục" ẩn/hiện thanh bên.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)

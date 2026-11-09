@@ -113,7 +113,7 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T2b** Viewer cuộn liên tục: virtualize theo vùng nhìn thấy, text layer cho từng trang, theo dõi trang đang đọc, nhảy tới trang.
 - [x] **T3** Storage: hash SHA-256, schema IndexedDB, lưu và khôi phục trang cuối đang đọc.
 - [x] **T4** Trích văn bản tăng dần + `profile.ts` + phát hiện bản scan + cảnh báo trên 100 trang. Script tạo PDF fixture trong `scripts/`. Có test.
-- [ ] **T5** `toc.ts`, đủ 4 tầng fallback, có test; UI tab Mục lục.
+- [x] **T5** `toc.ts`, đủ 4 tầng fallback, có test; UI tab Mục lục.
 - [ ] **T6** `search.ts` + chuẩn hóa tiếng Việt, có test; UI tab Tìm kiếm + highlight.
 - [ ] **T7** `reading-time.ts` + học tốc độ đọc, có test; hiển thị thời gian trong mục lục.
 - [ ] **T8** Tập trung: hẹn giờ theo chương, Pomodoro, focus mode, phát hiện không hoạt động, thống kê.
