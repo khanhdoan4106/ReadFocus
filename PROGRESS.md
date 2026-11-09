@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v0-reading-core` (PR #5 vào `main`)
-- Task đang làm: đã sửa xong 2 lỗi review của PR #5, CI xanh
-- Bước tiếp theo chính xác: chờ người dùng review/merge PR #5, sau đó bắt đầu Nhóm C (T8) trên nhánh `feat/v0-focus-polish` từ `main` mới.
+- Nhánh hiện tại: `feat/v0-focus-polish` (Nhóm C, T8–T11)
+- Task đang làm: T8 xong (commit f36f598), chuẩn bị T9
+- Bước tiếp theo chính xác: làm T9 — context menu + nút toolbar "Mở bằng ReadFocus", viewer nhận `?url=` và fetch PDF, hướng dẫn `file://`; cập nhật `docs/PERMISSIONS.md`. DỪNG và hỏi người dùng trước khi thêm `declarativeNetRequest` + host `*.pdf`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -18,6 +18,7 @@
 - [x] T7 — Thời gian đọc: `src/core/reading-time.ts` (`addReadingSample`, `wordsPerMinute` mặc định 200 từ/phút và học tốc độ thực tế, kẹp 50–1000, `estimateItemMinutes`, `estimateRemainingTime` theo tỉ lệ trang, `roundedMinutes`, `sanitizeReadingSpeed`; 15 test, tổng 93 test). `App.tsx` đo thời gian đọc theo trang bằng `setInterval` 1 giây, chỉ cộng khi tab hiển thị, cắt khoảng nghỉ >2 phút; rời trang thì chốt mẫu để học tốc độ; tốc độ lưu vào IndexedDB `settings` key `readingSpeed` và nạp lại khi mở viewer. Tab Mục lục hiện khối "Còn mục này / Còn cả tài liệu" và thời gian của từng mục. Đã smoke-test `book.pdf`: hiện thời gian còn lại và thời gian từng mục, bấm Chapter 2 nhảy trang 4 và cập nhật đúng mục đang đọc, không lỗi console.
 - [x] Fix PR #5 (1) — Unicode NFC: `normalizeText` chuẩn hoá NFC, `searchIndex` chuẩn hoá NFC cho từ khoá, `comparable` chuẩn hoá NFC cho `matchesQuery`/snippet. Thêm test cho cả hai chiều NFD/NFC, có dấu và không dấu (commit a5339f4).
 - [x] Fix PR #5 (2) — Ghép text item: `joinTextItems`/`joinLineParts` nối bằng chuỗi rỗng như `PDFFindController`, `hasEOL` thành `\n`, chỉ chèn dấu cách khi hai mẩu sát nhau có khoảng cách ngang > 0,18 cỡ chữ và chưa có ký tự trắng; `extract.ts` truyền `transform`/`width`/`height` và dùng chung `joinLineParts` cho dòng mục lục. Thêm fixture `vietnamese.pdf` (chữ có dấu, dòng chia nhiều mẩu, có mẩu tách giữa từ) sinh bằng ToUnicode CMap + hai font để pdf.js không gộp mẩu (commit 6ea8a96). Đã kiểm tra: tìm "chương"/"chuong" ra 2 kết quả, snippet "Chương một" không bị vỡ, highlight tô đúng span "Chương"; `book.pdf` vẫn ra 3 mục Chapter 1/2/3.
+- [x] T8 — Tập trung: `src/core/focus.ts` (máy trạng thái hẹn giờ, Pomodoro chuyển pha, tự tạm dừng khi không hoạt động, kẹp phút/chiều cao dải sáng, format mm:ss; 27 test) và `src/core/stats.ts` (khoá ngày địa phương, cộng/kiểm tra/tổng hợp thống kê ngày; 13 test, tổng 130 test). `db.ts` thêm `loadDayStats`, `addDailyReading`, `loadRecentStats`. Tab Tập trung trong thanh bên: hẹn giờ theo chương (ước tính từ mục đang đọc), Pomodoro 25/5 chỉnh được, nút tạm dừng/chạy tiếp/dừng, thống kê hôm nay và 7 ngày, chỉnh chiều cao dải sáng, bật toàn màn hình. Thanh toolbar có pill đếm ngược; focus mode làm mờ trang bằng dải sáng theo chuột hoặc ↑/↓, ẩn thanh bên, Esc thoát; phím F/T/Space. Tự tạm dừng khi tab ẩn hoặc không hoạt động 60 giây. Thông báo qua `chrome.notifications`, fallback toast trong trang; thống kê phút/trang ghi vào IndexedDB mỗi 30 giây và khi ẩn tab. Thêm quyền `notifications` và ghi lý do trong `docs/PERMISSIONS.md` (commit f36f598). Đã smoke-test `book.pdf`: tab Tập trung hiện đúng, "Đọc chương này · 1 phút" chạy đếm ngược và pill "Đọc chương 01:00"; bật focus mode ẩn thanh bên, dải sáng 140 px ở giữa, ↑/↓ dịch dải, Esc thoát; không lỗi console.
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -62,6 +63,12 @@
 - **Chuẩn hoá NFC ở mọi nơi so khớp**: `normalizeText` chuẩn hoá và lưu text/index dạng NFC; từ khoá và `comparable` cũng NFC trước khi so sánh, nên văn bản NFD (chữ gốc + dấu kết hợp) vẫn tìm được cả khi bật/tắt "Tìm không dấu".
 - **Ghép text item theo kiểu pdf.js**: nối bằng chuỗi rỗng (không tự chèn dấu cách), giữ ký tự trắng và `hasEOL`; chỉ chèn `' '` khi thiếu glyph cách mà khoảng cách ngang (`transform[4] + width`) lớn hơn 0,18 cỡ chữ. Nhờ vậy từ bị pdf.js tách thành nhiều mẩu (kể cả tách giữa từ) không bị vỡ thành "Ch ương".
 - **Fixture `vietnamese.pdf`** dùng bảng mã byte + `ToUnicode` CMap để lưu chữ có dấu, và đổi font giữa các mẩu text trên cùng dòng để pdf.js không gộp chúng lại khi trích; mọi glyph rộng 500/1000 để vị trí mẩu xác định và dòng vừa trang.
+- **T8 tách logic thuần khỏi UI**: `src/core/focus.ts` giữ máy trạng thái hẹn giờ (start/pause/resume/tick/stop, chuyển pha Pomodoro, tự tạm dừng, kẹp tham số, format) và `src/core/stats.ts` giữ khoá ngày địa phương + cộng/tổng hợp thống kê; UI chỉ gọi hàm, nhờ vậy test được toàn bộ mà không cần DOM.
+- **Hẹn giờ dựa trên `Date.now()` chứ không đếm tick**: mỗi 500 ms cập nhật thời gian còn lại từ mốc `startedAt`, nên tab bị throttle hay máy ngủ vẫn đúng; tab ẩn hoặc không hoạt động 60 giây thì tự `pauseTimer`.
+- **Pomodoro tự chuyển pha khi hết giờ** (tập trung → nghỉ → tập trung), còn phiên đọc chương chỉ dừng và báo; ngưỡng phút kẹp 1–180 (nghỉ 1–60) và lưu ở `settings` key `focusMinutes`, `breakMinutes`, `focusBandHeight`.
+- **Dải sáng focus mode dùng một phần tử `position: fixed` + `box-shadow: 0 0 0 100vmax`** thay vì bốn lớp phủ, nên chỉ cần đổi `top`/`height`; dải đi theo con trỏ hoặc ↑/↓, Esc thoát và tự thoát toàn màn hình. Thanh bên được ẩn hẳn khi bật focus mode.
+- **Thống kê đọc cộng dồn vào object store `stats`** theo ngày địa phương: đồng hồ đọc cộng phút, mỗi lần rời trang đọc ≥1 giây cộng 1 trang; ghi mỗi 30 giây và khi tab bị ẩn để không mất dữ liệu mà cũng không ghi IndexedDB liên tục.
+- **Thông báo hết giờ dùng `chrome.notifications` khi có API**, còn môi trường preview không có `chrome` thì hiện toast trong trang. Quyền `notifications` chỉ để báo giờ, không gửi dữ liệu ra ngoài.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -73,6 +80,8 @@
 - Kiểm tra T6 trên một PDF tiếng Việt thật: tìm có dấu và không dấu (ví dụ "chuong" phải khớp "chương"), bật/tắt "Tìm không dấu", bấm kết quả phải nhảy đúng trang và tô vàng đúng chỗ; thử cả từ khoá chỉ có trong một đoạn giữa trang.
 - Kiểm tra T7 trên một sách thật: thời gian còn lại và thời gian từng mục phải hợp lý; đọc liên tục vài phút ở một vài trang, đóng rồi mở lại viewer xem tốc độ đã học có được giữ (ước tính thay đổi sau khi đủ 20 giây và 100 từ); thử ẩn tab vài phút để chắc thời gian không bị cộng.
 - Kiểm tra 2 lỗi vừa sửa: mở `tests/fixtures/vietnamese.pdf`, tìm "chương" và "chuong" (bật/tắt "Tìm không dấu"), snippet phải là "Chương một"/"Chương hai" chứ không vỡ thành "Ch ương"; mở một PDF thật có chữ NFD (hoặc file sinh ra từ công cụ tạo NFD) và tìm có dấu.
+- Kiểm tra T8 sau khi load unpacked: tab Tập trung, bấm "Đọc chương này" ở một mục có thời gian ước tính và xem pill đếm ngược trên toolbar; bật Pomodoro, thu nhỏ cửa sổ hoặc ẩn tab hơn 1 phút để xác nhận timer tự tạm dừng; để hết giờ nghỉ/tập trung xem thông báo hệ thống có hiện không.
+- Kiểm tra focus mode: bật trong tab Tập trung, thấy thanh bên ẩn, dải sáng đi theo chuột và ↑/↓, đổi chiều cao trong tab, thoát bằng Esc và thoát toàn màn hình đúng. Đọc vài phút, đổi trang, mở lại tab Tập trung xem "Hôm nay" có tăng phút/trang; đóng viewer rồi mở lại xem thống kê còn giữ.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
