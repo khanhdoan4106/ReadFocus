@@ -1,5 +1,12 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { sanitizeProgress, type SavedProgress } from '../core/progress';
+import {
+  addReading,
+  emptyDayStats,
+  localDateKey,
+  sanitizeDayStats,
+  type DayStats,
+} from '../core/stats';
 
 const DB_NAME = 'readfocus';
 const DB_VERSION = 1;
@@ -43,11 +50,7 @@ export type ReadingProgress = {
   updatedAt: number;
 };
 
-export type DailyStats = {
-  date: string;
-  minutes: number;
-  pages: number;
-};
+export type DailyStats = DayStats;
 
 export type SettingRecord = {
   key: string;
@@ -177,6 +180,51 @@ export async function savePageTexts(
     await tx.done;
   } catch {
     // Không lưu được văn bản thì vẫn cho người dùng đọc tiếp.
+  }
+}
+
+/** Thống kê của một ngày; chưa có dữ liệu thì trả về ngày rỗng. */
+export async function loadDayStats(date = localDateKey()): Promise<DayStats> {
+  try {
+    const db = await getDb();
+    return sanitizeDayStats(await db.get('stats', date)) ?? emptyDayStats(date);
+  } catch {
+    return emptyDayStats(date);
+  }
+}
+
+/**
+ * Cộng thêm phút và số trang đã đọc vào thống kê ngày. Lỗi lưu trữ không được
+ * chặn việc đọc nên hàm luôn trả về số liệu vừa cộng.
+ */
+export async function addDailyReading(
+  minutes: number,
+  pages: number,
+  date = localDateKey(),
+): Promise<DayStats> {
+  const current = await loadDayStats(date);
+  const next = addReading(current, minutes, pages);
+  try {
+    const db = await getDb();
+    await db.put('stats', next);
+  } catch {
+    // Không lưu được thống kê thì vẫn cho người dùng đọc tiếp.
+  }
+  return next;
+}
+
+/** Các ngày có thống kê, mới nhất trước, dùng cho phần tổng kết trong tab Tập trung. */
+export async function loadRecentStats(limit = 7): Promise<DayStats[]> {
+  try {
+    const db = await getDb();
+    const all = await db.getAll('stats');
+    return all
+      .map((value) => sanitizeDayStats(value))
+      .filter((value): value is DayStats => value !== null)
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, Math.max(limit, 0));
+  } catch {
+    return [];
   }
 }
 

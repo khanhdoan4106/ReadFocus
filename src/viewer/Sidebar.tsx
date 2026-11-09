@@ -3,9 +3,10 @@ import { estimateItemMinutes, estimateRemainingTime, roundedMinutes } from '../c
 import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
+import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
 
-type SidebarTab = 'toc' | 'search';
+type SidebarTab = 'toc' | 'search' | 'focus';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -13,6 +14,7 @@ type SidebarProps = {
   building: boolean;
   index: SearchIndex | null;
   wordsPerMinute: number;
+  focus: FocusPanelProps;
   onSelectPage: (page: number) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
 };
@@ -23,6 +25,7 @@ export function Sidebar({
   building,
   index,
   wordsPerMinute,
+  focus,
   onSelectPage,
   onSelectResult,
 }: SidebarProps) {
@@ -50,6 +53,15 @@ export function Sidebar({
           onClick={() => setTab('search')}
         >
           {vi.searchTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'focus'}
+          class={`sidebar__tab${tab === 'focus' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('focus')}
+        >
+          {vi.focusTab}
         </button>
       </div>
 
@@ -102,9 +114,13 @@ export function Sidebar({
             </>
           )}
         </div>
-      ) : (
+      ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
           <SearchPanel index={index} onSelectResult={onSelectResult} />
+        </div>
+      ) : (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>
+          <FocusPanel {...focus} />
         </div>
       )}
     </aside>
