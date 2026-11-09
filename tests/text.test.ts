@@ -27,6 +27,14 @@ describe('normalizeText', () => {
   it('cắt khoảng trắng ở hai đầu', () => {
     expect(normalizeText('  xin chào  ')).toBe('xin chào');
   });
+
+  it('chuẩn hoá Unicode NFC cho văn bản dạng NFD', () => {
+    const decomposed = 'Chương một'.normalize('NFD');
+    const composed = 'Chương một'.normalize('NFC');
+
+    expect(decomposed).not.toBe(composed);
+    expect(normalizeText(decomposed)).toBe(composed);
+  });
 });
 
 describe('countWords', () => {

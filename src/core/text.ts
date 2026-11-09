@@ -17,9 +17,10 @@ export function joinTextItems(items: readonly TextItemLike[]): string {
   return normalizeText(parts.join(' '));
 }
 
-/** Gộp khoảng trắng thừa nhưng giữ xuống dòng để còn tách đoạn. */
+/** Chuẩn hoá Unicode NFC và gộp khoảng trắng thừa nhưng giữ xuống dòng để tách đoạn. */
 export function normalizeText(text: string): string {
   return text
+    .normalize('NFC')
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t\f\v]+/g, ' ')
     .replace(/ *\n */g, '\n')

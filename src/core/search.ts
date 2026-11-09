@@ -105,7 +105,7 @@ export function searchIndex(
   query: string,
   options: SearchOptions,
 ): SearchHit[] {
-  const trimmed = query.trim();
+  const trimmed = query.normalize('NFC').trim();
   if (trimmed === '') return [];
 
   const term = options.ignoreDiacritics ? normalizeVietnamese(trimmed) : trimmed;
@@ -131,7 +131,8 @@ export function searchIndex(
 }
 
 function comparable(text: string, ignoreDiacritics: boolean): string {
-  return ignoreDiacritics ? normalizeVietnamese(text) : text.toLocaleLowerCase('vi');
+  const normalized = text.normalize('NFC');
+  return ignoreDiacritics ? normalizeVietnamese(normalized) : normalized.toLocaleLowerCase('vi');
 }
 
 /** Kiểm tra một đoạn chữ có chứa từ khoá hay không, tôn trọng tuỳ chọn bỏ dấu. */

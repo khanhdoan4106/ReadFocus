@@ -65,6 +65,30 @@ describe('searchIndex', () => {
     expect(searchIndex(index, 'chuong', { ignoreDiacritics: false })).toEqual([]);
   });
 
+  it('tìm có dấu khớp văn bản NFD', () => {
+    const index = buildSearchIndex([{ page: 3, text: 'Chương một'.normalize('NFD') }]);
+    expect(
+      searchIndex(index, 'chương', { ignoreDiacritics: false }).map((hit) => hit.page),
+    ).toEqual([3]);
+  });
+
+  it('tìm có dấu khớp từ khoá NFD', () => {
+    const index = buildSearchIndex([{ page: 3, text: 'Chương một' }]);
+    expect(
+      searchIndex(index, 'chương'.normalize('NFD'), { ignoreDiacritics: false }).map(
+        (hit) => hit.page,
+      ),
+    ).toEqual([3]);
+  });
+
+  it('tìm không dấu khớp cả văn bản NFD và NFC', () => {
+    const decomposed = buildSearchIndex([{ page: 3, text: 'Chương một'.normalize('NFD') }]);
+    const composed = buildSearchIndex([{ page: 3, text: 'Chương một' }]);
+
+    expect(searchIndex(decomposed, 'chuong', { ignoreDiacritics: true })).toHaveLength(1);
+    expect(searchIndex(composed, 'chuong', { ignoreDiacritics: true })).toHaveLength(1);
+  });
+
   it('trả rỗng với từ khoá rỗng', () => {
     const index = buildSearchIndex(pages);
     expect(searchIndex(index, '   ', { ignoreDiacritics: true })).toEqual([]);
@@ -89,6 +113,15 @@ describe('matchesQuery', () => {
 
   it('trả false với từ khoá rỗng', () => {
     expect(matchesQuery('Chương 1', '  ', true)).toBe(false);
+  });
+
+  it('khớp qua lại giữa NFC và NFD', () => {
+    const decomposed = 'Chương một'.normalize('NFD');
+
+    expect(matchesQuery(decomposed, 'chương', false)).toBe(true);
+    expect(matchesQuery('Chương một', 'chương'.normalize('NFD'), false)).toBe(true);
+    expect(matchesQuery(decomposed, 'chuong', true)).toBe(true);
+    expect(matchesQuery(decomposed, 'chuong'.normalize('NFD'), true)).toBe(true);
   });
 });
 
