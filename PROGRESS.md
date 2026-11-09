@@ -1,8 +1,8 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v0-reading-core` (đã push, PR #5 vào `main`)
-- Task đang làm: Nhóm B (T4–T7) đã xong, CI trên PR #5 xanh
+- Nhánh hiện tại: `feat/v0-reading-core` (PR #5 vào `main`)
+- Task đang làm: đã sửa xong 2 lỗi review của PR #5, CI xanh
 - Bước tiếp theo chính xác: chờ người dùng review/merge PR #5, sau đó bắt đầu Nhóm C (T8) trên nhánh `feat/v0-focus-polish` từ `main` mới.
 
 ## Đã hoàn thành
@@ -16,10 +16,12 @@
 - [x] T5 — Mục lục: `src/core/toc.ts` với đủ 4 tầng fallback (outline → heuristic tiêu đề → gom slide cùng chủ đề → chia mỗi 10 trang), điền `endPage`/`wordCount`, 10 test. `src/viewer/extract.ts` gom text theo dòng kèm cỡ chữ/đậm và phân giải outline PDF thành số trang (`getDestination`/`getPageIndex`). `Sidebar.tsx` + tab Mục lục: danh sách thụt cấp, bấm để nhảy trang, mục đang đọc được làm nổi bật; nút Mục lục trên toolbar bật/tắt thanh bên. Đã smoke-test bản production trên 4 fixture: `book.pdf` → 3 mục Chapter 1/2/3, bấm Chapter 3 nhảy đúng trang 6 và đổi mục nổi bật; `paper.pdf` → Bài báo; `slides.pdf` → Slide với 4 mục theo slide; `scanned.pdf` → cảnh báo bản scan, không lỗi console.
 - [x] T6 — Tìm kiếm: `src/core/search.ts` (`normalizeVietnamese` bỏ dấu + `đ`→`d`, `splitParagraphs`, chỉ mục MiniSearch theo đoạn kèm số trang, `searchIndex`, `makeSnippet`, `matchesQuery`; 15 test). Tab Tìm kiếm trong thanh bên: ô tìm, tuỳ chọn "Tìm không dấu" (mặc định bật), số kết quả, snippet và số trang; bấm kết quả nhảy tới trang và tô vàng các span khớp trong text layer (MutationObserver bắt kịp text layer dựng bất đồng bộ). Đã smoke-test: `book.pdf`, tìm "chapter" ra 4 kết quả, bấm kết quả trang 4 nhảy đúng và tô đúng span "Chapter 2", không lỗi console.
 - [x] T7 — Thời gian đọc: `src/core/reading-time.ts` (`addReadingSample`, `wordsPerMinute` mặc định 200 từ/phút và học tốc độ thực tế, kẹp 50–1000, `estimateItemMinutes`, `estimateRemainingTime` theo tỉ lệ trang, `roundedMinutes`, `sanitizeReadingSpeed`; 15 test, tổng 93 test). `App.tsx` đo thời gian đọc theo trang bằng `setInterval` 1 giây, chỉ cộng khi tab hiển thị, cắt khoảng nghỉ >2 phút; rời trang thì chốt mẫu để học tốc độ; tốc độ lưu vào IndexedDB `settings` key `readingSpeed` và nạp lại khi mở viewer. Tab Mục lục hiện khối "Còn mục này / Còn cả tài liệu" và thời gian của từng mục. Đã smoke-test `book.pdf`: hiện thời gian còn lại và thời gian từng mục, bấm Chapter 2 nhảy trang 4 và cập nhật đúng mục đang đọc, không lỗi console.
+- [x] Fix PR #5 (1) — Unicode NFC: `normalizeText` chuẩn hoá NFC, `searchIndex` chuẩn hoá NFC cho từ khoá, `comparable` chuẩn hoá NFC cho `matchesQuery`/snippet. Thêm test cho cả hai chiều NFD/NFC, có dấu và không dấu (commit a5339f4).
+- [x] Fix PR #5 (2) — Ghép text item: `joinTextItems`/`joinLineParts` nối bằng chuỗi rỗng như `PDFFindController`, `hasEOL` thành `\n`, chỉ chèn dấu cách khi hai mẩu sát nhau có khoảng cách ngang > 0,18 cỡ chữ và chưa có ký tự trắng; `extract.ts` truyền `transform`/`width`/`height` và dùng chung `joinLineParts` cho dòng mục lục. Thêm fixture `vietnamese.pdf` (chữ có dấu, dòng chia nhiều mẩu, có mẩu tách giữa từ) sinh bằng ToUnicode CMap + hai font để pdf.js không gộp mẩu (commit 6ea8a96). Đã kiểm tra: tìm "chương"/"chuong" ra 2 kết quả, snippet "Chương một" không bị vỡ, highlight tô đúng span "Chương"; `book.pdf` vẫn ra 3 mục Chapter 1/2/3.
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
-- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) đã push và mở PR #5; CI xanh, chưa merge.
+- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) và 2 commit `fix:` cho review đã push lên PR #5; CI xanh, chưa merge.
 - PR nhóm A (`feat/v0-foundation` → `main`) đã merge qua PR #4; ba PR Dependabot nâng action lên v7 cũng đã merge.
 - `docs/PLAN.md` đã tách T2 thành T2a/T2b.
 - **Cảnh báo khi test tự động**: pdf.js v6 dùng `requestAnimationFrame` để render, nên khi cửa sổ Chrome test bị ẩn/che, render treo ở `renderTask.promise` và text layer rỗng. Đây là hành vi của pdf.js (tab ẩn cũng bị throttle), không phải lỗi app; khi test bằng công cụ browser phải thay tạm `window.requestAnimationFrame` bằng `setTimeout` trong trang. Sự kiện `scroll` thật cũng có thể không phát khi tab không hiển thị — khi đó phải `dispatchEvent(new Event('scroll'))`.
@@ -57,6 +59,9 @@
 - **Đồng hồ đọc lấy mẫu theo trang, không theo mục**: mỗi lần đổi trang thì chốt `{số từ của trang, thời gian đang đọc}`; chỉ cộng thời gian khi `document.visibilityState === 'visible'` và cắt mỗi khoảng tick ở 2 phút để không tính lúc treo máy. Chỉ học tốc độ khi đã có ≥20 giây và ≥100 từ, kẹp 50–1000 từ/phút; trước đó dùng 200 từ/phút.
 - **Thời gian còn lại của mục đang đọc tính theo tỉ lệ số trang còn lại** (số từ mục × trang còn lại / tổng trang), vì mỗi trang có thể dài ngắn khác nhau nhưng đây là ước lượng đủ tốt cho v0. Thời gian cả tài liệu = phần còn lại của mục + số từ các mục sau.
 - **Tốc độ đọc lưu ở `settings` key `readingSpeed`**, không tách store mới; `sanitizeReadingSpeed` kiểm tra dữ liệu hỏng trước khi dùng. Tài liệu chưa trích văn bản (hoặc bản scan) không có thời gian ước tính.
+- **Chuẩn hoá NFC ở mọi nơi so khớp**: `normalizeText` chuẩn hoá và lưu text/index dạng NFC; từ khoá và `comparable` cũng NFC trước khi so sánh, nên văn bản NFD (chữ gốc + dấu kết hợp) vẫn tìm được cả khi bật/tắt "Tìm không dấu".
+- **Ghép text item theo kiểu pdf.js**: nối bằng chuỗi rỗng (không tự chèn dấu cách), giữ ký tự trắng và `hasEOL`; chỉ chèn `' '` khi thiếu glyph cách mà khoảng cách ngang (`transform[4] + width`) lớn hơn 0,18 cỡ chữ. Nhờ vậy từ bị pdf.js tách thành nhiều mẩu (kể cả tách giữa từ) không bị vỡ thành "Ch ương".
+- **Fixture `vietnamese.pdf`** dùng bảng mã byte + `ToUnicode` CMap để lưu chữ có dấu, và đổi font giữa các mẩu text trên cùng dòng để pdf.js không gộp chúng lại khi trích; mọi glyph rộng 500/1000 để vị trí mẩu xác định và dòng vừa trang.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -67,6 +72,7 @@
 - Kiểm tra T5: mở một PDF có bookmark thật, xác nhận mục lục nhiều cấp, bấm mục nhảy đúng trang, cuộn thì mục đang đọc được làm nổi bật, nút "Mục lục" ẩn/hiện thanh bên.
 - Kiểm tra T6 trên một PDF tiếng Việt thật: tìm có dấu và không dấu (ví dụ "chuong" phải khớp "chương"), bật/tắt "Tìm không dấu", bấm kết quả phải nhảy đúng trang và tô vàng đúng chỗ; thử cả từ khoá chỉ có trong một đoạn giữa trang.
 - Kiểm tra T7 trên một sách thật: thời gian còn lại và thời gian từng mục phải hợp lý; đọc liên tục vài phút ở một vài trang, đóng rồi mở lại viewer xem tốc độ đã học có được giữ (ước tính thay đổi sau khi đủ 20 giây và 100 từ); thử ẩn tab vài phút để chắc thời gian không bị cộng.
+- Kiểm tra 2 lỗi vừa sửa: mở `tests/fixtures/vietnamese.pdf`, tìm "chương" và "chuong" (bật/tắt "Tìm không dấu"), snippet phải là "Chương một"/"Chương hai" chứ không vỡ thành "Ch ương"; mở một PDF thật có chữ NFD (hoặc file sinh ra từ công cụ tạo NFD) và tìm có dấu.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
