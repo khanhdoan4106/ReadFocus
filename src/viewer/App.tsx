@@ -2,6 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
+import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import {
@@ -55,7 +56,8 @@ import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { Sidebar } from './Sidebar';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
-type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
+type ErrorReason =
+  'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render' | 'fetch' | 'file-url';
 
 type Analysis =
   | { phase: 'idle' }
@@ -130,6 +132,10 @@ function errorMessage(reason: ErrorReason): string {
     case 'invalid':
     case 'render':
       return vi.errorInvalid;
+    case 'fetch':
+      return vi.errorFetch;
+    case 'file-url':
+      return vi.errorFileUrl;
     case 'unknown':
       return vi.errorGeneric;
   }
@@ -392,6 +398,38 @@ export function App() {
     },
     [loadOutlineToc, runExtraction, scrollToPage],
   );
+
+  const openFromUrl = useCallback(
+    async (url: string) => {
+      if (isFileUrl(url)) {
+        setError('file-url');
+        setStatus('error');
+        return;
+      }
+
+      setStatus('opening');
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const file = new File([blob], fileNameFromUrl(url), {
+          type: blob.type || 'application/pdf',
+        });
+        await handleFile(file);
+      } catch {
+        setError('fetch');
+        setStatus('error');
+      }
+    },
+    [handleFile],
+  );
+
+  // Mở PDF do context menu hoặc nút toolbar trên trang PDF đưa sang.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('url');
+    if (requested === null || requested === '') return;
+    void openFromUrl(requested);
+  }, [openFromUrl]);
 
   const handleMeasured = useCallback((page: number, size: PageSize) => {
     setPageSizes((previous) => {

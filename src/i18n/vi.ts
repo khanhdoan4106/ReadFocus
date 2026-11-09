@@ -26,6 +26,10 @@ export const vi = {
   errorPassword: 'PDF này có mật khẩu. Bản v0 chưa hỗ trợ mở file có mật khẩu.',
   errorInvalid: 'File PDF bị hỏng hoặc không đọc được.',
   errorGeneric: 'Có lỗi khi mở file. Thử lại hoặc chọn file khác.',
+  errorFetch:
+    'Không tải được PDF từ địa chỉ này. Trang có thể chặn tải xuống hoặc yêu cầu đăng nhập; hãy tải file về máy rồi mở bằng nút “Mở PDF”.',
+  errorFileUrl:
+    'Chrome không cho extension đọc trực tiếp file://. Hãy mở bằng nút “Mở PDF” hoặc kéo thả file vào cửa sổ. Nếu muốn mở theo địa chỉ, bật “Allow access to file URLs” cho ReadFocus trong chrome://extensions.',
   retry: 'Chọn file khác',
 
   fileNameUnknown: 'Tài liệu không tên',
@@ -65,6 +69,8 @@ export const vi = {
   searchNotReady: 'Đang chuẩn bị chỉ mục tìm kiếm…',
   searchNoResults: (query: string) => `Không tìm thấy “${query}”.`,
   searchResultCount: (count: number) => `${count} kết quả`,
+
+  contextMenuOpen: 'Mở bằng ReadFocus',
 
   focusTab: 'Tập trung',
   chapterTimerTitle: 'Đọc theo chương',
