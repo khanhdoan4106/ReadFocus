@@ -4,6 +4,7 @@ import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
+import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import {
   clearPageTexts,
@@ -12,9 +13,10 @@ import {
   savePageTexts,
   saveProgress,
 } from '../storage/db';
-import { extractRange, INDEX_PAGE_LIMIT, readOutlineDepth } from './extract';
+import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { Sidebar } from './Sidebar';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
@@ -84,6 +86,8 @@ export function App() {
   const [analysis, setAnalysis] = useState<Analysis>({ phase: 'idle' });
   const [indexRange, setIndexRange] = useState<IndexRange | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
+  const [toc, setToc] = useState<TocResult | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -134,8 +138,10 @@ export function App() {
       };
 
       try {
-        const depth = await readOutlineDepth(pdfDoc);
+        const outline = await readOutline(pdfDoc);
+        const outlineDepth = outline.reduce((max, entry) => Math.max(max, entry.level), 0);
         const samples: PageSample[] = [];
+        const tocPages: TocPage[] = [];
 
         await extractRange(pdfDoc, {
           from,
@@ -143,6 +149,13 @@ export function App() {
           shouldStop: () => analysisTokenRef.current !== token,
           onPage: (page) => {
             samples.push(page);
+            tocPages.push({
+              page: page.page,
+              text: page.text,
+              lines: page.lines,
+              width: page.width,
+              height: page.height,
+            });
             pending.push({ page: page.page, text: page.text });
             if (pending.length >= 10) flush();
             if (analysisTokenRef.current === token) {
@@ -153,7 +166,16 @@ export function App() {
         flush();
 
         if (analysisTokenRef.current !== token) return;
-        setAnalysis({ phase: 'done', profile: buildProfile(samples, { outlineDepth: depth }) });
+        const profile = buildProfile(samples, { outlineDepth });
+        setAnalysis({ phase: 'done', profile });
+        setToc(
+          buildToc({
+            pages: tocPages,
+            outline,
+            pageCount: pdfDoc.numPages,
+            kind: profile.kind,
+          }),
+        );
       } catch {
         flush();
         if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
@@ -161,6 +183,13 @@ export function App() {
     },
     [],
   );
+
+  /** Tài liệu dài chưa trích văn bản vẫn hiện được outline ngay. */
+  const loadOutlineToc = useCallback(async (pdfDoc: PDFDocumentProxy, token: number) => {
+    const outline = await readOutline(pdfDoc);
+    if (analysisTokenRef.current !== token || outline.length === 0) return;
+    setToc(buildToc({ pages: [], outline, pageCount: pdfDoc.numPages }));
+  }, []);
 
   const goToPage = useCallback(
     (next: number) => {
@@ -220,12 +249,16 @@ export function App() {
         });
       }
 
+      analysisTokenRef.current += 1;
+      const token = analysisTokenRef.current;
+      setToc(null);
       setIndexRange(null);
       setRangeError(null);
       setAnalysis({ phase: 'idle' });
 
       if (result.doc.numPages > INDEX_PAGE_LIMIT) {
         setIndexRange({ from: '1', to: String(INDEX_PAGE_LIMIT) });
+        void loadOutlineToc(result.doc, token);
       } else {
         void runExtraction(result.doc, 1, result.doc.numPages, hash);
       }
@@ -238,7 +271,7 @@ export function App() {
         }, 0);
       }
     },
-    [runExtraction, scrollToPage],
+    [loadOutlineToc, runExtraction, scrollToPage],
   );
 
   const handleMeasured = useCallback((page: number, size: PageSize) => {
@@ -477,6 +510,18 @@ export function App() {
             {vi.zoomFitWidth}
           </button>
         </div>
+
+        <button
+          type="button"
+          class="toolbar__button"
+          aria-label={vi.tocTitle}
+          aria-expanded={sidebarOpen}
+          aria-controls="viewer-sidebar"
+          disabled={status !== 'ready'}
+          onClick={() => setSidebarOpen((open) => !open)}
+        >
+          {vi.tocTitle}
+        </button>
       </header>
 
       {showNotice && (
@@ -544,44 +589,55 @@ export function App() {
         </section>
       )}
 
-      <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
-        {status === 'empty' && (
-          <div class="empty">
-            <h1>{vi.appName}</h1>
-            <p class="empty__title">{vi.emptyTitle}</p>
-            <p class="empty__hint">{vi.emptyHint}</p>
-            <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-              {vi.chooseFile}
-            </button>
-            <p class="empty__drop">{vi.dropHint}</p>
-          </div>
-        )}
+      <div class="workspace">
+        <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
+          {status === 'empty' && (
+            <div class="empty">
+              <h1>{vi.appName}</h1>
+              <p class="empty__title">{vi.emptyTitle}</p>
+              <p class="empty__hint">{vi.emptyHint}</p>
+              <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
+                {vi.chooseFile}
+              </button>
+              <p class="empty__drop">{vi.dropHint}</p>
+            </div>
+          )}
 
-        {status === 'opening' && <p class="status">{vi.loading}</p>}
+          {status === 'opening' && <p class="status">{vi.loading}</p>}
 
-        {status === 'error' && (
-          <div class="empty" role="alert">
-            <h1>{vi.errorTitle}</h1>
-            <p class="empty__hint">{errorMessage(error)}</p>
-            <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-              {vi.retry}
-            </button>
-          </div>
-        )}
+          {status === 'error' && (
+            <div class="empty" role="alert">
+              <h1>{vi.errorTitle}</h1>
+              <p class="empty__hint">{errorMessage(error)}</p>
+              <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
+                {vi.retry}
+              </button>
+            </div>
+          )}
 
-        {status === 'ready' && doc && (
-          <PageList
-            doc={doc}
-            scale={scale}
-            sizes={pageSizes}
-            fallbackSize={fallbackSize}
-            scrollerRef={contentRef}
-            onMeasured={handleMeasured}
-            onCurrentPageChange={handleCurrentPageChange}
-            onRenderError={handleRenderError}
+          {status === 'ready' && doc && (
+            <PageList
+              doc={doc}
+              scale={scale}
+              sizes={pageSizes}
+              fallbackSize={fallbackSize}
+              scrollerRef={contentRef}
+              onMeasured={handleMeasured}
+              onCurrentPageChange={handleCurrentPageChange}
+              onRenderError={handleRenderError}
+            />
+          )}
+        </main>
+
+        {status === 'ready' && sidebarOpen && (
+          <Sidebar
+            toc={toc}
+            currentPage={pageNumber}
+            building={analysis.phase === 'extracting'}
+            onSelectPage={goToPage}
           />
         )}
-      </main>
+      </div>
 
       {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}
     </div>

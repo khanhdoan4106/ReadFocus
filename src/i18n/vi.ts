@@ -46,6 +46,13 @@ export const vi = {
   indexStart: 'Lập chỉ mục',
   indexRangeInvalid: 'Khoảng trang không hợp lệ.',
   indexRangeTooLong: (limit: number) => `Mỗi lần chỉ lập chỉ mục tối đa ${limit} trang.`,
+
+  sidebarLabel: 'Thanh bên',
+  tocTitle: 'Mục lục',
+  tocEmpty: 'Chưa có mục lục cho tài liệu này.',
+  tocBuilding: 'Đang lập mục lục…',
+  tocPageRange: (start: number, end: number) =>
+    start === end ? `Trang ${start}` : `Trang ${start}–${end}`,
 } as const;
 
 export type Messages = typeof vi;
