@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v0-reading-core`
-- Task đang làm: T7 đã xong (Nhóm B hoàn tất T4–T7)
-- Bước tiếp theo chính xác: push `feat/v0-reading-core`, mở PR vào `main`, chạy `gh pr checks --watch` và sửa cho tới khi CI xanh (không merge).
+- Nhánh hiện tại: `feat/v0-reading-core` (đã push, PR #5 vào `main`)
+- Task đang làm: Nhóm B (T4–T7) đã xong, CI trên PR #5 xanh
+- Bước tiếp theo chính xác: chờ người dùng review/merge PR #5, sau đó bắt đầu Nhóm C (T8) trên nhánh `feat/v0-focus-polish` từ `main` mới.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -19,7 +19,7 @@
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
-- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhánh `feat/v0-reading-core` sẽ mở PR nhóm B sau T7.
+- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) đã push và mở PR #5; CI xanh, chưa merge.
 - PR nhóm A (`feat/v0-foundation` → `main`) đã merge qua PR #4; ba PR Dependabot nâng action lên v7 cũng đã merge.
 - `docs/PLAN.md` đã tách T2 thành T2a/T2b.
 - **Cảnh báo khi test tự động**: pdf.js v6 dùng `requestAnimationFrame` để render, nên khi cửa sổ Chrome test bị ẩn/che, render treo ở `renderTask.promise` và text layer rỗng. Đây là hành vi của pdf.js (tab ẩn cũng bị throttle), không phải lỗi app; khi test bằng công cụ browser phải thay tạm `window.requestAnimationFrame` bằng `setTimeout` trong trang. Sự kiện `scroll` thật cũng có thể không phát khi tab không hiển thị — khi đó phải `dispatchEvent(new Event('scroll'))`.
