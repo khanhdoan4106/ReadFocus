@@ -119,7 +119,7 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T8** Tập trung: hẹn giờ theo chương, Pomodoro, focus mode, phát hiện không hoạt động, thống kê.
 - [x] **T9** Mở PDF từ web: context menu, nút toolbar, tùy chọn tự chuyển (mặc định tắt), hướng dẫn `file://`; hoàn thiện `docs/PERMISSIONS.md`.
 - [x] **T10** Cài đặt, dark mode, phím tắt, các trạng thái lỗi; rà toàn bộ câu chữ tiếng Việt.
-- [ ] **T11** Hoàn thiện README (tính năng, cài unpacked, build, quyền riêng tư), viết `docs/PRIVACY.md`, kiểm tra `npm run package`, cập nhật mục v1 bên dưới.
+- [x] **T11** Hoàn thiện README (tính năng, cài unpacked, build, quyền riêng tư), viết `docs/PRIVACY.md`, kiểm tra `npm run package`, cập nhật mục v1 bên dưới.
 
 ## Để sau (không làm ở v0)
 
