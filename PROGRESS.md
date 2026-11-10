@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v0-focus-polish` (Nhóm C, T8–T11)
-- Task đang làm: T11 xong; cả 4 task Nhóm C đã xong, sẵn sàng push nhánh và mở PR vào `main`
-- Bước tiếp theo chính xác: push `feat/v0-focus-polish`, mở PR vào `main`, chạy `gh pr checks --watch`, sửa nếu CI đỏ; không merge, không tạo tag.
+- Task đang làm: Nhóm C xong; PR [#6](https://github.com/khanhdoan4106/ReadFocus/pull/6) đã mở vào `main`, CI xanh, chưa merge
+- Bước tiếp theo chính xác: người dùng review PR #6 và thử tay checklist bên dưới (ưu tiên luồng xin quyền tự mở PDF trên Chrome thật); nếu CI còn đỏ thì sửa trên chính nhánh `feat/v0-focus-polish`. Sau khi merge mới bắt đầu v1 theo `docs/PLAN.md`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -25,8 +25,10 @@
 - [x] T11 — README và quyền riêng tư: viết lại `README.md` (tính năng, cài unpacked, mở PDF từ web, bảng lệnh, giới hạn v0, liên kết quyền riêng tư), thêm `docs/PRIVACY.md` (dữ liệu lưu ở đâu, `localStorage`/`chrome.storage.sync`, không gửi dữ liệu, PDF từ web, quyền, cách xoá, kế hoạch v1). Cập nhật mục v1 trong `docs/PLAN.md` (key lưu cục bộ, chỉ gửi khi người dùng bấm tóm tắt). Thêm test manifest kiểm tra quyền host rộng chỉ nằm ở `optional_host_permissions`, không có `host_permissions`, và `viewer.html` có trong `web_accessible_resources` (tổng 150 test). Đã chạy đủ typecheck, test, lint, build, package; zip `release/readfocus-v0.1.0.zip` có 11 file, không lẫn `fixtures/` (commit 1cc2ee8).
 
 ## Dở dang / ghi chú cho phiên sau
+- Nhóm C đã push lên `feat/v0-focus-polish` và mở PR #6 vào `main`; CI (`check`) xanh sau 55 giây, PR mergeable, **chưa merge** theo yêu cầu.
+- Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
-- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) và 2 commit `fix:` cho review đã push lên PR #5; CI xanh, chưa merge.
+- CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) cùng 2 commit `fix:` đã merge qua PR #5 (merge commit 10f28e2).
 - PR nhóm A (`feat/v0-foundation` → `main`) đã merge qua PR #4; ba PR Dependabot nâng action lên v7 cũng đã merge.
 - `docs/PLAN.md` đã tách T2 thành T2a/T2b.
 - **Cảnh báo khi test tự động**: pdf.js v6 dùng `requestAnimationFrame` để render, nên khi cửa sổ Chrome test bị ẩn/che, render treo ở `renderTask.promise` và text layer rỗng. Đây là hành vi của pdf.js (tab ẩn cũng bị throttle), không phải lỗi app; khi test bằng công cụ browser phải thay tạm `window.requestAnimationFrame` bằng `setTimeout` trong trang. Sự kiện `scroll` thật cũng có thể không phát khi tab không hiển thị — khi đó phải `dispatchEvent(new Event('scroll'))`.
