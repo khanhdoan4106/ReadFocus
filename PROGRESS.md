@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v0-focus-polish` (Nhóm C, T8–T11)
-- Task đang làm: T8 xong (commit f36f598), chuẩn bị T9
-- Bước tiếp theo chính xác: làm T9 — context menu + nút toolbar "Mở bằng ReadFocus", viewer nhận `?url=` và fetch PDF, hướng dẫn `file://`; cập nhật `docs/PERMISSIONS.md`. DỪNG và hỏi người dùng trước khi thêm `declarativeNetRequest` + host `*.pdf`.
+- Task đang làm: T9 phần không nhạy cảm xong (commit 7d9d58d); đang chờ người dùng quyết định phần tự chuyển PDF bằng `declarativeNetRequest` + host `*.pdf`
+- Bước tiếp theo chính xác: chờ câu trả lời về quyền nhạy cảm. Nếu đồng ý thì làm tự chuyển PDF (mặc định tắt, có tuỳ chọn trong Cài đặt); nếu không thì ghi quyết định vào PROGRESS và chuyển T10.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -19,6 +19,8 @@
 - [x] Fix PR #5 (1) — Unicode NFC: `normalizeText` chuẩn hoá NFC, `searchIndex` chuẩn hoá NFC cho từ khoá, `comparable` chuẩn hoá NFC cho `matchesQuery`/snippet. Thêm test cho cả hai chiều NFD/NFC, có dấu và không dấu (commit a5339f4).
 - [x] Fix PR #5 (2) — Ghép text item: `joinTextItems`/`joinLineParts` nối bằng chuỗi rỗng như `PDFFindController`, `hasEOL` thành `\n`, chỉ chèn dấu cách khi hai mẩu sát nhau có khoảng cách ngang > 0,18 cỡ chữ và chưa có ký tự trắng; `extract.ts` truyền `transform`/`width`/`height` và dùng chung `joinLineParts` cho dòng mục lục. Thêm fixture `vietnamese.pdf` (chữ có dấu, dòng chia nhiều mẩu, có mẩu tách giữa từ) sinh bằng ToUnicode CMap + hai font để pdf.js không gộp mẩu (commit 6ea8a96). Đã kiểm tra: tìm "chương"/"chuong" ra 2 kết quả, snippet "Chương một" không bị vỡ, highlight tô đúng span "Chương"; `book.pdf` vẫn ra 3 mục Chapter 1/2/3.
 - [x] T8 — Tập trung: `src/core/focus.ts` (máy trạng thái hẹn giờ, Pomodoro chuyển pha, tự tạm dừng khi không hoạt động, kẹp phút/chiều cao dải sáng, format mm:ss; 27 test) và `src/core/stats.ts` (khoá ngày địa phương, cộng/kiểm tra/tổng hợp thống kê ngày; 13 test, tổng 130 test). `db.ts` thêm `loadDayStats`, `addDailyReading`, `loadRecentStats`. Tab Tập trung trong thanh bên: hẹn giờ theo chương (ước tính từ mục đang đọc), Pomodoro 25/5 chỉnh được, nút tạm dừng/chạy tiếp/dừng, thống kê hôm nay và 7 ngày, chỉnh chiều cao dải sáng, bật toàn màn hình. Thanh toolbar có pill đếm ngược; focus mode làm mờ trang bằng dải sáng theo chuột hoặc ↑/↓, ẩn thanh bên, Esc thoát; phím F/T/Space. Tự tạm dừng khi tab ẩn hoặc không hoạt động 60 giây. Thông báo qua `chrome.notifications`, fallback toast trong trang; thống kê phút/trang ghi vào IndexedDB mỗi 30 giây và khi ẩn tab. Thêm quyền `notifications` và ghi lý do trong `docs/PERMISSIONS.md` (commit f36f598). Đã smoke-test `book.pdf`: tab Tập trung hiện đúng, "Đọc chương này · 1 phút" chạy đếm ngược và pill "Đọc chương 01:00"; bật focus mode ẩn thanh bên, dải sáng 140 px ở giữa, ↑/↓ dịch dải, Esc thoát; không lỗi console.
+- [x] T9 (phần không nhạy cảm) — Mở PDF từ web: `src/core/pdf-url.ts` (`isPdfUrl`, `isFileUrl`, `fileNameFromUrl`; 5 test). Service worker thêm context menu "Mở bằng ReadFocus" cho trang/link và nút toolbar mở viewer kèm `?url=` khi tab hiện tại là PDF; `viewer` nhận `?url=`, fetch blob, mở như file thường, tên file lấy từ đường dẫn. Quyền thêm `contextMenus` + `activeTab`, lý do ghi trong `docs/PERMISSIONS.md`. Địa chỉ `file://` hiện hướng dẫn bật "Allow access to file URLs" và dùng nút Mở PDF/kéo thả; tải lỗi/CORS hiện thông báo riêng (commit 7d9d58d). Đã smoke-test: `?url=http://localhost:4173/fixtures/book.pdf` mở đúng `book.pdf`, nhãn Sách, 3 mục; `?url=file:///...` hiện đúng hướng dẫn; URL 404 hiện thông báo không tải được, không lỗi console ngoài 404 của tài nguyên.
+- [ ] T9 (phần nhạy cảm) — Tự chuyển mọi PDF sang ReadFocus bằng `declarativeNetRequest` + host `*.pdf`, mặc định tắt: **đang chờ người dùng quyết định**.
 
 ## Dở dang / ghi chú cho phiên sau
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -69,6 +71,8 @@
 - **Dải sáng focus mode dùng một phần tử `position: fixed` + `box-shadow: 0 0 0 100vmax`** thay vì bốn lớp phủ, nên chỉ cần đổi `top`/`height`; dải đi theo con trỏ hoặc ↑/↓, Esc thoát và tự thoát toàn màn hình. Thanh bên được ẩn hẳn khi bật focus mode.
 - **Thống kê đọc cộng dồn vào object store `stats`** theo ngày địa phương: đồng hồ đọc cộng phút, mỗi lần rời trang đọc ≥1 giây cộng 1 trang; ghi mỗi 30 giây và khi tab bị ẩn để không mất dữ liệu mà cũng không ghi IndexedDB liên tục.
 - **Thông báo hết giờ dùng `chrome.notifications` khi có API**, còn môi trường preview không có `chrome` thì hiện toast trong trang. Quyền `notifications` chỉ để báo giờ, không gửi dữ liệu ra ngoài.
+- **Mở PDF từ web bằng `activeTab` thay vì host permission rộng**: context menu và nút toolbar chỉ lấy địa chỉ sau thao tác của người dùng; viewer fetch đúng URL đó. Vì vậy không cần `<all_urls>`/`tabs`, nhưng link PDF khác origin có thể bị CORS chặn — khi đó viewer báo lỗi và hướng dẫn tải file về mở bằng nút Mở PDF. Muốn mở mọi PDF không cần thao tác thì cần `declarativeNetRequest` + host `*.pdf`, đang chờ người dùng duyệt.
+- **`file://` không cố fetch**: viewer nhận ra scheme này và hiện hướng dẫn dùng file picker/kéo thả hoặc bật "Allow access to file URLs"; tránh thêm host `file:///*` khi chưa được duyệt.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -82,6 +86,7 @@
 - Kiểm tra 2 lỗi vừa sửa: mở `tests/fixtures/vietnamese.pdf`, tìm "chương" và "chuong" (bật/tắt "Tìm không dấu"), snippet phải là "Chương một"/"Chương hai" chứ không vỡ thành "Ch ương"; mở một PDF thật có chữ NFD (hoặc file sinh ra từ công cụ tạo NFD) và tìm có dấu.
 - Kiểm tra T8 sau khi load unpacked: tab Tập trung, bấm "Đọc chương này" ở một mục có thời gian ước tính và xem pill đếm ngược trên toolbar; bật Pomodoro, thu nhỏ cửa sổ hoặc ẩn tab hơn 1 phút để xác nhận timer tự tạm dừng; để hết giờ nghỉ/tập trung xem thông báo hệ thống có hiện không.
 - Kiểm tra focus mode: bật trong tab Tập trung, thấy thanh bên ẩn, dải sáng đi theo chuột và ↑/↓, đổi chiều cao trong tab, thoát bằng Esc và thoát toàn màn hình đúng. Đọc vài phút, đổi trang, mở lại tab Tập trung xem "Hôm nay" có tăng phút/trang; đóng viewer rồi mở lại xem thống kê còn giữ.
+- Kiểm tra T9 sau khi load unpacked: mở một tab PDF công khai rồi bấm icon ReadFocus (phải mở đúng file); bấm chuột phải vào link PDF và chọn "Mở bằng ReadFocus"; thử một PDF cùng origin và một PDF khác origin để xem thông báo CORS có hướng dẫn rõ; mở tab `file://...pdf` rồi bấm icon để xem hướng dẫn. Sau đó thử bật "Allow access to file URLs" trong chrome://extensions.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
