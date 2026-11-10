@@ -2,11 +2,12 @@
 export const PDF_REDIRECT_RULE_ID = 9001;
 
 /**
- * Chỉ bắt URL http(s) kết thúc bằng .pdf (không phân biệt hoa thường), cho phép
- * phần query và fragment phía sau. Không bắt tài nguyên nhúng vì rule chỉ áp cho
- * `main_frame`.
+ * Chỉ bắt URL http(s) có phần đường dẫn kết thúc bằng .pdf (không phân biệt hoa
+ * thường), cho phép query và fragment phía sau. Phần trước đuôi file không được
+ * chứa `?`/`#`, nhờ vậy link như `search?q=report.pdf` không bị chuyển hướng.
+ * Không bắt tài nguyên nhúng vì rule chỉ áp cho `main_frame`.
  */
-export const PDF_REDIRECT_REGEX = '^https?://[^#]*\\.[Pp][Dd][Ff](\\?[^#]*)?(#.*)?$';
+export const PDF_REDIRECT_REGEX = '^https?://[^?#]*\\.[Pp][Dd][Ff](\\?[^#]*)?(#.*)?$';
 
 export function isPdfRedirectUrl(url: string): boolean {
   return new RegExp(PDF_REDIRECT_REGEX).test(url);

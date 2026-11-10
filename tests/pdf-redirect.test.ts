@@ -10,7 +10,7 @@ describe('isPdfRedirectUrl', () => {
     expect(isPdfRedirectUrl('https://example.com/a.pdf')).toBe(true);
     expect(isPdfRedirectUrl('https://example.com/thu-muc/a.PDF?x=1')).toBe(true);
     expect(isPdfRedirectUrl('http://example.com/a.pdf?x=1&y=2#page=3')).toBe(true);
-    expect(isPdfRedirectUrl('https://example.com/download?file=sach.pdf')).toBe(true);
+    expect(isPdfRedirectUrl('https://example.com/a.pdf#page=3')).toBe(true);
   });
 
   it('bỏ qua trang không phải PDF và giao thức khác', () => {
@@ -18,6 +18,12 @@ describe('isPdfRedirectUrl', () => {
     expect(isPdfRedirectUrl('https://example.com/bai-viet')).toBe(false);
     expect(isPdfRedirectUrl('ftp://example.com/a.pdf')).toBe(false);
     expect(isPdfRedirectUrl('file:///C:/a.pdf')).toBe(false);
+  });
+
+  it('bỏ qua khi .pdf chỉ nằm trong query', () => {
+    expect(isPdfRedirectUrl('https://www.google.com/search?q=report.pdf')).toBe(false);
+    expect(isPdfRedirectUrl('https://a.com/view?doc=1&name=a.pdf')).toBe(false);
+    expect(isPdfRedirectUrl('https://example.com/download?file=sach.pdf')).toBe(false);
   });
 });
 
