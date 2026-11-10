@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #f4f4f1;
   --surface: #ffffff;
   --fg: #1d1d1b;
@@ -9,16 +9,15 @@
   --danger: #a8322d;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #131517;
-    --surface: #1c1f22;
-    --fg: #eceae5;
-    --muted: #a3a09a;
-    --accent: #6fd2b4;
-    --border: #2c3136;
-    --danger: #f08a84;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #131517;
+  --surface: #1c1f22;
+  --fg: #eceae5;
+  --muted: #a3a09a;
+  --accent: #6fd2b4;
+  --border: #2c3136;
+  --danger: #f08a84;
 }
 
 * {
@@ -97,10 +96,8 @@ body {
   font-weight: 600;
 }
 
-@media (prefers-color-scheme: dark) {
-  .toolbar__button--primary {
-    color: #0d1210;
-  }
+:root[data-theme='dark'] .toolbar__button--primary {
+  color: #0d1210;
 }
 
 .toolbar__name {
@@ -192,10 +189,8 @@ body {
   cursor: pointer;
 }
 
-@media (prefers-color-scheme: dark) {
-  .notice__button {
-    color: #0d1210;
-  }
+:root[data-theme='dark'] .notice__button {
+  color: #0d1210;
 }
 
 .notice__error {
@@ -605,10 +600,8 @@ body {
   cursor: pointer;
 }
 
-@media (prefers-color-scheme: dark) {
-  .empty__action {
-    color: #0d1210;
-  }
+:root[data-theme='dark'] .empty__action {
+  color: #0d1210;
 }
 
 /* ---------- Drop overlay ---------- */
@@ -708,10 +701,8 @@ body {
   border-color: var(--accent);
 }
 
-@media (prefers-color-scheme: dark) {
-  .focus-button--primary {
-    color: #0d1210;
-  }
+:root[data-theme='dark'] .focus-button--primary {
+  color: #0d1210;
 }
 
 .focus-fields {
@@ -947,4 +938,98 @@ body {
 
 .settings-switch input:disabled + span {
   color: var(--muted);
+}
+
+.settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.settings-radio input {
+  accent-color: var(--accent);
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.settings-field input {
+  width: 5.5rem;
+  padding: 0.25rem 0.4rem;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.settings-button {
+  align-self: flex-start;
+  padding: 0.35rem 0.6rem;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.8125rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.settings-button:hover {
+  border-color: var(--accent);
+}
+
+.settings-button--danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.settings-button:focus-visible,
+.settings-field input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.settings-shortcuts__row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.settings-shortcuts__row dt {
+  min-width: 3.5rem;
+}
+
+.settings-shortcuts__row dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.settings-shortcuts kbd {
+  padding: 0.1rem 0.3rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
 }

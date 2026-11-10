@@ -1,15 +1,21 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { searchIndex as runSearch, type SearchIndex } from '../core/search';
 import { vi } from '../i18n/vi';
 
 type SearchPanelProps = {
   index: SearchIndex | null;
+  focusRequest: number;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
 };
 
-export function SearchPanel({ index, onSelectResult }: SearchPanelProps) {
+export function SearchPanel({ index, focusRequest, onSelectResult }: SearchPanelProps) {
   const [query, setQuery] = useState('');
   const [ignoreDiacritics, setIgnoreDiacritics] = useState(true);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusRequest > 0) inputRef.current?.focus();
+  }, [focusRequest]);
 
   const results = useMemo(() => {
     if (!index || query.trim() === '') return [];
@@ -19,6 +25,7 @@ export function SearchPanel({ index, onSelectResult }: SearchPanelProps) {
   return (
     <div class="search">
       <input
+        ref={inputRef}
         class="search__input"
         type="search"
         placeholder={vi.searchPlaceholder}

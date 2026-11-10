@@ -13,10 +13,12 @@ import {
   MAX_ACTIVE_GAP_MS,
   roundedMinutes,
   sanitizeReadingSpeed,
+  speedFromWordsPerMinute,
   wordsPerMinute as learnedWordsPerMinute,
   type ReadingSpeed,
 } from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
+import { parseThemePreference, THEME_SETTING_KEY, type ThemePreference } from '../core/theme';
 import { countWords } from '../core/text';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import {
@@ -41,7 +43,9 @@ import { emptyDayStats, type DayStats } from '../core/stats';
 import { vi } from '../i18n/vi';
 import {
   addDailyReading,
+  clearAllData,
   clearPageTexts,
+  deleteDocumentData,
   loadDayStats,
   loadProgress,
   loadRecentStats,
@@ -55,6 +59,7 @@ import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { Sidebar } from './Sidebar';
+import { applyTheme, watchSystemTheme } from './theme';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 type ErrorReason =
@@ -178,6 +183,8 @@ export function App() {
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>('system');
+  const [searchRequest, setSearchRequest] = useState(0);
   const autoOpenSupported =
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
@@ -484,6 +491,31 @@ export function App() {
     void saveSetting('readingSpeed', speed);
   }, [speed]);
 
+  // Nạp giao diện đã chọn; "theo hệ thống" thì đổi màu khi hệ điều hành đổi.
+  useEffect(() => {
+    void loadSetting<unknown>(THEME_SETTING_KEY).then((value) => {
+      setTheme(parseThemePreference(value));
+    });
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'system') return;
+    return watchSystemTheme((resolved) => {
+      document.documentElement.dataset.theme = resolved;
+    });
+  }, [theme]);
+
+  const handleTheme = useCallback((value: ThemePreference) => {
+    setTheme(value);
+    applyTheme(value);
+    void saveSetting(THEME_SETTING_KEY, value);
+  }, []);
+
+  const handleWordsPerMinute = useCallback((value: number) => {
+    setSpeed(speedFromWordsPerMinute(value));
+  }, []);
+
   const markActive = useCallback(() => {
     lastActivityRef.current = Date.now();
   }, []);
@@ -661,6 +693,62 @@ export function App() {
       setToast(vi.autoOpenPermissionDenied);
     }
   }, []);
+
+  /** Đóng tài liệu đang mở và xoá trạng thái phân tích trong bộ nhớ. */
+  const resetDocument = useCallback(async () => {
+    analysisTokenRef.current += 1;
+    await closeRef.current?.();
+    closeRef.current = null;
+    docRef.current = null;
+    restoringRef.current = null;
+    setDoc(null);
+    setDocId(null);
+    setFileName('');
+    setStatus('empty');
+    setToc(null);
+    setSearchIndex(null);
+    setAnalysis({ phase: 'idle' });
+    setPageWords({});
+    setHighlight(null);
+    setIndexRange(null);
+    setRangeError(null);
+  }, []);
+
+  const handleDeleteDocument = useCallback(async () => {
+    if (docId === null) return;
+    if (!window.confirm(vi.deleteDocumentConfirm(fileName))) return;
+
+    const ok = await deleteDocumentData(docId);
+    if (!ok) {
+      setToast(vi.deleteFailed);
+      return;
+    }
+
+    // Dừng lượt trích đang chạy và bỏ chỉ mục của tài liệu vừa xoá.
+    analysisTokenRef.current += 1;
+    setDocId(null);
+    setToc(null);
+    setSearchIndex(null);
+    setAnalysis({ phase: 'idle' });
+    setPageWords({});
+    setToast(vi.deleteDocumentDone);
+  }, [docId, fileName]);
+
+  const handleDeleteAll = useCallback(async () => {
+    if (!window.confirm(vi.deleteAllConfirm)) return;
+
+    const ok = await clearAllData();
+    if (!ok) {
+      setToast(vi.deleteFailed);
+      return;
+    }
+
+    await resetDocument();
+    statsPendingRef.current = { minutes: 0, pages: 0 };
+    setTodayStats(emptyDayStats());
+    setRecentStats([]);
+    setToast(vi.deleteAllDone);
+  }, [resetDocument]);
 
   // Ghi thống kê định kỳ thay vì mỗi giây.
   useEffect(() => {
@@ -851,13 +939,20 @@ export function App() {
         }
       }
 
-      if (event.key === 'f' || event.key === 'F') {
+      if (event.key === '/') {
+        event.preventDefault();
+        if (focusMode) toggleFocusMode();
+        setSidebarOpen(true);
+        setSearchRequest((value) => value + 1);
+      } else if (event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         toggleFocusMode();
       } else if (event.key === 't' || event.key === 'T') {
         event.preventDefault();
         setSidebarOpen((open) => !open);
       } else if (event.key === ' ') {
+        // Để nút đang có focus tự xử lý Space, tránh vừa bấm nút vừa đổi hẹn giờ.
+        if (target?.tagName === 'BUTTON' || target?.tagName === 'A') return;
         event.preventDefault();
         toggleTimer();
       } else if (event.key === 'ArrowRight') {
@@ -1206,10 +1301,18 @@ export function App() {
               onToggleFullscreen: toggleFullscreen,
             }}
             settings={{
+              theme,
+              onChangeTheme: handleTheme,
+              wordsPerMinute: readingWordsPerMinute,
+              onChangeWordsPerMinute: handleWordsPerMinute,
               autoOpenPdf,
               autoOpenSupported,
               onToggleAutoOpen: handleAutoOpenPdf,
+              documentName: status === 'ready' && docId !== null ? fileName : null,
+              onDeleteDocument: () => void handleDeleteDocument(),
+              onDeleteAll: () => void handleDeleteAll(),
             }}
+            searchRequest={searchRequest}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
           />

@@ -246,3 +246,58 @@ export async function saveSetting(key: string, value: unknown): Promise<void> {
     // Không lưu được cài đặt thì vẫn cho người dùng đọc tiếp.
   }
 }
+
+/**
+ * Xoá dữ liệu của một tài liệu: metadata, văn bản từng trang, mục lục, chỉ mục
+ * tìm kiếm và tiến độ. Thống kê ngày và cài đặt được giữ nguyên.
+ */
+export async function deleteDocumentData(docId: string): Promise<boolean> {
+  try {
+    const db = await getDb();
+    const tx = db.transaction(
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress'],
+      'readwrite',
+    );
+    await Promise.all([
+      tx.objectStore('documents').delete(docId),
+      tx.objectStore('progress').delete(docId),
+      tx.objectStore('toc').delete(docId),
+      tx.objectStore('searchIndex').delete(docId),
+    ]);
+    let cursor = await tx.objectStore('pages').index('by-doc').openCursor(IDBKeyRange.only(docId));
+    while (cursor) {
+      await cursor.delete();
+      cursor = await cursor.continue();
+    }
+    await tx.done;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Xoá toàn bộ dữ liệu đọc đã lưu trên máy: tài liệu, văn bản, mục lục, chỉ mục
+ * tìm kiếm, tiến độ và thống kê. Cài đặt giao diện/tốc độ đọc được giữ nguyên.
+ */
+export async function clearAllData(): Promise<boolean> {
+  try {
+    const db = await getDb();
+    const tx = db.transaction(
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'stats'],
+      'readwrite',
+    );
+    await Promise.all([
+      tx.objectStore('documents').clear(),
+      tx.objectStore('pages').clear(),
+      tx.objectStore('toc').clear(),
+      tx.objectStore('searchIndex').clear(),
+      tx.objectStore('progress').clear(),
+      tx.objectStore('stats').clear(),
+    ]);
+    await tx.done;
+    return true;
+  } catch {
+    return false;
+  }
+}

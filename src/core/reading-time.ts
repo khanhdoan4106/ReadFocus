@@ -81,6 +81,19 @@ export function wordsPerMinute(speed: ReadingSpeed, fallback = DEFAULT_WORDS_PER
   return Math.min(Math.max(Math.round(learned), MIN_WORDS_PER_MINUTE), MAX_WORDS_PER_MINUTE);
 }
 
+/**
+ * Đặt tốc độ đọc thủ công trong tab Cài đặt: quy đổi về mẫu 1 phút để
+ * `wordsPerMinute` trả đúng con số người dùng chọn, và kẹp trong khoảng hợp lệ.
+ */
+export function speedFromWordsPerMinute(value: number): ReadingSpeed {
+  const rounded = Number.isFinite(value) ? Math.round(value) : DEFAULT_WORDS_PER_MINUTE;
+  const clamped = Math.min(Math.max(rounded, MIN_WORDS_PER_MINUTE), MAX_WORDS_PER_MINUTE);
+  // Dùng mẫu đủ từ và đủ thời gian để `wordsPerMinute` coi là tin cậy, rồi co
+  // thời gian cho khớp đúng tốc độ người dùng chọn.
+  const words = Math.max(MIN_LEARN_WORDS, Math.ceil((MIN_LEARN_ACTIVE_MS * clamped) / 60_000));
+  return { activeMs: Math.round((words * 60_000) / clamped), words };
+}
+
 export function estimateItemMinutes(item: TocTimeItem, wordsPerMinute_: number): number {
   if (!Number.isFinite(wordsPerMinute_) || wordsPerMinute_ <= 0) return 0;
   return Math.max(item.wordCount, 0) / wordsPerMinute_;
