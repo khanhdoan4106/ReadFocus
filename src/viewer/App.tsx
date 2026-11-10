@@ -2,23 +2,53 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
+import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
+import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import {
   addReadingSample,
   emptyReadingSpeed,
+  estimateItemMinutes,
   MAX_ACTIVE_GAP_MS,
+  roundedMinutes,
   sanitizeReadingSpeed,
+  speedFromWordsPerMinute,
   wordsPerMinute as learnedWordsPerMinute,
   type ReadingSpeed,
 } from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
+import { parseThemePreference, THEME_SETTING_KEY, type ThemePreference } from '../core/theme';
 import { countWords } from '../core/text';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
+import {
+  clampBandHeight,
+  clampMinutes,
+  DEFAULT_BAND_HEIGHT,
+  DEFAULT_BREAK_MINUTES,
+  DEFAULT_FOCUS_MINUTES,
+  formatTimer,
+  nextPomodoroPhase,
+  pauseTimer,
+  resumeTimer,
+  shouldAutoPause,
+  startTimer,
+  stopTimer,
+  tickTimer,
+  timerRemaining,
+  type FocusTimer,
+  type TimerMode,
+} from '../core/focus';
+import { emptyDayStats, type DayStats } from '../core/stats';
 import { vi } from '../i18n/vi';
 import {
+  addDailyReading,
+  clearAllData,
   clearPageTexts,
+  deleteDocumentData,
+  loadDayStats,
   loadProgress,
+  loadRecentStats,
   loadSetting,
   recordDocumentOpen,
   savePageTexts,
@@ -29,9 +59,11 @@ import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { Sidebar } from './Sidebar';
+import { applyTheme, watchSystemTheme } from './theme';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
-type ErrorReason = 'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render';
+type ErrorReason =
+  'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render' | 'fetch' | 'file-url';
 
 type Analysis =
   | { phase: 'idle' }
@@ -59,6 +91,33 @@ function profileLabel(kind: DocKind): string {
   }
 }
 
+function timerModeLabel(mode: FocusTimer['mode']): string {
+  switch (mode) {
+    case 'chapter':
+      return vi.timerModeChapter;
+    case 'focus':
+      return vi.timerModeFocus;
+    case 'break':
+      return vi.timerModeBreak;
+  }
+}
+
+const IDLE_TIMER: FocusTimer = {
+  mode: 'chapter',
+  status: 'idle',
+  durationMs: 0,
+  remainingMs: 0,
+  startedAt: null,
+};
+
+/** Ước tính số phút của mục đang đọc; 0 khi chưa có mục lục hoặc chưa học được tốc độ. */
+function chapterEstimate(toc: TocResult | null, page: number, wordsPerMinute: number): number {
+  if (toc === null || wordsPerMinute <= 0) return 0;
+  const item = toc.items.find((entry) => page >= entry.startPage && page <= entry.endPage);
+  if (item === undefined) return 0;
+  return Math.max(roundedMinutes(estimateItemMinutes(item, wordsPerMinute)), 1);
+}
+
 async function hashData(data: ArrayBuffer): Promise<string | null> {
   try {
     return await sha256Hex(data);
@@ -79,6 +138,10 @@ function errorMessage(reason: ErrorReason): string {
     case 'invalid':
     case 'render':
       return vi.errorInvalid;
+    case 'fetch':
+      return vi.errorFetch;
+    case 'file-url':
+      return vi.errorFileUrl;
     case 'unknown':
       return vi.errorGeneric;
   }
@@ -108,6 +171,24 @@ export function App() {
     ignoreDiacritics: boolean;
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [timer, setTimer] = useState<FocusTimer>(IDLE_TIMER);
+  const [now, setNow] = useState(() => Date.now());
+  const [focusMinutes, setFocusMinutes] = useState(DEFAULT_FOCUS_MINUTES);
+  const [breakMinutes, setBreakMinutes] = useState(DEFAULT_BREAK_MINUTES);
+  const [bandHeight, setBandHeight] = useState(DEFAULT_BAND_HEIGHT);
+  const [bandTop, setBandTop] = useState(0);
+  const [focusMode, setFocusMode] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [todayStats, setTodayStats] = useState<DayStats>(() => emptyDayStats());
+  const [recentStats, setRecentStats] = useState<DayStats[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const [theme, setTheme] = useState<ThemePreference>('system');
+  const [searchRequest, setSearchRequest] = useState(0);
+  const autoOpenSupported =
+    typeof chrome !== 'undefined' &&
+    chrome.permissions !== undefined &&
+    chrome.storage?.sync !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -126,6 +207,12 @@ export function App() {
     lastTick: null,
   });
   const speedReadyRef = useRef(false);
+  const settingsReadyRef = useRef(false);
+  const lastActivityRef = useRef(Date.now());
+  // Số phút/trang đã đọc chờ ghi vào thống kê ngày.
+  const statsPendingRef = useRef({ minutes: 0, pages: 0 });
+  const bandHeightRef = useRef(bandHeight);
+  bandHeightRef.current = bandHeight;
 
   useEffect(() => {
     return () => {
@@ -325,6 +412,38 @@ export function App() {
     [loadOutlineToc, runExtraction, scrollToPage],
   );
 
+  const openFromUrl = useCallback(
+    async (url: string) => {
+      if (isFileUrl(url)) {
+        setError('file-url');
+        setStatus('error');
+        return;
+      }
+
+      setStatus('opening');
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        const file = new File([blob], fileNameFromUrl(url), {
+          type: blob.type || 'application/pdf',
+        });
+        await handleFile(file);
+      } catch {
+        setError('fetch');
+        setStatus('error');
+      }
+    },
+    [handleFile],
+  );
+
+  // Mở PDF do context menu hoặc nút toolbar trên trang PDF đưa sang.
+  useEffect(() => {
+    const requested = readRequestedPdfUrl(window.location.search);
+    if (requested === null) return;
+    void openFromUrl(requested);
+  }, [openFromUrl]);
+
   const handleMeasured = useCallback((page: number, size: PageSize) => {
     setPageSizes((previous) => {
       const existing = previous[page];
@@ -372,6 +491,298 @@ export function App() {
     void saveSetting('readingSpeed', speed);
   }, [speed]);
 
+  // Nạp giao diện đã chọn; "theo hệ thống" thì đổi màu khi hệ điều hành đổi.
+  useEffect(() => {
+    void loadSetting<unknown>(THEME_SETTING_KEY).then((value) => {
+      setTheme(parseThemePreference(value));
+    });
+  }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== 'system') return;
+    return watchSystemTheme((resolved) => {
+      document.documentElement.dataset.theme = resolved;
+    });
+  }, [theme]);
+
+  const handleTheme = useCallback((value: ThemePreference) => {
+    setTheme(value);
+    applyTheme(value);
+    void saveSetting(THEME_SETTING_KEY, value);
+  }, []);
+
+  const handleWordsPerMinute = useCallback((value: number) => {
+    setSpeed(speedFromWordsPerMinute(value));
+  }, []);
+
+  const markActive = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
+
+  const refreshStats = useCallback(async () => {
+    const [today, recent] = await Promise.all([loadDayStats(), loadRecentStats(7)]);
+    setTodayStats(today);
+    setRecentStats(recent);
+  }, []);
+
+  const flushStats = useCallback(async () => {
+    const pending = statsPendingRef.current;
+    if (pending.minutes < 0.01 && pending.pages === 0) return;
+    statsPendingRef.current = { minutes: 0, pages: 0 };
+    const today = await addDailyReading(pending.minutes, pending.pages);
+    setTodayStats(today);
+    setRecentStats(await loadRecentStats(7));
+  }, []);
+
+  const notify = useCallback((title: string, message: string) => {
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (chromeApi?.notifications) {
+      try {
+        void chromeApi.notifications.create({
+          type: 'basic',
+          iconUrl: chromeApi.runtime.getURL('icons/icon-128.png'),
+          title,
+          message,
+        });
+        return;
+      } catch {
+        // Chrome từ chối thông báo thì hiện ngay trong trang.
+      }
+    }
+    setToast(`${title} — ${message}`);
+  }, []);
+
+  // Nạp thống kê ngày và thông số tập trung đã lưu.
+  useEffect(() => {
+    void refreshStats();
+    void Promise.all([
+      loadSetting<unknown>('focusMinutes'),
+      loadSetting<unknown>('breakMinutes'),
+      loadSetting<unknown>('focusBandHeight'),
+    ]).then(([focusValue, breakValue, bandValue]) => {
+      if (typeof focusValue === 'number') setFocusMinutes(clampMinutes(focusValue));
+      if (typeof breakValue === 'number') setBreakMinutes(clampMinutes(breakValue, 1, 60));
+      if (typeof bandValue === 'number') setBandHeight(clampBandHeight(bandValue));
+      settingsReadyRef.current = true;
+    });
+  }, [refreshStats]);
+
+  useEffect(() => {
+    if (!settingsReadyRef.current) return;
+    void saveSetting('focusMinutes', focusMinutes);
+    void saveSetting('breakMinutes', breakMinutes);
+    void saveSetting('focusBandHeight', bandHeight);
+  }, [focusMinutes, breakMinutes, bandHeight]);
+
+  // Ghi nhận hoạt động để tự tạm dừng khi người dùng rời đi.
+  useEffect(() => {
+    const events: (keyof WindowEventMap)[] = [
+      'pointermove',
+      'pointerdown',
+      'keydown',
+      'wheel',
+      'scroll',
+      'touchstart',
+    ];
+    for (const event of events) window.addEventListener(event, markActive, { passive: true });
+    return () => {
+      for (const event of events) window.removeEventListener(event, markActive);
+    };
+  }, [markActive]);
+
+  // Hẹn giờ chạy theo đồng hồ thật; tab bị ẩn hoặc người dùng ngồi im thì tạm dừng.
+  useEffect(() => {
+    if (timer.status !== 'running') return;
+    const tick = () => {
+      const current = Date.now();
+      setNow(current);
+      if (
+        document.visibilityState !== 'visible' ||
+        shouldAutoPause(lastActivityRef.current, current)
+      ) {
+        setTimer((value) => pauseTimer(value, current));
+        return;
+      }
+      setTimer((value) => tickTimer(value, current));
+    };
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [timer.status]);
+
+  const handleTimerFinished = useCallback(
+    (mode: TimerMode) => {
+      switch (mode) {
+        case 'chapter':
+          notify(vi.notifyChapterTitle, vi.notifyChapterBody);
+          break;
+        case 'focus':
+          notify(vi.notifyFocusTitle, vi.notifyFocusBody);
+          break;
+        case 'break':
+          notify(vi.notifyBreakTitle, vi.notifyBreakBody);
+          break;
+      }
+    },
+    [notify],
+  );
+
+  useEffect(() => {
+    if (timer.status !== 'finished') return;
+    const mode = timer.mode;
+    handleTimerFinished(mode);
+    if (mode === 'focus' || mode === 'break') {
+      const next = nextPomodoroPhase(timer, focusMinutes, breakMinutes, Date.now());
+      if (next !== null) setTimer(next);
+    }
+  }, [timer, focusMinutes, breakMinutes, handleTimerFinished]);
+
+  useEffect(() => {
+    if (toast === null) return;
+    const id = setTimeout(() => setToast(null), 6000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  // Đọc trạng thái tự mở PDF và đối chiếu quyền host thực tế.
+  useEffect(() => {
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
+
+    void Promise.all([
+      chromeApi.storage.sync.get('autoOpenPdf'),
+      chromeApi.permissions.contains({ origins: ['*://*/*'] }),
+    ])
+      .then(([stored, granted]) => {
+        const wantsEnabled = stored.autoOpenPdf === true;
+        setAutoOpenPdf(wantsEnabled && granted);
+        if (wantsEnabled && !granted) {
+          void chromeApi.storage.sync.set({ autoOpenPdf: false });
+          void chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+        }
+      })
+      .catch(() => setAutoOpenPdf(false));
+  }, []);
+
+  const handleAutoOpenPdf = useCallback(async (enabled: boolean) => {
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
+
+    try {
+      if (enabled) {
+        // Phải gọi request() ngay trong thao tác bấm của người dùng.
+        const granted = await chromeApi.permissions.request({ origins: ['*://*/*'] });
+        if (!granted) {
+          setAutoOpenPdf(false);
+          setToast(vi.autoOpenPermissionDenied);
+          return;
+        }
+        await chromeApi.storage.sync.set({ autoOpenPdf: true });
+        setAutoOpenPdf(true);
+        await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+        setToast(vi.autoOpenEnabled);
+        return;
+      }
+
+      await chromeApi.storage.sync.set({ autoOpenPdf: false });
+      setAutoOpenPdf(false);
+      await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+      await chromeApi.permissions.remove({ origins: ['*://*/*'] });
+      setToast(vi.autoOpenDisabled);
+    } catch {
+      setAutoOpenPdf(false);
+      setToast(vi.autoOpenPermissionDenied);
+    }
+  }, []);
+
+  /** Đóng tài liệu đang mở và xoá trạng thái phân tích trong bộ nhớ. */
+  const resetDocument = useCallback(async () => {
+    analysisTokenRef.current += 1;
+    await closeRef.current?.();
+    closeRef.current = null;
+    docRef.current = null;
+    restoringRef.current = null;
+    setDoc(null);
+    setDocId(null);
+    setFileName('');
+    setStatus('empty');
+    setToc(null);
+    setSearchIndex(null);
+    setAnalysis({ phase: 'idle' });
+    setPageWords({});
+    setHighlight(null);
+    setIndexRange(null);
+    setRangeError(null);
+  }, []);
+
+  const handleDeleteDocument = useCallback(async () => {
+    if (docId === null) return;
+    if (!window.confirm(vi.deleteDocumentConfirm(fileName))) return;
+
+    const ok = await deleteDocumentData(docId);
+    if (!ok) {
+      setToast(vi.deleteFailed);
+      return;
+    }
+
+    // Dừng lượt trích đang chạy và bỏ chỉ mục của tài liệu vừa xoá.
+    analysisTokenRef.current += 1;
+    setDocId(null);
+    setToc(null);
+    setSearchIndex(null);
+    setAnalysis({ phase: 'idle' });
+    setPageWords({});
+    setToast(vi.deleteDocumentDone);
+  }, [docId, fileName]);
+
+  const handleDeleteAll = useCallback(async () => {
+    if (!window.confirm(vi.deleteAllConfirm)) return;
+
+    const ok = await clearAllData();
+    if (!ok) {
+      setToast(vi.deleteFailed);
+      return;
+    }
+
+    await resetDocument();
+    statsPendingRef.current = { minutes: 0, pages: 0 };
+    setTodayStats(emptyDayStats());
+    setRecentStats([]);
+    setToast(vi.deleteAllDone);
+  }, [resetDocument]);
+
+  // Ghi thống kê định kỳ thay vì mỗi giây.
+  useEffect(() => {
+    if (status !== 'ready') return;
+    const id = setInterval(() => void flushStats(), 30_000);
+    return () => {
+      clearInterval(id);
+      void flushStats();
+    };
+  }, [status, flushStats]);
+
+  // Dải sáng đi theo chuột khi bật chế độ tập trung.
+  useEffect(() => {
+    if (!focusMode) return;
+    const onMove = (event: PointerEvent) => {
+      const height = bandHeightRef.current;
+      const top = event.clientY - height / 2;
+      setBandTop(Math.min(Math.max(top, 0), Math.max(window.innerHeight - height, 0)));
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [focusMode]);
+
+  useEffect(() => {
+    if (!focusMode) return;
+    setBandTop((top) => Math.min(Math.max(top, 0), Math.max(window.innerHeight - bandHeight, 0)));
+  }, [bandHeight, focusMode]);
+
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement !== null);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
+
   // Đồng hồ chỉ chạy khi tab hiển thị; khoảng nghỉ dài hơn 2 phút không được tính.
   useEffect(() => {
     if (status !== 'ready') return;
@@ -387,13 +798,16 @@ export function App() {
         clock.lastTick = now;
         return;
       }
-      clock.activeMs += Math.min(Math.max(now - clock.lastTick, 0), MAX_ACTIVE_GAP_MS);
+      const delta = Math.min(Math.max(now - clock.lastTick, 0), MAX_ACTIVE_GAP_MS);
+      clock.activeMs += delta;
+      statsPendingRef.current.minutes += delta / 60_000;
       clock.lastTick = now;
     };
 
     const onVisibilityChange = () => {
       clock.lastTick = null;
       tick();
+      if (document.visibilityState !== 'visible') void flushStats();
     };
 
     const timer = setInterval(tick, 1000);
@@ -405,7 +819,7 @@ export function App() {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       clock.lastTick = null;
     };
-  }, [status]);
+  }, [flushStats, status]);
 
   // Rời trang thì chốt mẫu đọc của trang vừa xem để học tốc độ thực tế.
   useEffect(() => {
@@ -416,6 +830,7 @@ export function App() {
     if (words > 0 && clock.activeMs > 0) {
       setSpeed((current) => addReadingSample(current, { words, activeMs: clock.activeMs }));
     }
+    if (clock.activeMs >= 1000) statsPendingRef.current.pages += 1;
 
     clock.page = pageNumber;
     clock.activeMs = 0;
@@ -423,6 +838,66 @@ export function App() {
   }, [pageNumber, pageWords]);
 
   const readingWordsPerMinute = learnedWordsPerMinute(speed);
+  const chapterMinutes = chapterEstimate(toc, pageNumber, readingWordsPerMinute);
+  const remainingTimerMs = timerRemaining(timer, now);
+
+  const startChapterTimer = useCallback(() => {
+    if (chapterMinutes <= 0) return;
+    markActive();
+    const current = Date.now();
+    setNow(current);
+    setTimer(startTimer('chapter', chapterMinutes * 60_000, current));
+  }, [chapterMinutes, markActive]);
+
+  const startPomodoroTimer = useCallback(() => {
+    markActive();
+    const current = Date.now();
+    setNow(current);
+    setTimer(startTimer('focus', clampMinutes(focusMinutes) * 60_000, current));
+  }, [focusMinutes, markActive]);
+
+  const toggleTimer = useCallback(() => {
+    markActive();
+    const current = Date.now();
+    setNow(current);
+    setTimer((value) => {
+      if (value.status === 'running') return pauseTimer(value, current);
+      if (value.status === 'paused') return resumeTimer(value, current);
+      return startTimer('focus', clampMinutes(focusMinutes) * 60_000, current);
+    });
+  }, [focusMinutes, markActive]);
+
+  const stopCurrentTimer = useCallback(() => {
+    setTimer((value) => stopTimer(value));
+    setNow(Date.now());
+  }, []);
+
+  const toggleFocusMode = useCallback(() => {
+    if (focusMode) {
+      setFocusMode(false);
+      if (document.fullscreenElement !== null) {
+        void document.exitFullscreen().catch(() => undefined);
+      }
+      return;
+    }
+    markActive();
+    setBandTop(Math.max((window.innerHeight - bandHeightRef.current) / 2, 0));
+    setFocusMode(true);
+  }, [focusMode, markActive]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    if (typeof document.documentElement.requestFullscreen !== 'function') {
+      setToast(vi.focusFullscreenFailed);
+      return;
+    }
+    void document.documentElement.requestFullscreen().catch(() => {
+      setToast(vi.focusFullscreenFailed);
+    });
+  }, []);
 
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
@@ -445,7 +920,42 @@ export function App() {
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
 
-      if (event.key === 'ArrowRight') {
+      if (focusMode) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          toggleFocusMode();
+          return;
+        }
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          event.preventDefault();
+          const delta = event.key === 'ArrowUp' ? -32 : 32;
+          setBandTop((top) =>
+            Math.min(
+              Math.max(top + delta, 0),
+              Math.max(window.innerHeight - bandHeightRef.current, 0),
+            ),
+          );
+          return;
+        }
+      }
+
+      if (event.key === '/') {
+        event.preventDefault();
+        if (focusMode) toggleFocusMode();
+        setSidebarOpen(true);
+        setSearchRequest((value) => value + 1);
+      } else if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault();
+        toggleFocusMode();
+      } else if (event.key === 't' || event.key === 'T') {
+        event.preventDefault();
+        setSidebarOpen((open) => !open);
+      } else if (event.key === ' ') {
+        // Để nút đang có focus tự xử lý Space, tránh vừa bấm nút vừa đổi hẹn giờ.
+        if (target?.tagName === 'BUTTON' || target?.tagName === 'A') return;
+        event.preventDefault();
+        toggleTimer();
+      } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         goToPage(pageNumberRef.current + 1);
       } else if (event.key === 'ArrowLeft') {
@@ -456,7 +966,7 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [goToPage, status]);
+  }, [focusMode, goToPage, status, toggleFocusMode, toggleTimer]);
 
   const handleZoom = (direction: 1 | -1) => {
     anchorPageRef.current = pageNumberRef.current;
@@ -559,6 +1069,23 @@ export function App() {
 
         {status === 'ready' && analysis.phase === 'done' && (
           <span class="toolbar__profile">{profileLabel(analysis.profile.kind)}</span>
+        )}
+
+        {timer.status !== 'idle' && (
+          <button
+            type="button"
+            class={`toolbar__button toolbar__timer${
+              timer.status === 'paused' ? ' toolbar__timer--paused' : ''
+            }`}
+            aria-label={vi.timerToggleAria(
+              timerModeLabel(timer.mode),
+              formatTimer(remainingTimerMs),
+            )}
+            onClick={toggleTimer}
+          >
+            <span class="toolbar__timer-mode">{timerModeLabel(timer.mode)}</span>
+            <span class="toolbar__timer-time">{formatTimer(remainingTimerMs)}</span>
+          </button>
         )}
 
         <div class="toolbar__group">
@@ -746,18 +1273,93 @@ export function App() {
           )}
         </main>
 
-        {status === 'ready' && sidebarOpen && (
+        {status === 'ready' && sidebarOpen && !focusMode && (
           <Sidebar
             toc={toc}
             currentPage={pageNumber}
             building={analysis.phase === 'extracting'}
             index={searchIndex}
             wordsPerMinute={readingWordsPerMinute}
+            focus={{
+              timer,
+              remainingMs: remainingTimerMs,
+              chapterMinutes,
+              focusMinutes,
+              breakMinutes,
+              bandHeight,
+              fullscreen,
+              statsToday: todayStats,
+              statsRecent: recentStats,
+              onStartChapter: startChapterTimer,
+              onStartPomodoro: startPomodoroTimer,
+              onToggleTimer: toggleTimer,
+              onStopTimer: stopCurrentTimer,
+              onChangeFocusMinutes: (value) => setFocusMinutes(clampMinutes(value)),
+              onChangeBreakMinutes: (value) => setBreakMinutes(clampMinutes(value, 1, 60)),
+              onChangeBandHeight: (value) => setBandHeight(clampBandHeight(value)),
+              onToggleFocusMode: toggleFocusMode,
+              onToggleFullscreen: toggleFullscreen,
+            }}
+            settings={{
+              theme,
+              onChangeTheme: handleTheme,
+              wordsPerMinute: readingWordsPerMinute,
+              onChangeWordsPerMinute: handleWordsPerMinute,
+              autoOpenPdf,
+              autoOpenSupported,
+              onToggleAutoOpen: handleAutoOpenPdf,
+              documentName: status === 'ready' && docId !== null ? fileName : null,
+              onDeleteDocument: () => void handleDeleteDocument(),
+              onDeleteAll: () => void handleDeleteAll(),
+            }}
+            searchRequest={searchRequest}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
           />
         )}
       </div>
+
+      {focusMode && (
+        <>
+          <div
+            class="focus-band"
+            style={{ top: `${bandTop}px`, height: `${bandHeight}px` }}
+            aria-hidden="true"
+          />
+          <div class="focus-controls" role="group" aria-label={vi.focusModeTitle}>
+            {timer.status !== 'idle' && (
+              <span class="focus-controls__timer">
+                {timerModeLabel(timer.mode)} · {formatTimer(remainingTimerMs)}
+              </span>
+            )}
+            <button type="button" class="focus-button" onClick={toggleFullscreen}>
+              {fullscreen ? vi.focusExitFullscreen : vi.focusFullscreen}
+            </button>
+            <button
+              type="button"
+              class="focus-button focus-button--primary"
+              onClick={toggleFocusMode}
+            >
+              {vi.focusModeOff}
+            </button>
+          </div>
+          <p class="focus-move-hint">{vi.focusMoveHint}</p>
+        </>
+      )}
+
+      {toast !== null && (
+        <div class="toast" role="status">
+          <span>{toast}</span>
+          <button
+            type="button"
+            class="toast__close"
+            aria-label={vi.toastDismiss}
+            onClick={() => setToast(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}
     </div>

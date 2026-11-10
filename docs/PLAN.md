@@ -116,14 +116,14 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T5** `toc.ts`, đủ 4 tầng fallback, có test; UI tab Mục lục.
 - [x] **T6** `search.ts` + chuẩn hóa tiếng Việt, có test; UI tab Tìm kiếm + highlight.
 - [x] **T7** `reading-time.ts` + học tốc độ đọc, có test; hiển thị thời gian trong mục lục.
-- [ ] **T8** Tập trung: hẹn giờ theo chương, Pomodoro, focus mode, phát hiện không hoạt động, thống kê.
-- [ ] **T9** Mở PDF từ web: context menu, nút toolbar, tùy chọn tự chuyển (mặc định tắt), hướng dẫn `file://`; hoàn thiện `docs/PERMISSIONS.md`.
-- [ ] **T10** Cài đặt, dark mode, phím tắt, các trạng thái lỗi; rà toàn bộ câu chữ tiếng Việt.
-- [ ] **T11** Hoàn thiện README (tính năng, cài unpacked, build, quyền riêng tư), viết `docs/PRIVACY.md`, kiểm tra `npm run package`, cập nhật mục v1 bên dưới.
+- [x] **T8** Tập trung: hẹn giờ theo chương, Pomodoro, focus mode, phát hiện không hoạt động, thống kê.
+- [x] **T9** Mở PDF từ web: context menu, nút toolbar, tùy chọn tự chuyển (mặc định tắt), hướng dẫn `file://`; hoàn thiện `docs/PERMISSIONS.md`.
+- [x] **T10** Cài đặt, dark mode, phím tắt, các trạng thái lỗi; rà toàn bộ câu chữ tiếng Việt.
+- [x] **T11** Hoàn thiện README (tính năng, cài unpacked, build, quyền riêng tư), viết `docs/PRIVACY.md`, kiểm tra `npm run package`, cập nhật mục v1 bên dưới.
 
 ## Để sau (không làm ở v0)
 
 - Chrome Side Panel API.
-- **v1:** AI theo kiểu người dùng tự nhập key (lớp `LLMProvider` chung: OpenAI, Gemini, Claude, Ollama, Chrome built-in AI); tóm tắt theo mục, cache kết quả; prompt riêng cho từng loại tài liệu.
+- **v1:** AI theo kiểu người dùng tự nhập key (lớp `LLMProvider` chung: OpenAI, Gemini, Claude, Ollama, Chrome built-in AI); tóm tắt theo mục, cache kết quả; prompt riêng cho từng loại tài liệu. Key lưu cục bộ, chỉ gửi nội dung khi người dùng bấm tóm tắt; cập nhật `docs/PRIVACY.md` và thêm lựa chọn xoá key/cache.
 - **v2:** hỏi đáp có trích dẫn trang, tìm kiếm ngữ nghĩa (transformers.js, `multilingual-e5-small`), flashcard, OCR (tesseract.js, gói `vie`).
 - Bản tiếng Anh (`src/i18n/en.ts`), Firefox, đăng Chrome Web Store tự động.

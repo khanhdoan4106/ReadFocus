@@ -1,11 +1,13 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { estimateItemMinutes, estimateRemainingTime, roundedMinutes } from '../core/reading-time';
 import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
+import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
+import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 
-type SidebarTab = 'toc' | 'search';
+type SidebarTab = 'toc' | 'search' | 'focus' | 'settings';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -13,6 +15,9 @@ type SidebarProps = {
   building: boolean;
   index: SearchIndex | null;
   wordsPerMinute: number;
+  focus: FocusPanelProps;
+  settings: SettingsPanelProps;
+  searchRequest: number;
   onSelectPage: (page: number) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
 };
@@ -23,12 +28,20 @@ export function Sidebar({
   building,
   index,
   wordsPerMinute,
+  focus,
+  settings,
+  searchRequest,
   onSelectPage,
   onSelectResult,
 }: SidebarProps) {
   const [tab, setTab] = useState<SidebarTab>('toc');
   const remaining =
     toc === null ? null : estimateRemainingTime(toc.items, currentPage, wordsPerMinute);
+
+  // Phím "/" mở thẳng tab Tìm kiếm rồi đưa con trỏ vào ô nhập.
+  useEffect(() => {
+    if (searchRequest > 0) setTab('search');
+  }, [searchRequest]);
 
   return (
     <aside class="sidebar" id="viewer-sidebar">
@@ -50,6 +63,24 @@ export function Sidebar({
           onClick={() => setTab('search')}
         >
           {vi.searchTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'focus'}
+          class={`sidebar__tab${tab === 'focus' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('focus')}
+        >
+          {vi.focusTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'settings'}
+          class={`sidebar__tab${tab === 'settings' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('settings')}
+        >
+          {vi.settingsTab}
         </button>
       </div>
 
@@ -102,9 +133,17 @@ export function Sidebar({
             </>
           )}
         </div>
-      ) : (
+      ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
-          <SearchPanel index={index} onSelectResult={onSelectResult} />
+          <SearchPanel index={index} focusRequest={searchRequest} onSelectResult={onSelectResult} />
+        </div>
+      ) : tab === 'focus' ? (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>
+          <FocusPanel {...focus} />
+        </div>
+      ) : (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.settingsTab}>
+          <SettingsPanel {...settings} />
         </div>
       )}
     </aside>
