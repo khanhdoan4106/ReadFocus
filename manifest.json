@@ -20,5 +20,18 @@
     "service_worker": "src/background/service-worker.ts",
     "type": "module"
   },
-  "permissions": ["storage", "notifications", "contextMenus", "activeTab"]
+  "permissions": [
+    "storage",
+    "notifications",
+    "contextMenus",
+    "activeTab",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "optional_host_permissions": ["*://*/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["viewer.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

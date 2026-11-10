@@ -5,8 +5,9 @@ import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
+import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 
-type SidebarTab = 'toc' | 'search' | 'focus';
+type SidebarTab = 'toc' | 'search' | 'focus' | 'settings';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -15,6 +16,7 @@ type SidebarProps = {
   index: SearchIndex | null;
   wordsPerMinute: number;
   focus: FocusPanelProps;
+  settings: SettingsPanelProps;
   onSelectPage: (page: number) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
 };
@@ -26,6 +28,7 @@ export function Sidebar({
   index,
   wordsPerMinute,
   focus,
+  settings,
   onSelectPage,
   onSelectResult,
 }: SidebarProps) {
@@ -62,6 +65,15 @@ export function Sidebar({
           onClick={() => setTab('focus')}
         >
           {vi.focusTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'settings'}
+          class={`sidebar__tab${tab === 'settings' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('settings')}
+        >
+          {vi.settingsTab}
         </button>
       </div>
 
@@ -118,9 +130,13 @@ export function Sidebar({
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
           <SearchPanel index={index} onSelectResult={onSelectResult} />
         </div>
-      ) : (
+      ) : tab === 'focus' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>
           <FocusPanel {...focus} />
+        </div>
+      ) : (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.settingsTab}>
+          <SettingsPanel {...settings} />
         </div>
       )}
     </aside>

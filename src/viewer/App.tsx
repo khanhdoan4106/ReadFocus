@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
+import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import {
@@ -176,6 +177,11 @@ export function App() {
   const [todayStats, setTodayStats] = useState<DayStats>(() => emptyDayStats());
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const autoOpenSupported =
+    typeof chrome !== 'undefined' &&
+    chrome.permissions !== undefined &&
+    chrome.storage?.sync !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -426,8 +432,8 @@ export function App() {
 
   // Mở PDF do context menu hoặc nút toolbar trên trang PDF đưa sang.
   useEffect(() => {
-    const requested = new URLSearchParams(window.location.search).get('url');
-    if (requested === null || requested === '') return;
+    const requested = readRequestedPdfUrl(window.location.search);
+    if (requested === null) return;
     void openFromUrl(requested);
   }, [openFromUrl]);
 
@@ -604,6 +610,57 @@ export function App() {
     const id = setTimeout(() => setToast(null), 6000);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // Đọc trạng thái tự mở PDF và đối chiếu quyền host thực tế.
+  useEffect(() => {
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
+
+    void Promise.all([
+      chromeApi.storage.sync.get('autoOpenPdf'),
+      chromeApi.permissions.contains({ origins: ['*://*/*'] }),
+    ])
+      .then(([stored, granted]) => {
+        const wantsEnabled = stored.autoOpenPdf === true;
+        setAutoOpenPdf(wantsEnabled && granted);
+        if (wantsEnabled && !granted) {
+          void chromeApi.storage.sync.set({ autoOpenPdf: false });
+          void chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+        }
+      })
+      .catch(() => setAutoOpenPdf(false));
+  }, []);
+
+  const handleAutoOpenPdf = useCallback(async (enabled: boolean) => {
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
+
+    try {
+      if (enabled) {
+        // Phải gọi request() ngay trong thao tác bấm của người dùng.
+        const granted = await chromeApi.permissions.request({ origins: ['*://*/*'] });
+        if (!granted) {
+          setAutoOpenPdf(false);
+          setToast(vi.autoOpenPermissionDenied);
+          return;
+        }
+        await chromeApi.storage.sync.set({ autoOpenPdf: true });
+        setAutoOpenPdf(true);
+        await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+        setToast(vi.autoOpenEnabled);
+        return;
+      }
+
+      await chromeApi.storage.sync.set({ autoOpenPdf: false });
+      setAutoOpenPdf(false);
+      await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
+      await chromeApi.permissions.remove({ origins: ['*://*/*'] });
+      setToast(vi.autoOpenDisabled);
+    } catch {
+      setAutoOpenPdf(false);
+      setToast(vi.autoOpenPermissionDenied);
+    }
+  }, []);
 
   // Ghi thống kê định kỳ thay vì mỗi giây.
   useEffect(() => {
@@ -1147,6 +1204,11 @@ export function App() {
               onChangeBandHeight: (value) => setBandHeight(clampBandHeight(value)),
               onToggleFocusMode: toggleFocusMode,
               onToggleFullscreen: toggleFullscreen,
+            }}
+            settings={{
+              autoOpenPdf,
+              autoOpenSupported,
+              onToggleAutoOpen: handleAutoOpenPdf,
             }}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}

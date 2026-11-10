@@ -72,6 +72,19 @@ export const vi = {
 
   contextMenuOpen: 'Mở bằng ReadFocus',
 
+  settingsTab: 'Cài đặt',
+  autoOpenPdfTitle: 'Tự mở PDF bằng ReadFocus',
+  autoOpenPdfToggle: 'Bật tự mở PDF',
+  autoOpenPdfHint:
+    'Khi bật, link PDF trên web sẽ mở bằng ReadFocus. Cần cấp quyền truy cập trang web để nhận diện link PDF; không áp dụng cho link không có đuôi .pdf.',
+  autoOpenPdfFileHint:
+    'Muốn mở PDF trên máy, bật “Cho phép truy cập URL tệp” trong trang chi tiết extension.',
+  autoOpenPdfUnsupported: 'Tính năng này chỉ hoạt động khi ReadFocus được cài trong Chrome.',
+  autoOpenPermissionDenied:
+    'Chưa bật được: ReadFocus cần quyền truy cập trang web để nhận diện link PDF.',
+  autoOpenEnabled: 'Đã bật tự mở PDF bằng ReadFocus.',
+  autoOpenDisabled: 'Đã tắt tự mở PDF và thu hồi quyền truy cập trang web.',
+
   focusTab: 'Tập trung',
   chapterTimerTitle: 'Đọc theo chương',
   chapterTimerHint: 'Đếm ngược theo thời gian ước tính của mục đang đọc.',
