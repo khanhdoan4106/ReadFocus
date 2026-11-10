@@ -124,6 +124,6 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 ## Để sau (không làm ở v0)
 
 - Chrome Side Panel API.
-- **v1:** AI theo kiểu người dùng tự nhập key (lớp `LLMProvider` chung: OpenAI, Gemini, Claude, Ollama, Chrome built-in AI); tóm tắt theo mục, cache kết quả; prompt riêng cho từng loại tài liệu.
+- **v1:** AI theo kiểu người dùng tự nhập key (lớp `LLMProvider` chung: OpenAI, Gemini, Claude, Ollama, Chrome built-in AI); tóm tắt theo mục, cache kết quả; prompt riêng cho từng loại tài liệu. Key lưu cục bộ, chỉ gửi nội dung khi người dùng bấm tóm tắt; cập nhật `docs/PRIVACY.md` và thêm lựa chọn xoá key/cache.
 - **v2:** hỏi đáp có trích dẫn trang, tìm kiếm ngữ nghĩa (transformers.js, `multilingual-e5-small`), flashcard, OCR (tesseract.js, gói `vie`).
 - Bản tiếng Anh (`src/i18n/en.ts`), Firefox, đăng Chrome Web Store tự động.

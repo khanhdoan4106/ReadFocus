@@ -21,6 +21,13 @@ describe('manifest', () => {
       expect(existsSync(`${root}public/${iconPath}`), iconPath).toBe(true);
     }
   });
+
+  it('giữ quyền host rộng ở dạng tuỳ chọn, không xin lúc cài', () => {
+    expect(manifest.permissions).toContain('declarativeNetRequestWithHostAccess');
+    expect('host_permissions' in manifest).toBe(false);
+    expect(manifest.optional_host_permissions).toEqual(['*://*/*']);
+    expect(manifest.web_accessible_resources[0]?.resources).toContain('viewer.html');
+  });
 });
 
 describe('chuỗi tiếng Việt', () => {
