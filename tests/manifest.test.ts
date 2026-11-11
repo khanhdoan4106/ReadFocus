@@ -25,8 +25,19 @@ describe('manifest', () => {
   it('giữ quyền host rộng ở dạng tuỳ chọn, không xin lúc cài', () => {
     expect(manifest.permissions).toContain('declarativeNetRequestWithHostAccess');
     expect('host_permissions' in manifest).toBe(false);
-    expect(manifest.optional_host_permissions).toEqual(['*://*/*']);
+    expect(manifest.optional_host_permissions).toContain('*://*/*');
     expect(manifest.web_accessible_resources[0]?.resources).toContain('viewer.html');
+  });
+
+  it('chỉ xin đúng origin nhà cung cấp AI trong danh sách v1', () => {
+    const llmOrigins = manifest.optional_host_permissions.filter((origin) => origin !== '*://*/*');
+    expect(llmOrigins).toEqual([
+      'https://api.openai.com/*',
+      'https://generativelanguage.googleapis.com/*',
+      'https://api.anthropic.com/*',
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+    ]);
   });
 });
 
