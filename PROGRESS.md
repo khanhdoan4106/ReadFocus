@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
-- Task đang làm: T12 xong; T13 (bốn provider bằng `fetch`) chưa bắt đầu
-- Bước tiếp theo chính xác: làm T13 — `src/core/llm/models.ts` gom model mặc định, `openai.ts`, `gemini.ts`, `anthropic.ts`, `openai-compatible.ts` dùng `fetch`, retry 429 tối đa 2 lần, abort; test với `fetch` mock và fixture trong `tests/fixtures/llm/`.
+- Task đang làm: T13 xong (bốn provider + retry/abort), chờ push và mở PR nhóm D
+- Bước tiếp theo chính xác: push `feat/v1-ai-core`, mở PR vào `main`, chạy `gh pr checks --watch`; sau đó bắt đầu Nhóm E trên `feat/v1-summary-ui` với T14 (Cài đặt AI: lưu key local/session, xin quyền host, kiểm tra kết nối, hộp xác nhận lần đầu).
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -26,8 +26,10 @@
 - [x] Fix PR #6 — Regex tự mở PDF: `PDF_REDIRECT_REGEX` đổi `[^#]*` thành `[^?#]*` để chỉ khớp đuôi `.pdf` trong phần đường dẫn, không khớp khi `.pdf` nằm trong query (`/search?q=report.pdf`, `/view?doc=1&name=a.pdf`). Giữ đúng hành vi cho `x.pdf`, `x.PDF?x=1`, `x.pdf#page=3`; thêm test âm cho hai URL query và `x.pdf.html` (151 test).
 - [x] T12 — Core AI: `src/core/llm/types.ts` (`LLMProvider`, `LLMRequest`, `ProviderConfig`, `ProviderId`, 4 provider id), `src/core/llm/errors.ts` (`LLMError` 8 loại, `normalizeHttpError`, `normalizeFetchError` phân biệt `AbortError`, `parseRetryAfter` giây/ngày HTTP, `isLLMError`, `badResponse`), `src/core/summarize/tokens.ts` (ước lượng 3 ký tự/token cho tiếng Việt, 4 cho tiếng Anh, nhận diện chữ có dấu), `chunk.ts` (`splitIntoChunks` giữ số trang, cắt đoạn quá dài theo ranh giới từ, ngân sách mặc định 12k token), `prompt.ts` (`PROMPT_VERSION = 1`, prompt riêng book/paper/slides/unknown, prompt gộp, ngôn ngữ `vi`/`document`), `parse.ts` (bỏ fence ```json, fallback toàn bộ câu trả lời, lọc số trang ngoài mục), `cache-key.ts` (chuỗi NUL + SHA-256). Thêm `tests/llm.test.ts` và `tests/summarize.test.ts` (44 test, tổng 195).
 
+- [x] T13 — Bốn provider bằng `fetch`: `src/core/llm/models.ts` (base URL + model mặc định, nguồn tài liệu chính thức ghi trong comment), `auth.ts` (key rỗng báo `invalid-key` không gọi mạng), `json.ts` (JSON hỏng là `bad-response`), `http.ts` (`postJson` tự thử lại 429 tối đa 2 lần, dùng `Retry-After` nếu có, nếu không backoff 0,5 s/1 s, mọi lỗi chuẩn hoá qua `LLMError`, `normalizeBaseUrl` cho OpenAI-compatible), `openai.ts` (dùng chung cho OpenAI và endpoint tương thích, `max_completion_tokens` vs `max_tokens`), `gemini.ts` (`:generateContent`, key qua header `x-goog-api-key`, bỏ phần `thought`), `anthropic.ts` (`/v1/messages`, header `anthropic-dangerous-direct-browser-access`), `openai-compatible.ts`, `index.ts` (registry + `getProvider`). Fixture trong `tests/fixtures/llm/` và `tests/llm-providers.test.ts` (28 test, tổng 223).
+
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm D đang làm trên `feat/v1-ai-core`: T12 đã xong (core + 44 test); T13 là bước tiếp theo. Chưa push, chưa mở PR nhóm D.
+- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), tất cả script pass. Chưa push, chưa mở PR nhóm D.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -94,6 +96,13 @@
 - **Prompt là tiếng Anh, kết quả theo ngôn ngữ người dùng chọn**: prompt tiếng Anh ổn định qua các model; `language = 'document'` dựa vào mẫu văn bản, còn `'vi'` luôn ép tiếng Việt. Prompt nhắc rõ văn bản PDF là dữ liệu không tin cậy và bọc nội dung trong `<<< >>>`.
 - **Parser JSON chịu lỗi thay vì báo lỗi**: bỏ fence ```json, cắt từ `{` đầu tới `}` cuối; JSON hỏng hoặc thiếu cả `summary` lẫn `keyPoints` thì coi toàn bộ câu trả lời là `summary`, để người dùng vẫn đọc được nội dung. Số trang ngoài phạm vi mục, không nguyên hoặc không phải số bị loại.
 - **Cache key băm chuỗi NUL của `docId + khoảng trang + tiêu đề + provider + model + PROMPT_VERSION + ngôn ngữ`**: tách bằng NUL để tiêu đề chứa ký tự phân tách cũng không gây trùng khoá; tiêu đề và model được `trim` trước khi băm.
+- **T13 chọn model mặc định và kiểm tra ngày 11/11/2026**: OpenAI `gpt-6.1-sol` (<https://platform.openai.com/docs/models>), Gemini `gemini-3.8-flash` (<https://ai.google.dev/gemini-api/docs/models>), Anthropic `claude-sonnet-5-5` (<https://platform.claude.com/docs/en/about-claude/models/overview>), OpenAI-compatible `llama3.2` (thẻ phổ biến của Ollama). Người dùng luôn gõ được model khác; hằng số gom trong `models.ts`.
+- **Gemini dùng `:generateContent`, không dùng Interactions API mới**: `generateContent` ổn định, có tài liệu tham chiếu đầy đủ và đủ cho một request tóm tắt; key gửi qua header `x-goog-api-key` thay vì query string để không lộ trong log/URL.
+- **OpenAI dùng `max_completion_tokens`, OpenAI-compatible dùng `max_tokens`**: model mới của OpenAI từ chối `max_tokens`, còn nhiều server tương thích (Ollama, LM Studio, gateway cũ) chưa biết trường mới.
+- **Một `postJson` dùng chung cho cả bốn provider**: retry 429 tối đa 2 lần, ưu tiên `Retry-After`, nếu không thì backoff 500 ms rồi 1 s; `delay` nghe `AbortSignal` nên huỷ giữa lúc chờ cũng thành `cancelled`. Response 429 hết lượt thử mới chuẩn hoá thành lỗi cuối.
+- **Kiểm tra kết nối dùng chính model người dùng chọn**: đổi `checkConnection(config, model)` để lỗi sai tên model hiện ra ngay lúc kiểm tra, thay vì báo "kết nối OK" rồi hỏng khi tóm tắt thật.
+- **Test dùng `mockImplementation` trả `Response` mới cho mỗi lần gọi**: `Response` chỉ đọc body một lần, nên mock tái dùng một object sẽ hỏng ở lần retry thứ hai — đây là lỗi của test helper, không phải của code.
+- **Streaming chưa làm ở T13**: chưa cần cho luồng tóm tắt (chờ một kết quả rồi hiện), và thêm streaming làm phức tạp retry/abort; ghi lại để cân nhắc ở v1.1.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -110,6 +119,7 @@
 - Kiểm tra T9 sau khi load unpacked: mở một tab PDF công khai rồi bấm icon ReadFocus (phải mở đúng file); bấm chuột phải vào link PDF và chọn "Mở bằng ReadFocus"; thử một PDF cùng origin và một PDF khác origin để xem thông báo CORS có hướng dẫn rõ; mở tab `file://...pdf` rồi bấm icon để xem hướng dẫn. Sau đó thử bật "Allow access to file URLs" trong chrome://extensions.
 - Kiểm tra T9 tự mở PDF (phần chưa test tự động được): sau khi load unpacked, xác nhận lúc cài không có cảnh báo quyền đọc mọi trang; mở tab Cài đặt, bật công tắc thì Chrome hiện hộp xin quyền — bấm Từ chối, công tắc phải về tắt kèm thông báo; bật lại và bấm Cho phép, mở `http://localhost:4173/fixtures/book.pdf`, `...book.pdf?x=1`, `...book.PDF` phải vào viewer, còn PDF nhúng trong iframe thì không; tắt công tắc phải mở lại bằng trình xem PDF của Chrome và quyền host biến mất; thu hồi quyền trong chrome://extensions phải tự tắt công tắc; khởi động lại Chrome xem trạng thái còn đúng.
 - Kiểm tra T10 sau khi load unpacked: đổi giao diện Sáng/Tối, tải lại tab xem có giữ; chọn "Theo hệ thống" rồi đổi chế độ tối của Windows xem viewer đổi theo. Nhập tốc độ đọc khác (ví dụ 300) rồi mở tab Mục lục xem thời gian giảm, tải lại xem còn 300. Thử `/` khi đang cuộn và khi đang đứng trong ô nhập khác. Bấm "Xoá dữ liệu của …" rồi mở lại đúng file xem có bắt đầu từ trang 1; bấm "Xoá toàn bộ dữ liệu đọc" xem viewer về màn hình trống, thống kê về 0, nhưng giao diện và tốc độ vẫn giữ.
+- T13 (cần key thật, làm sau khi T14 có giao diện): gọi thử từng provider bằng key thật của người dùng, xác nhận tóm tắt chạy được và lỗi key sai hiện đúng "Key không hợp lệ"; với Ollama/LM Studio, chạy local rồi kiểm tra hướng dẫn `OLLAMA_ORIGINS` khi gặp CORS.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
