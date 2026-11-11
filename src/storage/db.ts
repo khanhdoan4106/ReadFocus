@@ -7,9 +7,11 @@ import {
   sanitizeDayStats,
   type DayStats,
 } from '../core/stats';
+import { sanitizeSummaryRecord, type SummaryRecord } from '../core/summarize/record';
 
 const DB_NAME = 'readfocus';
-const DB_VERSION = 1;
+/** Version 2 thêm store `summaries` cho cache tóm tắt AI. */
+const DB_VERSION = 2;
 
 export type DocumentMeta = {
   id: string;
@@ -87,21 +89,40 @@ interface ReadFocusDB extends DBSchema {
     key: string;
     value: SettingRecord;
   };
+  summaries: {
+    key: string;
+    value: SummaryRecord;
+    indexes: { 'by-doc': string };
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<ReadFocusDB>> | null = null;
 
+/** Dùng trong test để xoá cache kết nối IndexedDB. */
+export function _resetDbForTest(): void {
+  if (dbPromise) {
+    void dbPromise.then((db) => db.close());
+    dbPromise = null;
+  }
+}
+
 function getDb(): Promise<IDBPDatabase<ReadFocusDB>> {
   dbPromise ??= openDB<ReadFocusDB>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      db.createObjectStore('documents', { keyPath: 'id' });
-      const pages = db.createObjectStore('pages', { keyPath: ['docId', 'page'] });
-      pages.createIndex('by-doc', 'docId');
-      db.createObjectStore('toc', { keyPath: 'docId' });
-      db.createObjectStore('searchIndex', { keyPath: 'docId' });
-      db.createObjectStore('progress', { keyPath: 'docId' });
-      db.createObjectStore('stats', { keyPath: 'date' });
-      db.createObjectStore('settings', { keyPath: 'key' });
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        db.createObjectStore('documents', { keyPath: 'id' });
+        const pages = db.createObjectStore('pages', { keyPath: ['docId', 'page'] });
+        pages.createIndex('by-doc', 'docId');
+        db.createObjectStore('toc', { keyPath: 'docId' });
+        db.createObjectStore('searchIndex', { keyPath: 'docId' });
+        db.createObjectStore('progress', { keyPath: 'docId' });
+        db.createObjectStore('stats', { keyPath: 'date' });
+        db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (oldVersion < 2) {
+        const summaries = db.createObjectStore('summaries', { keyPath: 'id' });
+        summaries.createIndex('by-doc', 'docId');
+      }
     },
   });
   return dbPromise;
@@ -248,14 +269,49 @@ export async function saveSetting(key: string, value: unknown): Promise<void> {
 }
 
 /**
+ * Lưu kết quả tóm tắt vào cache. Lỗi lưu trữ không được chặn việc hiển thị:
+ * người dùng vẫn thấy kết quả vừa tạo, chỉ lần sau phải gọi lại API.
+ */
+export async function saveSummary(record: SummaryRecord): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('summaries', record);
+  } catch {
+    // Không lưu được cache thì vẫn hiển thị kết quả.
+  }
+}
+
+export async function loadSummary(id: string): Promise<SummaryRecord | null> {
+  try {
+    const db = await getDb();
+    return sanitizeSummaryRecord(await db.get('summaries', id));
+  } catch {
+    return null;
+  }
+}
+
+/** Tất cả tóm tắt đã lưu của một tài liệu (dùng để đánh dấu trong mục lục). */
+export async function loadSummariesForDoc(docId: string): Promise<SummaryRecord[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('summaries', 'by-doc', docId);
+    return records
+      .map((record) => sanitizeSummaryRecord(record))
+      .filter((record): record is SummaryRecord => record !== null);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Xoá dữ liệu của một tài liệu: metadata, văn bản từng trang, mục lục, chỉ mục
- * tìm kiếm và tiến độ. Thống kê ngày và cài đặt được giữ nguyên.
+ * tìm kiếm, tiến độ và tóm tắt AI đã lưu. Thống kê ngày và cài đặt được giữ nguyên.
  */
 export async function deleteDocumentData(docId: string): Promise<boolean> {
   try {
     const db = await getDb();
     const tx = db.transaction(
-      ['documents', 'pages', 'toc', 'searchIndex', 'progress'],
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'summaries'],
       'readwrite',
     );
     await Promise.all([
@@ -269,6 +325,14 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
       await cursor.delete();
       cursor = await cursor.continue();
     }
+    let summaryCursor = await tx
+      .objectStore('summaries')
+      .index('by-doc')
+      .openCursor(IDBKeyRange.only(docId));
+    while (summaryCursor) {
+      await summaryCursor.delete();
+      summaryCursor = await summaryCursor.continue();
+    }
     await tx.done;
     return true;
   } catch {
@@ -278,13 +342,14 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
 
 /**
  * Xoá toàn bộ dữ liệu đọc đã lưu trên máy: tài liệu, văn bản, mục lục, chỉ mục
- * tìm kiếm, tiến độ và thống kê. Cài đặt giao diện/tốc độ đọc được giữ nguyên.
+ * tìm kiếm, tiến độ, thống kê và tóm tắt AI. Cài đặt giao diện/tốc độ đọc và
+ * API key được giữ nguyên.
  */
 export async function clearAllData(): Promise<boolean> {
   try {
     const db = await getDb();
     const tx = db.transaction(
-      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'stats'],
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'stats', 'summaries'],
       'readwrite',
     );
     await Promise.all([
@@ -294,6 +359,7 @@ export async function clearAllData(): Promise<boolean> {
       tx.objectStore('searchIndex').clear(),
       tx.objectStore('progress').clear(),
       tx.objectStore('stats').clear(),
+      tx.objectStore('summaries').clear(),
     ]);
     await tx.done;
     return true;

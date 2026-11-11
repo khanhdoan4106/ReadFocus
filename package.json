@@ -25,6 +25,7 @@
     "@types/node": "^22.20.5",
     "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
+    "fake-indexeddb": "^6.2.8",
     "fflate": "^0.8.3",
     "globals": "^17.14.0",
     "prettier": "^3.9.10",
