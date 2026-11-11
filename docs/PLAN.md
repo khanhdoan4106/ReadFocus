@@ -189,7 +189,7 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T12** Core: interface `LLMProvider`, chuẩn hoá lỗi, ước lượng token, chia đoạn, prompt theo loại tài liệu, parser JSON, cache key. Có test.
 - [x] **T13** Bốn provider bằng `fetch`: OpenAI, Gemini, Anthropic, OpenAI-compatible; retry 429, abort, stream nếu gọn. Có test với fetch mock và fixture.
 - [x] **T14a** Nền Cài đặt AI: schema tuỳ chọn AI + chuẩn hoá, helper quyền host theo provider/base URL, lưu key `local`/`session` tách khỏi tuỳ chọn, `optional_host_permissions` trong manifest, cập nhật `docs/PERMISSIONS.md` và test manifest. Có test.
-- [ ] **T14b** Giao diện Cài đặt AI: chọn provider/model/base URL/ngôn ngữ, ô key password + hiện/ẩn + Xoá key, tuỳ chọn "Không lưu key", Kiểm tra kết nối, hộp xác nhận lần đầu; câu chữ trong `src/i18n/vi.ts`.
+- [x] **T14b** Giao diện Cài đặt AI: chọn provider/model/base URL/ngôn ngữ, ô key password + hiện/ẩn + Xoá key, tuỳ chọn "Không lưu key", Kiểm tra kết nối, hộp xác nhận lần đầu; câu chữ trong `src/i18n/vi.ts`.
 - [ ] **T15** Tab Tóm tắt: tóm tắt mục đang đọc, map-reduce cho mục dài, IndexedDB v2 + store `summaries` + migration, trích dẫn trang bấm được, tóm tắt toàn bộ có ước lượng và xác nhận, huỷ, đánh dấu trong mục lục.
 - [ ] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
 

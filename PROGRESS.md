@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: đã merge `feat/v1-ai-core` (T12, T13, 3 fix review PR #7) vào nhánh này; T14a xong, T14b đang làm
-- Bước tiếp theo chính xác: T14b — giao diện **Cài đặt → AI** trong `SettingsPanel.tsx` + `App.tsx`: chọn provider/model/base URL/ngôn ngữ, ô key password (hiện/ẩn, Xoá key), tuỳ chọn "Không lưu key", nút Kiểm tra kết nối (xin quyền host qua `chrome.permissions.request`), hộp xác nhận lần đầu, câu chữ trong `src/i18n/vi.ts`.
+- Task đang làm: T14b xong (giao diện Cài đặt → AI), đã commit `7980e2d`; T14a + merge `feat/v1-ai-core` đã push
+- Bước tiếp theo chính xác: T15 — tab Tóm tắt: tóm tắt mục đang đọc, map-reduce cho mục dài, IndexedDB v2 + store `summaries` + migration, trích dẫn trang bấm được, tóm tắt toàn bộ có ước lượng và xác nhận, huỷ, đánh dấu mục đã tóm tắt trong mục lục.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -32,10 +32,11 @@
 - [x] Fix PR #7 (1) — `normalizeHttpError` map 400 kèm `API_KEY_INVALID`/`API key not valid` thành `invalid-key` (Gemini trả 400 chứ không phải 401); thêm loại lỗi `model-not-found` cho 404 hoặc body báo model không tồn tại, kèm câu tiếng Việt trong `aiErrorMessages`; fixture `tests/fixtures/llm/gemini-invalid-key.json` (commit 5924abc).
 - [x] Fix PR #7 (2) — `DEFAULT_MAX_OUTPUT_TOKENS = 8192`; OpenAI gửi `reasoning_effort: "low"` (chỉ provider `openai`), Gemini gửi `thinkingConfig.thinkingLevel: "LOW"`; đọc lý do kết thúc `finish_reason: "length"` / `finishReason: "MAX_TOKENS"` / `stop_reason: "max_tokens"` và ném lỗi `truncated` thay vì đưa chuỗi bị cắt vào parser; `checkConnection` chỉ cần HTTP 2xx (commit 03c077c).
 - [x] Fix PR #7 (3) — `openai-compatible` không bắt buộc key: key rỗng thì bỏ header `Authorization`; `openai`/`gemini`/`anthropic` vẫn bắt buộc qua `requireApiKey` (commit 05c3eed).
+- [x] T14b — Giao diện Cài đặt → AI: `SettingsPanel.tsx` thêm khối Tóm tắt bằng AI (provider, model, base URL chỉ hiện với OpenAI-compatible, ô key password có Hiện/Ẩn/Xoá key, công tắc "Lưu key trên máy này", chọn ngôn ngữ tóm tắt, nút Kiểm tra kết nối, thông báo lỗi/thành công); `App.tsx` nạp/lưu `AiSettings` + key theo scope, xin quyền host đúng origin rồi gọi `checkConnection`, hộp xác nhận gửi dữ liệu lần đầu; `settings.ts` thêm `PROVIDERS`, `providerRequiresKey`, `aiConfigProblem` (4 test, tổng 259); câu chữ mới trong `vi.ts` (commit 7980e2d). Kiểm tra trong preview: tab Cài đặt hiện đủ khối AI, đúng câu tiếng Việt, không lỗi console; preview không có `chrome.storage` nên khối AI bị khoá kèm gợi ý như mong đợi.
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
-- `feat/v1-summary-ui` đã merge `feat/v1-ai-core` (merge commit, không rebase); T14a xong, đã push, **chưa mở PR** vì nhóm E phụ thuộc PR #7. T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
+- `feat/v1-summary-ui` đã merge `feat/v1-ai-core` (merge commit, không rebase); T14a + T14b xong, đã push, **chưa mở PR** vì nhóm E phụ thuộc PR #7. T15 sẽ dùng `loadAiSettings`/`loadApiKey` và `getProvider` như UI Cài đặt đang dùng; `src/viewer/SettingsPanel.tsx` đã có khối AI hoàn chỉnh.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -120,6 +121,9 @@
   - Giới hạn đầu ra mặc định nâng 2.048 → 8.192 token để phần thinking không ăn hết chỗ của câu trả lời.
 - **Phát hiện câu trả lời bị cắt và báo lỗi `truncated`**: OpenAI `finish_reason: "length"`, Gemini `candidates[0].finishReason: "MAX_TOKENS"`, Anthropic `stop_reason: "max_tokens"` đều bị chặn trước parser, vì chuỗi JSON dở sẽ bị parser "chịu lỗi" coi là summary và người dùng nhận bản tóm tắt cụt mà không biết. `checkConnection` chỉ xét HTTP 2xx, không áp kiểm tra này.
 - **`openai-compatible` không bắt buộc key**: Ollama/LM Studio chạy nội bộ không cần key; khi key rỗng thì bỏ hẳn header `Authorization` thay vì gửi `Bearer ` rỗng. Ba provider còn lại vẫn dùng `requireApiKey` để báo `invalid-key` ngay, không gọi mạng.
+- **Hộp xác nhận gửi dữ liệu hiện ở lần Kiểm tra kết nối đầu tiên**: đây là thao tác đầu tiên thực sự gửi dữ liệu ra ngoài; nhập/lưu key chỉ ghi trên máy nên không chặn. Đồng ý thì lưu `consentGiven: true` và chạy tiếp thao tác đang chờ; "Để sau" thì không gửi gì. Thiếu key được báo trước khi mở hộp thoại để người dùng không phải xác nhận rồi mới biết lỗi.
+- **Key chỉ ghi khi rời ô nhập** (`onBlur`), không ghi theo từng ký tự; đổi "Lưu key trên máy này" thì xoá key ở store cũ rồi ghi sang store mới để không còn bản sao trong `local` lẫn `session`. "Xoá key" chỉ xoá key, giữ provider/model/ngôn ngữ.
+- **Khối AI bị khoá khi không có `chrome.storage`** (preview hoặc trang thường): hiện gợi ý "chỉ hoạt động khi cài trong Chrome", cùng cách xử lý với công tắc tự mở PDF. Quyền host được xin ngay trong cú bấm Kiểm tra kết nối (`chrome.permissions.request`), đúng origin của provider hoặc base URL, rồi mới gọi `checkConnection`.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -137,6 +141,7 @@
 - Kiểm tra T9 tự mở PDF (phần chưa test tự động được): sau khi load unpacked, xác nhận lúc cài không có cảnh báo quyền đọc mọi trang; mở tab Cài đặt, bật công tắc thì Chrome hiện hộp xin quyền — bấm Từ chối, công tắc phải về tắt kèm thông báo; bật lại và bấm Cho phép, mở `http://localhost:4173/fixtures/book.pdf`, `...book.pdf?x=1`, `...book.PDF` phải vào viewer, còn PDF nhúng trong iframe thì không; tắt công tắc phải mở lại bằng trình xem PDF của Chrome và quyền host biến mất; thu hồi quyền trong chrome://extensions phải tự tắt công tắc; khởi động lại Chrome xem trạng thái còn đúng.
 - Kiểm tra T10 sau khi load unpacked: đổi giao diện Sáng/Tối, tải lại tab xem có giữ; chọn "Theo hệ thống" rồi đổi chế độ tối của Windows xem viewer đổi theo. Nhập tốc độ đọc khác (ví dụ 300) rồi mở tab Mục lục xem thời gian giảm, tải lại xem còn 300. Thử `/` khi đang cuộn và khi đang đứng trong ô nhập khác. Bấm "Xoá dữ liệu của …" rồi mở lại đúng file xem có bắt đầu từ trang 1; bấm "Xoá toàn bộ dữ liệu đọc" xem viewer về màn hình trống, thống kê về 0, nhưng giao diện và tốc độ vẫn giữ.
 - T13 (cần key thật, làm sau khi T14 có giao diện): gọi thử từng provider bằng key thật của người dùng, xác nhận tóm tắt chạy được và lỗi key sai hiện đúng "Key không hợp lệ"; với Ollama/LM Studio, chạy local rồi kiểm tra hướng dẫn `OLLAMA_ORIGINS` khi gặp CORS.
+- Kiểm tra T14b sau khi load unpacked: mở Cài đặt → AI, đổi provider xem model mặc định có đổi theo; nhập key, bấm Hiện/Ẩn, rời ô rồi tải lại viewer xem key còn đó; bấm Kiểm tra kết nối lần đầu phải hiện hộp xác nhận gửi dữ liệu, bấm Đồng ý mới xin quyền host và gọi API (thử key sai để xem câu "Key không hợp lệ", thử tên model sai để xem "Không tìm thấy model"); tắt "Lưu key trên máy này" rồi kiểm tra key biến mất sau khi đóng trình duyệt; bấm Xoá key xem provider/model vẫn giữ; chọn OpenAI-compatible với Ollama/LM Studio, để trống key và kiểm tra kết nối.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
