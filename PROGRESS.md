@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: T15a xong (lưu cache và runner), chuẩn bị làm T15b (giao diện tab Tóm tắt)
-- Bước tiếp theo chính xác: T15b — giao diện tab Tóm tắt: nút "Tóm tắt mục này" cho mục đang đọc, hiển thị tóm tắt, ý chính kèm trang bấm được, thuật ngữ, Tạo lại, Sao chép, Huỷ; nhãn provider/model, "lấy từ cache"; Tóm tắt toàn bộ với ước lượng + xác nhận, tối đa 2 request song song, có thanh tiến độ; đánh dấu mục có tóm tắt trong tab Mục lục; xử lý bản scan và lỗi chuẩn hoá trong vi.ts.
+- Task đang làm: T15b xong (giao diện tab Tóm tắt), chuẩn bị làm T16 (hoàn thiện tài liệu và rà soát)
+- Bước tiếp theo chính xác: T16 — hoàn thiện: rà lỗi và câu chữ toàn bộ phần AI, cập nhật README (phần AI, lấy key các nhà cung cấp, Ollama OLLAMA_ORIGINS), docs/PRIVACY.md, CHANGELOG [Unreleased].
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -34,6 +34,7 @@
 - [x] Fix PR #7 (3) — `openai-compatible` không bắt buộc key: key rỗng thì bỏ header `Authorization`; `openai`/`gemini`/`anthropic` vẫn bắt buộc qua `requireApiKey` (commit 05c3eed).
 - [x] T14b — Giao diện Cài đặt → AI: `SettingsPanel.tsx` thêm khối Tóm tắt bằng AI (provider, model, base URL chỉ hiện với OpenAI-compatible, ô key password có Hiện/Ẩn/Xoá key, công tắc "Lưu key trên máy này", chọn ngôn ngữ tóm tắt, nút Kiểm tra kết nối, thông báo lỗi/thành công); `App.tsx` nạp/lưu `AiSettings` + key theo scope, xin quyền host đúng origin rồi gọi `checkConnection`, hộp xác nhận gửi dữ liệu lần đầu; `settings.ts` thêm `PROVIDERS`, `providerRequiresKey`, `aiConfigProblem` (4 test, tổng 259); câu chữ mới trong `vi.ts` (commit 7980e2d). Kiểm tra trong preview: tab Cài đặt hiện đủ khối AI, đúng câu tiếng Việt, không lỗi console; preview không có `chrome.storage` nên khối AI bị khoá kèm gợi ý như mong đợi.
 - [x] T15a — Core tóm tắt + lưu cache: `src/core/summarize/record.ts` (kiểu `SummaryRecord`, `sanitizeSummaryRecord`), `src/core/summarize/run.ts` (`summarizeSection` map-reduce 2 tầng cho mục dài), `src/core/summarize/work.ts` (`estimateSectionWork`, `estimateSpansWork`, `mapWithConcurrency`), IndexedDB version 2 nâng cấp store `summaries` với index `by-doc`, migration giữ nguyên toàn bộ dữ liệu v1 (`documents`, `progress`, `settings`), `deleteDocumentData`/`clearAllData` xoá cả summaries. Thêm `tests/summarize-run.test.ts`, `tests/summarize-work.test.ts`, `tests/db-v2.test.ts` (17 test mới, tổng 276 test).
+- [x] T15b — Giao diện tab Tóm tắt: `SummaryPanel.tsx` (tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng request + token và xác nhận, chạy song song tối đa 2 request, thanh tiến độ, huỷ, tạo lại, sao chép clipboard text thuần, xử lý bản scan/mục không chữ, các lỗi chuẩn hoá và nút thử lại khi `truncated`); `Sidebar.tsx` thêm tab Tóm tắt và dấu `✦` cho các mục mục lục đã có tóm tắt; `format.ts` định dạng clipboard và lọc mục; CSS giao diện; câu chữ tiếng Việt tự nhiên trong `vi.ts` (4 test mới trong `tests/summarize-format.test.ts`, tổng 280 test).
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
@@ -126,6 +127,7 @@
 - **Key chỉ ghi khi rời ô nhập** (`onBlur`), không ghi theo từng ký tự; đổi "Lưu key trên máy này" thì xoá key ở store cũ rồi ghi sang store mới để không còn bản sao trong `local` lẫn `session`. "Xoá key" chỉ xoá key, giữ provider/model/ngôn ngữ.
 - **Khối AI bị khoá khi không có `chrome.storage`** (preview hoặc trang thường): hiện gợi ý "chỉ hoạt động khi cài trong Chrome", cùng cách xử lý với công tắc tự mở PDF. Quyền host được xin ngay trong cú bấm Kiểm tra kết nối (`chrome.permissions.request`), đúng origin của provider hoặc base URL, rồi mới gọi `checkConnection`.
 - **T15a map-reduce 2 tầng cho mục dài**: mục vừa ngân sách gọi một lần; mục dài chia đoạn qua `splitIntoChunks`, tóm tắt từng phần giữ trang, rồi gộp lại bằng `buildMergePrompt`. `WorkEstimate` tính số request và token tối thiểu trước khi chạy. Cache tóm tắt nâng cấp IndexedDB lên version 2 thêm store `summaries` (index `by-doc`), migration có điều kiện theo `oldVersion` bảo toàn toàn bộ dữ liệu v1.
+- **T15b giao diện tab Tóm tắt**: kết quả hiển thị dạng text thuần không dùng innerHTML hay dangerouslySetInnerHTML; trích dẫn số trang bấm để cuộn tới trang; đánh dấu `✦` trong mục lục cho các mục đã tóm tắt; "Tóm tắt toàn bộ" giới hạn 100 trang, ước lượng request + token và hiện hộp xác nhận trước khi chạy, tối đa 2 request song song qua `mapWithConcurrency`, hoàn thành mục nào lưu và hiển thị ngay mục đó; lỗi `truncated` có nút thử lại.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
@@ -144,6 +146,15 @@
 - Kiểm tra T10 sau khi load unpacked: đổi giao diện Sáng/Tối, tải lại tab xem có giữ; chọn "Theo hệ thống" rồi đổi chế độ tối của Windows xem viewer đổi theo. Nhập tốc độ đọc khác (ví dụ 300) rồi mở tab Mục lục xem thời gian giảm, tải lại xem còn 300. Thử `/` khi đang cuộn và khi đang đứng trong ô nhập khác. Bấm "Xoá dữ liệu của …" rồi mở lại đúng file xem có bắt đầu từ trang 1; bấm "Xoá toàn bộ dữ liệu đọc" xem viewer về màn hình trống, thống kê về 0, nhưng giao diện và tốc độ vẫn giữ.
 - T13 (cần key thật, làm sau khi T14 có giao diện): gọi thử từng provider bằng key thật của người dùng, xác nhận tóm tắt chạy được và lỗi key sai hiện đúng "Key không hợp lệ"; với Ollama/LM Studio, chạy local rồi kiểm tra hướng dẫn `OLLAMA_ORIGINS` khi gặp CORS.
 - Kiểm tra T14b sau khi load unpacked: mở Cài đặt → AI, đổi provider xem model mặc định có đổi theo; nhập key, bấm Hiện/Ẩn, rời ô rồi tải lại viewer xem key còn đó; bấm Kiểm tra kết nối lần đầu phải hiện hộp xác nhận gửi dữ liệu, bấm Đồng ý mới xin quyền host và gọi API (thử key sai để xem câu "Key không hợp lệ", thử tên model sai để xem "Không tìm thấy model"); tắt "Lưu key trên máy này" rồi kiểm tra key biến mất sau khi đóng trình duyệt; bấm Xoá key xem provider/model vẫn giữ; chọn OpenAI-compatible với Ollama/LM Studio, để trống key và kiểm tra kết nối.
+- Kiểm tra T15b sau khi load unpacked:
+  - Khi chưa cấu hình AI: tab Tóm tắt chỉ hiện hướng dẫn và nút mở Cài đặt → AI.
+  - Khi đã cấu hình AI: mở tab Tóm tắt, bấm "Tóm tắt mục này", xác nhận hiển thị tóm tắt, ý chính (bấm số trang nhảy đúng trang), thuật ngữ; nhãn provider/model; nút Sao chép copy đúng plain text vào clipboard.
+  - Bấm Tạo lại để chạy lại; bấm Huỷ khi đang chạy.
+  - Mở lại file, chuyển tới mục đã tóm tắt: kiểm tra kết quả hiện ngay kèm nhãn "Lấy từ cache".
+  - Kiểm tra tab Mục lục: mục đã tóm tắt có dấu `✦`.
+  - Kiểm tra "Tóm tắt toàn bộ": hiện hộp ước lượng số request và token đầu vào, bấm Xác nhận chạy tối đa 2 request song song, có thanh tiến độ, mục nào xong hiện ngay; bấm Huỷ dừng an toàn.
+  - Thử trên file scan (`scanned.pdf`): báo "Mục này không có văn bản (hoặc tài liệu là bản scan) nên không thể tóm tắt".
+  - Xoá dữ liệu tài liệu thì các bản tóm tắt bị xoá.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 
 ## Dependency đã thêm (và lý do)
