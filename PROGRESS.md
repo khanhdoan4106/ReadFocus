@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
-- Task đang làm: T13 xong (bốn provider + retry/abort), chờ push và mở PR nhóm D
-- Bước tiếp theo chính xác: push `feat/v1-ai-core`, mở PR vào `main`, chạy `gh pr checks --watch`; sau đó bắt đầu Nhóm E trên `feat/v1-summary-ui` với T14 (Cài đặt AI: lưu key local/session, xin quyền host, kiểm tra kết nối, hộp xác nhận lần đầu).
+- Task đang làm: Nhóm D xong — T12, T13 đã push, PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7) mở vào `main`, CI `check` xanh, **chưa merge**
+- Bước tiếp theo chính xác: bắt đầu Nhóm E trên nhánh `feat/v1-summary-ui` tách từ `feat/v1-ai-core`, làm T14 (Cài đặt AI: lưu key local/session, xin quyền host theo provider, kiểm tra kết nối, hộp xác nhận lần đầu; cập nhật `docs/PERMISSIONS.md` và test manifest).
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -29,7 +29,7 @@
 - [x] T13 — Bốn provider bằng `fetch`: `src/core/llm/models.ts` (base URL + model mặc định, nguồn tài liệu chính thức ghi trong comment), `auth.ts` (key rỗng báo `invalid-key` không gọi mạng), `json.ts` (JSON hỏng là `bad-response`), `http.ts` (`postJson` tự thử lại 429 tối đa 2 lần, dùng `Retry-After` nếu có, nếu không backoff 0,5 s/1 s, mọi lỗi chuẩn hoá qua `LLMError`, `normalizeBaseUrl` cho OpenAI-compatible), `openai.ts` (dùng chung cho OpenAI và endpoint tương thích, `max_completion_tokens` vs `max_tokens`), `gemini.ts` (`:generateContent`, key qua header `x-goog-api-key`, bỏ phần `thought`), `anthropic.ts` (`/v1/messages`, header `anthropic-dangerous-direct-browser-access`), `openai-compatible.ts`, `index.ts` (registry + `getProvider`). Fixture trong `tests/fixtures/llm/` và `tests/llm-providers.test.ts` (28 test, tổng 223).
 
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), tất cả script pass. Chưa push, chưa mở PR nhóm D.
+- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E sẽ tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
