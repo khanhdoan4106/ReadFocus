@@ -1,12 +1,14 @@
 /** Các loại lỗi đã chuẩn hoá để UI dịch thành câu tiếng Việt cụ thể. */
 export type LLMErrorKind =
   | 'invalid-key'
+  | 'model-not-found'
   | 'rate-limit'
   | 'quota'
   | 'context-too-long'
   | 'network'
   | 'cancelled'
   | 'bad-response'
+  | 'truncated'
   | 'unknown';
 
 export type LLMRequest = {

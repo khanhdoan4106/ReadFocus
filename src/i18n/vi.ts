@@ -1,3 +1,5 @@
+import type { LLMErrorKind } from '../core/llm/types';
+
 export const vi = {
   appName: 'ReadFocus',
 
@@ -161,6 +163,22 @@ export const vi = {
   notifyBreakTitle: 'Hết giờ nghỉ',
   notifyBreakBody: 'Quay lại phiên tập trung tiếp theo.',
   toastDismiss: 'Đóng',
+
+  aiErrorMessages: {
+    'invalid-key':
+      'Key không hợp lệ hoặc không có quyền dùng model này. Kiểm tra lại trong Cài đặt → AI.',
+    'model-not-found': 'Không tìm thấy model này. Kiểm tra lại tên model trong Cài đặt → AI.',
+    'rate-limit': 'Nhà cung cấp đang giới hạn tốc độ. Đợi một lát rồi thử lại.',
+    quota:
+      'Tài khoản đã hết hạn mức. Kiểm tra số dư hoặc hạn mức trong trang quản lý của nhà cung cấp.',
+    'context-too-long': 'Phần này quá dài so với giới hạn của model. Thử tóm tắt mục ngắn hơn.',
+    network: 'Không kết nối được tới nhà cung cấp. Kiểm tra mạng rồi thử lại.',
+    cancelled: 'Đã huỷ.',
+    'bad-response': 'Nhà cung cấp trả về dữ liệu không đọc được. Thử lại giúp mình nhé.',
+    truncated:
+      'Câu trả lời bị cắt vì vượt giới hạn đầu ra. Thử lại hoặc chọn model khác trong Cài đặt → AI.',
+    unknown: 'Có lỗi khi gọi nhà cung cấp. Thử lại sau.',
+  } satisfies Record<LLMErrorKind, string>,
 } as const;
 
 export type Messages = typeof vi;
