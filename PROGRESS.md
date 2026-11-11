@@ -32,7 +32,7 @@
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E (`feat/v1-summary-ui`) tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
-- T14a xong trên `feat/v1-summary-ui` (chưa push). T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
+- T14a xong trên `feat/v1-summary-ui` (đã push, **chưa mở PR** vì nhóm E phụ thuộc PR #7; mở sau khi PR #7 merge rồi mới đổi base về `main`). T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
