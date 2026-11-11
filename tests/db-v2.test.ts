@@ -74,6 +74,15 @@ describe('IndexedDB v2 & summaries store', () => {
       addedAt: 1000,
       lastOpenedAt: 2000,
     });
+    await v1Db.put('progress', {
+      docId: 'doc-old',
+      page: 4,
+      updatedAt: 1500,
+    });
+    await v1Db.put('settings', {
+      key: 'readingSpeed',
+      value: { wordsPerMinute: 250, sampleWords: 250, sampleSeconds: 60 },
+    });
     v1Db.close();
 
     // 2. Gọi API `saveSummary` (sẽ trigger openDB với DB_VERSION = 2)
@@ -89,6 +98,17 @@ describe('IndexedDB v2 & summaries store', () => {
       pageCount: 10,
       addedAt: 1000,
       lastOpenedAt: 2000,
+    });
+    const oldProgress = await v2Db.get('progress', 'doc-old');
+    expect(oldProgress).toEqual({
+      docId: 'doc-old',
+      page: 4,
+      updatedAt: 1500,
+    });
+    const oldSetting = await v2Db.get('settings', 'readingSpeed');
+    expect(oldSetting).toEqual({
+      key: 'readingSpeed',
+      value: { wordsPerMinute: 250, sampleWords: 250, sampleSeconds: 60 },
     });
 
     // Store summaries tồn tại và chứa dữ liệu vừa save
