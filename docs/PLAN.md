@@ -1,4 +1,4 @@
-# PLAN — ReadFocus v0
+# PLAN — ReadFocus
 
 > Agent chỉ được thay đổi các quyết định kiến trúc trong file này sau khi hỏi người dùng (xem `AGENTS.md` mục 7). Được phép tách nhỏ task (T2a, T2b, …) và đánh dấu tiến độ.
 
@@ -30,7 +30,7 @@ Phiên bản lấy từ `package.json`. `manifest.json` phải có cùng `versio
 
 ## Kiến trúc
 
-- Trang viewer riêng của extension (`viewer.html`) có thanh bên tích hợp gồm các tab: Mục lục, Tìm kiếm, Tập trung, Cài đặt.
+- Trang viewer riêng của extension (`viewer.html`) có thanh bên tích hợp gồm các tab: Mục lục, Tìm kiếm, Tập trung, Cài đặt (v1 thêm tab Tóm tắt).
 - v0 chưa dùng Chrome Side Panel API, để giữ đơn giản (xem "Để sau").
 - Background service worker chỉ lo context menu, nút toolbar và mở viewer.
 
@@ -121,9 +121,81 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T10** Cài đặt, dark mode, phím tắt, các trạng thái lỗi; rà toàn bộ câu chữ tiếng Việt.
 - [x] **T11** Hoàn thiện README (tính năng, cài unpacked, build, quyền riêng tư), viết `docs/PRIVACY.md`, kiểm tra `npm run package`, cập nhật mục v1 bên dưới.
 
-## Để sau (không làm ở v0)
+## v1 — Tóm tắt bằng AI (BYOK)
+
+> Người dùng tự nhập API key. Không backend, không analytics. Chỉ gửi dữ liệu khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối, và chỉ tới đúng nhà cung cấp đã chọn.
+
+### Nguyên tắc
+
+- Không có backend. Extension gọi thẳng API của nhà cung cấp bằng key của người dùng.
+- AI là tuỳ chọn. Chưa cấu hình AI thì mọi tính năng v0 vẫn chạy như cũ; tab Tóm tắt chỉ hiện hướng dẫn cài đặt.
+- Gọi API bằng `fetch`, không thêm SDK của nhà cung cấp.
+- Nội dung PDF là dữ liệu không tin cậy (có thể chứa prompt injection). Kết quả AI luôn hiển thị dưới dạng text, không dùng `innerHTML`/`dangerouslySetInnerHTML`, không render markdown thành HTML thô; link trong kết quả không tự mở.
+
+### Nhà cung cấp (`src/core/llm/`)
+
+- Interface chung `LLMProvider`: `id`, `label`, `defaultModel`, `complete(request, { signal })` trả về text, tuỳ chọn `stream(...)`. Lỗi chuẩn hoá thành: `invalid-key`, `rate-limit`, `quota`, `context-too-long`, `network`, `cancelled`, `bad-response`, `unknown`.
+- Bốn provider: **OpenAI**, **Google Gemini**, **Anthropic Claude**, **OpenAI-compatible** (người dùng nhập base URL, dùng cho Ollama/LM Studio chạy trên máy).
+- Tên model gom vào một file hằng số, mỗi provider một model mặc định, người dùng gõ được model bất kỳ. Kiểm tra với tài liệu chính thức hiện tại và ghi nguồn vào `PROGRESS.md`.
+- Anthropic gọi từ trình duyệt cần header `anthropic-dangerous-direct-browser-access: true`.
+- Ollama cần `OLLAMA_ORIGINS` cho origin `chrome-extension://...`; viewer hiện hướng dẫn khi gặp lỗi CORS với provider này.
+- `429`: thử lại tối đa 2 lần với backoff, tôn trọng `Retry-After`. Mọi request huỷ được bằng `AbortController`.
+
+### Quyền
+
+- `optional_host_permissions` thêm đúng: `https://api.openai.com/*`, `https://generativelanguage.googleapis.com/*`, `https://api.anthropic.com/*`, `http://localhost/*`, `http://127.0.0.1/*` (cùng `*://*/*` của tính năng tự mở PDF). Xin quyền lúc người dùng chọn provider, không xin lúc cài.
+- Base URL tuỳ chỉnh khác localhost: xin quyền đúng origin tại thời điểm dùng. Quyền rộng hơn danh sách này phải dừng lại hỏi người dùng.
+- Cập nhật `docs/PERMISSIONS.md` và test manifest: không có host permission bắt buộc.
+
+### API key
+
+- Lưu ở `chrome.storage.local` (không `storage.sync`, không IndexedDB). Tuỳ chọn "Không lưu key" dùng `chrome.storage.session`, mất khi đóng trình duyệt.
+- Ô nhập dạng password, có nút hiện/ẩn và "Xoá key". Giao diện nói rõ key được lưu không mã hoá trên máy này.
+- Nút **Kiểm tra kết nối** gửi request rất nhỏ, báo thành công hoặc lỗi đã chuẩn hoá.
+- Lần đầu bật AI hiện hộp xác nhận: nội dung phần được tóm tắt sẽ gửi tới nhà cung cấp X theo chính sách của nhà cung cấp đó.
+
+### Tóm tắt (`src/core/summarize/`)
+
+- Đơn vị tóm tắt là một mục trong mục lục (T5). Mục không có văn bản (bản scan) báo không tóm tắt được.
+- Ước lượng token: tiếng Việt khoảng 1 token / 3 ký tự, tiếng Anh khoảng 1 token / 4 ký tự. Hàm thuần, có test.
+- Mục vượt ngân sách (mặc định khoảng 12k token đầu vào): chia theo đoạn, tóm tắt từng phần rồi gộp (map-reduce hai tầng). Giữ số trang của từng phần để trích dẫn.
+- Prompt riêng theo `book | paper | slides | unknown` (T4):
+  - `book`: ý chính, lập luận, ví dụ quan trọng;
+  - `paper`: vấn đề, phương pháp, kết quả, hạn chế;
+  - `slides`: gom ý theo chủ đề, bổ sung ngữ cảnh từ tiêu đề slide.
+- Prompt có `PROMPT_VERSION`; đổi prompt thì tăng version.
+- Kết quả JSON: `{ "summary": string, "keyPoints": [{ "text": string, "pages": number[] }], "terms": [{ "term": string, "definition": string }] }`. Parser chịu được JSON bọc trong ```json, JSON lỗi (fallback coi toàn bộ là `summary`) và số trang ngoài phạm vi mục (bỏ).
+- Ngôn ngữ đầu ra: mặc định tiếng Việt, cài đặt được "Theo ngôn ngữ tài liệu".
+- Cache trong IndexedDB: DB **version 2**, store `summaries` (key = hash của `docId + mục + providerId + model + PROMPT_VERSION + ngôn ngữ`, index `by-doc`). Migration từ version 1 giữ nguyên dữ liệu cũ, có test. `deleteDocumentData` và `clearAllData` xoá cả `summaries`.
+
+### Giao diện
+
+- Tab **Tóm tắt** trong thanh bên: nút "Tóm tắt mục này" cho mục đang đọc; hiện tóm tắt, ý chính có số trang bấm được, thuật ngữ; nút Tạo lại, Sao chép, Huỷ khi đang chạy; nhãn provider/model và dấu "lấy từ cache".
+- "Tóm tắt toàn bộ" (giới hạn 100 trang như v0): trước khi chạy hiện ước lượng số request và token đầu vào, phải xác nhận; chạy tối đa 2 request song song, có tiến độ, huỷ được, mục nào xong hiện ngay.
+- Tab Mục lục: mục đã có tóm tắt hiện dấu nhỏ.
+- Cài đặt → AI: chọn provider, model, base URL (OpenAI-compatible), key, tuỳ chọn lưu key, ngôn ngữ đầu ra, nút Kiểm tra kết nối.
+- Mọi chữ hiển thị nằm trong `src/i18n/vi.ts`, câu chữ tự nhiên; lỗi nói rõ cần làm gì (ví dụ "Key không hợp lệ — kiểm tra lại trong Cài đặt → AI").
+
+### Test
+
+- **Tuyệt đối không gọi API thật trong test hay CI, không dùng key thật.** Mock `fetch`, dùng response mẫu tự viết trong `tests/fixtures/llm/`, cả thành công lẫn từng loại lỗi.
+- Logic thuần (ước lượng token, chia đoạn, dựng prompt, parse kết quả, cache key, migration, chuẩn hoá lỗi) có test Vitest.
+- Phần cần key thật ghi vào "Cần người dùng thử thủ công" trong `PROGRESS.md`.
+
+### Danh sách task v1
+
+**Nhóm D** (T12–T13) trên `feat/v1-ai-core`, **Nhóm E** (T14–T16) trên `feat/v1-summary-ui`. Xong mỗi nhóm thì push, mở PR vào `main`, chạy `gh pr checks --watch` và sửa cho tới khi CI xanh. **Không merge, không tạo tag.**
+
+- [ ] **T12** Core: interface `LLMProvider`, chuẩn hoá lỗi, ước lượng token, chia đoạn, prompt theo loại tài liệu, parser JSON, cache key. Có test.
+- [ ] **T13** Bốn provider bằng `fetch`: OpenAI, Gemini, Anthropic, OpenAI-compatible; retry 429, abort, stream nếu gọn. Có test với fetch mock và fixture.
+- [ ] **T14** Cài đặt AI: lưu key (local/session), xin quyền host theo provider, kiểm tra kết nối, hộp xác nhận lần đầu; cập nhật `docs/PERMISSIONS.md` và test manifest.
+- [ ] **T15** Tab Tóm tắt: tóm tắt mục đang đọc, map-reduce cho mục dài, IndexedDB v2 + store `summaries` + migration, trích dẫn trang bấm được, tóm tắt toàn bộ có ước lượng và xác nhận, huỷ, đánh dấu trong mục lục.
+- [ ] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
+
+## Để sau (không làm ở v1)
 
 - Chrome Side Panel API.
-- **v1:** AI theo kiểu người dùng tự nhập key (lớp `LLMProvider` chung: OpenAI, Gemini, Claude, Ollama, Chrome built-in AI); tóm tắt theo mục, cache kết quả; prompt riêng cho từng loại tài liệu. Key lưu cục bộ, chỉ gửi nội dung khi người dùng bấm tóm tắt; cập nhật `docs/PRIVACY.md` và thêm lựa chọn xoá key/cache.
-- **v2:** hỏi đáp có trích dẫn trang, tìm kiếm ngữ nghĩa (transformers.js, `multilingual-e5-small`), flashcard, OCR (tesseract.js, gói `vie`).
+- Chrome built-in AI (Gemini Nano, Summarizer API).
+- Hỏi đáp theo tài liệu có trích dẫn trang, tìm kiếm ngữ nghĩa (transformers.js, `multilingual-e5-small`), flashcard.
+- OCR cho bản scan (tesseract.js, gói `vie`).
 - Bản tiếng Anh (`src/i18n/en.ts`), Firefox, đăng Chrome Web Store tự động.

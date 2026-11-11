@@ -66,7 +66,7 @@ Phiên có thể bị cắt bất cứ lúc nào. Vì vậy:
 
 - TypeScript `strict`. Không dùng `any`, trừ khi có comment giải thích lý do.
 - **Không tải code từ xa**, vì MV3 cấm remote code. Mọi thư viện cài qua npm và bundle vào extension, kể cả worker của `pdfjs-dist`.
-- **v0 không gửi bất kỳ dữ liệu nào ra mạng**: không analytics, không telemetry, không CDN.
+- **Chỉ gửi dữ liệu ra mạng khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối**, và chỉ tới đúng nhà cung cấp AI người dùng đã chọn. Không analytics, không telemetry, không CDN, không gọi API ngầm. API key không bao giờ được ghi vào log, thông báo lỗi, test hay commit.
 - Quyền trong manifest giữ ở mức tối thiểu. Mỗi quyền phải ghi lý do trong `docs/PERMISSIONS.md`.
 - Logic thuần đặt trong `src/core/`, tách khỏi UI, và **phải có unit test Vitest**. Logic thuần gồm: trích mục lục, nhận diện loại tài liệu, đếm từ, ước tính thời gian, chuẩn hóa tiếng Việt, tìm kiếm.
 - Chỉ thêm dependency khi thật sự cần, và ghi lý do vào `PROGRESS.md`.

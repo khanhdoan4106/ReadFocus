@@ -1,0 +1,14 @@
+{
+  "id": "msg_test",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+    { "type": "thinking", "thinking": "Suy nghĩ nội bộ." },
+    {
+      "type": "text",
+      "text": "{\"summary\":\"Tóm tắt\",\"keyPoints\":[{\"text\":\"Ý\",\"pages\":[4]}],"
+    },
+    { "type": "text", "text": "\"terms\":[]}" }
+  ],
+  "stop_reason": "end_turn"
+}
