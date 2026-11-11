@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
-- Task đang làm: Nhóm D xong — T12, T13 đã push, PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7) mở vào `main`, CI `check` xanh, **chưa merge**
-- Bước tiếp theo chính xác: bắt đầu Nhóm E trên nhánh `feat/v1-summary-ui` tách từ `feat/v1-ai-core`, làm T14 (Cài đặt AI: lưu key local/session, xin quyền host theo provider, kiểm tra kết nối, hộp xác nhận lần đầu; cập nhật `docs/PERMISSIONS.md` và test manifest).
+- Task đang làm: T14a xong (nền Cài đặt AI). Nhóm D đã có PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7) mở vào `main`, CI xanh, **chưa merge**
+- Bước tiếp theo chính xác: làm T14b — giao diện **Cài đặt → AI** trong `SettingsPanel.tsx` + `App.tsx`: chọn provider/model/base URL/ngôn ngữ, ô key password (hiện/ẩn, Xoá key), tuỳ chọn "Không lưu key", nút Kiểm tra kết nối (xin quyền host qua `chrome.permissions.request`), hộp xác nhận lần đầu, câu chữ trong `src/i18n/vi.ts`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -28,8 +28,11 @@
 
 - [x] T13 — Bốn provider bằng `fetch`: `src/core/llm/models.ts` (base URL + model mặc định, nguồn tài liệu chính thức ghi trong comment), `auth.ts` (key rỗng báo `invalid-key` không gọi mạng), `json.ts` (JSON hỏng là `bad-response`), `http.ts` (`postJson` tự thử lại 429 tối đa 2 lần, dùng `Retry-After` nếu có, nếu không backoff 0,5 s/1 s, mọi lỗi chuẩn hoá qua `LLMError`, `normalizeBaseUrl` cho OpenAI-compatible), `openai.ts` (dùng chung cho OpenAI và endpoint tương thích, `max_completion_tokens` vs `max_tokens`), `gemini.ts` (`:generateContent`, key qua header `x-goog-api-key`, bỏ phần `thought`), `anthropic.ts` (`/v1/messages`, header `anthropic-dangerous-direct-browser-access`), `openai-compatible.ts`, `index.ts` (registry + `getProvider`). Fixture trong `tests/fixtures/llm/` và `tests/llm-providers.test.ts` (28 test, tổng 223).
 
+- [x] T14a — Nền Cài đặt AI: `src/core/llm/settings.ts` (kiểu `AiSettings`, `defaultAiSettings`, `sanitizeAiSettings`, `isProviderId`), `src/core/llm/permissions.ts` (danh sách `LLM_HOST_ORIGINS`, `originPatternForUrl` bỏ cổng/đường dẫn, `providerOriginPattern`, `providerDefaultBaseUrl`, `isLocalBaseUrl`), `src/storage/ai.ts` (lưu/đọc/xoá key trong `chrome.storage.local` hoặc `.session`, tuỳ chọn AI lưu riêng, không bao giờ log key), `manifest.json` thêm 5 origin AI vào `optional_host_permissions`, cập nhật `docs/PERMISSIONS.md`. Thêm `tests/ai-settings.test.ts`, `tests/ai-storage.test.ts`, cập nhật `tests/manifest.test.ts` (21 test mới, tổng 244).
+
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E sẽ tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
+- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E (`feat/v1-summary-ui`) tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
+- T14a xong trên `feat/v1-summary-ui` (chưa push). T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -103,6 +106,11 @@
 - **Kiểm tra kết nối dùng chính model người dùng chọn**: đổi `checkConnection(config, model)` để lỗi sai tên model hiện ra ngay lúc kiểm tra, thay vì báo "kết nối OK" rồi hỏng khi tóm tắt thật.
 - **Test dùng `mockImplementation` trả `Response` mới cho mỗi lần gọi**: `Response` chỉ đọc body một lần, nên mock tái dùng một object sẽ hỏng ở lần retry thứ hai — đây là lỗi của test helper, không phải của code.
 - **Streaming chưa làm ở T13**: chưa cần cho luồng tóm tắt (chờ một kết quả rồi hiện), và thêm streaming làm phức tạp retry/abort; ghi lại để cân nhắc ở v1.1.
+- **T14a tách phần nền khỏi giao diện (T14b)**: schema tuỳ chọn, quyền host và lưu key đều là logic thuần/test được, nên làm trước để T14b chỉ còn nối UI. `sanitizeAiSettings` thay giá trị lạ bằng mặc định (model rỗng → model mặc định của provider) thay vì ném lỗi, để storage hỏng không làm trắng tab Cài đặt.
+- **Key tách object khỏi tuỳ chọn AI**: `aiApiKey` và `aiSettings` là hai khoá riêng trong `chrome.storage`; "Xoá key" không làm mất provider/model, và "Không lưu key" chỉ đổi nơi ghi key (`local` ↔ `session`).
+- **Helper lưu key nhận store qua tham số**: nhờ vậy test dùng store giả trong môi trường node, không cần `chrome`, và không có đường nào vô tình in key ra log/test. `saveApiKey` từ chối key rỗng thay vì ghi chuỗi trắng.
+- **Match pattern của Chrome không có cổng**: `originPatternForUrl` chỉ giữ scheme + hostname (`http://localhost:11434` → `http://localhost/*`), đúng cách Chrome so khớp và tránh xin quyền sai. Base URL lạ/hỏng rơi về `http://localhost/*` thay vì xin quyền rộng.
+- **`optional_host_permissions` mở rộng đúng 5 origin AI**: test manifest khẳng định danh sách này khớp `docs/PLAN.md`; không có `host_permissions` bắt buộc, nên lúc cài Chrome vẫn không cảnh báo đọc mọi trang.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
