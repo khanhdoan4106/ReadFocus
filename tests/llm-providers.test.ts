@@ -10,6 +10,7 @@ import { openAiCompatibleProvider } from '../src/core/llm/openai-compatible';
 import anthropicError from './fixtures/llm/anthropic-error.json';
 import anthropicSuccess from './fixtures/llm/anthropic-success.json';
 import geminiError from './fixtures/llm/gemini-error.json';
+import geminiInvalidKey from './fixtures/llm/gemini-invalid-key.json';
 import geminiSuccess from './fixtures/llm/gemini-success.json';
 import openaiError from './fixtures/llm/openai-error.json';
 import openaiSuccess from './fixtures/llm/openai-success.json';
@@ -81,6 +82,7 @@ describe('openaiProvider', () => {
     expect(call.headers.get('authorization')).toBe('Bearer test-key');
     expect(call.body.model).toBe('test-model');
     expect(call.body.max_completion_tokens).toBe(123);
+    expect(call.body.reasoning_effort).toBe('low');
     expect(call.body.messages).toEqual([
       { role: 'system', content: request.system },
       { role: 'user', content: request.prompt },
@@ -107,6 +109,21 @@ describe('openaiProvider', () => {
     await expect(openaiProvider.complete(request, config)).resolves.toBe('AB');
   });
 
+  it('dùng giới hạn đầu ra mặc định 8192 khi caller không truyền', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse(openaiSuccess));
+
+    await openaiProvider.complete(
+      {
+        system: request.system,
+        prompt: request.prompt,
+        model: request.model,
+      },
+      config,
+    );
+    expect(firstCall(fetchMock).body.max_completion_tokens).toBe(8192);
+  });
+
   it('kiểm tra kết nối chỉ gửi request rất nhỏ', async () => {
     const fetchMock = installFetch();
     fetchMock.mockResolvedValueOnce(jsonResponse({}, 200));
@@ -116,6 +133,24 @@ describe('openaiProvider', () => {
     const call = firstCall(fetchMock);
     expect(call.body.max_completion_tokens).toBe(8);
     expect(JSON.stringify(call.body)).not.toContain(request.prompt);
+  });
+
+  it('finish_reason length báo truncated, không trả chuỗi dở', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        choices: [
+          {
+            message: { content: '{"summary":"dở' },
+            finish_reason: 'length',
+          },
+        ],
+      }),
+    );
+
+    await expect(openaiProvider.complete(request, config)).rejects.toMatchObject({
+      kind: 'truncated',
+    });
   });
 
   it('key rỗng báo invalid-key mà không gọi mạng', async () => {
@@ -141,7 +176,49 @@ describe('geminiProvider', () => {
     expect(call.headers.get('x-goog-api-key')).toBe('test-key');
     expect(call.body.systemInstruction).toEqual({ parts: [{ text: request.system }] });
     expect(call.body.contents).toEqual([{ role: 'user', parts: [{ text: request.prompt }] }]);
-    expect(call.body.generationConfig).toEqual({ maxOutputTokens: 123 });
+    expect(call.body.generationConfig).toEqual({
+      maxOutputTokens: 123,
+      thinkingConfig: { thinkingLevel: 'LOW' },
+    });
+  });
+
+  it('model cắt vì MAX_TOKENS báo truncated, không trả chuỗi dở', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        candidates: [
+          {
+            content: { parts: [{ text: '{"summary":"dở' }] },
+            finishReason: 'MAX_TOKENS',
+          },
+        ],
+      }),
+    );
+
+    await expect(geminiProvider.complete(request, config)).rejects.toMatchObject({
+      kind: 'truncated',
+    });
+  });
+
+  it('key sai trả 400 API_KEY_INVALID thành invalid-key', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse(geminiInvalidKey, 400));
+
+    await expect(geminiProvider.complete(request, config)).rejects.toMatchObject({
+      kind: 'invalid-key',
+      status: 400,
+    });
+  });
+
+  it('kiểm tra kết nối chỉ cần HTTP 2xx, không kiểm tra bị cắt', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        candidates: [{ content: { parts: [] }, finishReason: 'MAX_TOKENS' }],
+      }),
+    );
+
+    await expect(geminiProvider.checkConnection(config, 'gemini-test')).resolves.toBeUndefined();
   });
 
   it('báo bad-response khi prompt bị chặn', async () => {
@@ -203,6 +280,20 @@ describe('anthropicProvider', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it('stop_reason max_tokens báo truncated', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        content: [{ type: 'text', text: '{"summary":"dở' }],
+        stop_reason: 'max_tokens',
+      }),
+    );
+
+    await expect(anthropicProvider.complete(request, config)).rejects.toMatchObject({
+      kind: 'truncated',
+    });
+  });
+
   it('kiểm tra kết nối không gửi nội dung tài liệu', async () => {
     const fetchMock = installFetch();
     fetchMock.mockResolvedValueOnce(jsonResponse({}, 200));
@@ -229,6 +320,7 @@ describe('openAiCompatibleProvider', () => {
     expect(call.url).toBe('http://localhost:1234/v1/chat/completions');
     expect(call.body.max_tokens).toBe(123);
     expect(call.body.max_completion_tokens).toBeUndefined();
+    expect(call.body.reasoning_effort).toBeUndefined();
     expect(call.headers.get('authorization')).toBe('Bearer local-key');
   });
 

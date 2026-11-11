@@ -26,5 +26,9 @@ export const DEFAULT_MODELS: Record<ProviderId, string> = {
   'openai-compatible': OPENAI_COMPATIBLE_DEFAULT_MODEL,
 };
 
-/** Giới hạn đầu ra mặc định khi caller không truyền `maxTokens`. */
-export const DEFAULT_MAX_OUTPUT_TOKENS = 2048;
+/**
+ * Giới hạn đầu ra mặc định khi caller không truyền `maxTokens`. Model reasoning
+ * mặc định dành phần lớn ngân sách cho thinking, nên 2.048 hay bị cắt; 8.192 đủ
+ * cho một mục sách/paper mà vẫn tiết kiệm chi phí.
+ */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 8192;

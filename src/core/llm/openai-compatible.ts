@@ -13,4 +13,5 @@ export const openAiCompatibleProvider: LLMProvider = createOpenAiProvider({
   defaultBaseUrl: OPENAI_COMPATIBLE_BASE_URL,
   maxTokensField: 'max_tokens',
   allowCustomBaseUrl: true,
+  requiresApiKey: true,
 });
