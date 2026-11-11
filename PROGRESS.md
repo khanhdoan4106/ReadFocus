@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v0-focus-polish` (Nhóm C, T8–T11)
-- Task đang làm: Nhóm C xong; PR [#6](https://github.com/khanhdoan4106/ReadFocus/pull/6) đã mở vào `main`, CI xanh, chưa merge
-- Bước tiếp theo chính xác: người dùng review PR #6 và thử tay checklist bên dưới (ưu tiên luồng xin quyền tự mở PDF trên Chrome thật); nếu CI còn đỏ thì sửa trên chính nhánh `feat/v0-focus-polish`. Sau khi merge mới bắt đầu v1 theo `docs/PLAN.md`.
+- Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
+- Task đang làm: T12 xong; T13 (bốn provider bằng `fetch`) chưa bắt đầu
+- Bước tiếp theo chính xác: làm T13 — `src/core/llm/models.ts` gom model mặc định, `openai.ts`, `gemini.ts`, `anthropic.ts`, `openai-compatible.ts` dùng `fetch`, retry 429 tối đa 2 lần, abort; test với `fetch` mock và fixture trong `tests/fixtures/llm/`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -24,9 +24,11 @@
 - [x] T10 — Cài đặt, giao diện và phím tắt: `src/core/theme.ts` (`parseThemePreference`, `resolveTheme`; 5 test, tổng 149) và `src/viewer/theme.ts` (áp `data-theme` lên thẻ html, cache `localStorage` để không nháy khi tải, theo dõi thay đổi giao diện hệ điều hành). CSS chuyển từ `prefers-color-scheme` sang `:root[data-theme='dark']`, thêm `color-scheme` tương ứng. Tab Cài đặt có chọn giao diện Theo hệ thống/Sáng/Tối, ô tốc độ đọc (50–1000 từ/phút, lưu `settings.readingSpeed`), công tắc tự mở PDF, hai nút xoá dữ liệu (tài liệu đang mở và toàn bộ dữ liệu đọc, đều hỏi xác nhận) và bảng phím tắt. `db.ts` thêm `deleteDocumentData`, `clearAllData`. Phím `/` mở tab Tìm kiếm và đưa con trỏ vào ô nhập; Space không còn kích hoạt hẹn giờ khi đang focus nút. Rà lại `src/i18n/vi.ts`: sửa “dùng chế độ tập trung bình thường”, “nghỉ giữa các phiên”, thống nhất tên “Cho phép truy cập URL tệp”. Đã smoke-test: đổi Sáng/Tối đổi màu ngay và giữ sau khi tải lại, tốc độ 300 từ/phút giữ sau khi tải lại và thời gian mục lục đổi theo, `/` mở đúng tab và focus ô tìm, xoá dữ liệu tài liệu xoá sạch 5 store của tài liệu mà PDF vẫn mở, xoá toàn bộ đóng tài liệu và xoá thống kê nhưng giữ 2 cài đặt, không lỗi console (commit 505597c).
 - [x] T11 — README và quyền riêng tư: viết lại `README.md` (tính năng, cài unpacked, mở PDF từ web, bảng lệnh, giới hạn v0, liên kết quyền riêng tư), thêm `docs/PRIVACY.md` (dữ liệu lưu ở đâu, `localStorage`/`chrome.storage.sync`, không gửi dữ liệu, PDF từ web, quyền, cách xoá, kế hoạch v1). Cập nhật mục v1 trong `docs/PLAN.md` (key lưu cục bộ, chỉ gửi khi người dùng bấm tóm tắt). Thêm test manifest kiểm tra quyền host rộng chỉ nằm ở `optional_host_permissions`, không có `host_permissions`, và `viewer.html` có trong `web_accessible_resources` (tổng 150 test). Đã chạy đủ typecheck, test, lint, build, package; zip `release/readfocus-v0.1.0.zip` có 11 file, không lẫn `fixtures/` (commit 1cc2ee8).
 - [x] Fix PR #6 — Regex tự mở PDF: `PDF_REDIRECT_REGEX` đổi `[^#]*` thành `[^?#]*` để chỉ khớp đuôi `.pdf` trong phần đường dẫn, không khớp khi `.pdf` nằm trong query (`/search?q=report.pdf`, `/view?doc=1&name=a.pdf`). Giữ đúng hành vi cho `x.pdf`, `x.PDF?x=1`, `x.pdf#page=3`; thêm test âm cho hai URL query và `x.pdf.html` (151 test).
+- [x] T12 — Core AI: `src/core/llm/types.ts` (`LLMProvider`, `LLMRequest`, `ProviderConfig`, `ProviderId`, 4 provider id), `src/core/llm/errors.ts` (`LLMError` 8 loại, `normalizeHttpError`, `normalizeFetchError` phân biệt `AbortError`, `parseRetryAfter` giây/ngày HTTP, `isLLMError`, `badResponse`), `src/core/summarize/tokens.ts` (ước lượng 3 ký tự/token cho tiếng Việt, 4 cho tiếng Anh, nhận diện chữ có dấu), `chunk.ts` (`splitIntoChunks` giữ số trang, cắt đoạn quá dài theo ranh giới từ, ngân sách mặc định 12k token), `prompt.ts` (`PROMPT_VERSION = 1`, prompt riêng book/paper/slides/unknown, prompt gộp, ngôn ngữ `vi`/`document`), `parse.ts` (bỏ fence ```json, fallback toàn bộ câu trả lời, lọc số trang ngoài mục), `cache-key.ts` (chuỗi NUL + SHA-256). Thêm `tests/llm.test.ts` và `tests/summarize.test.ts` (44 test, tổng 195).
 
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm C đã push lên `feat/v0-focus-polish` và mở PR #6 vào `main`; CI (`check`) xanh sau 55 giây, PR mergeable, **chưa merge** theo yêu cầu.
+- Nhóm D đang làm trên `feat/v1-ai-core`: T12 đã xong (core + 44 test); T13 là bước tiếp theo. Chưa push, chưa mở PR nhóm D.
+- PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
 - CI nhóm A đã chạy xanh trên PR #4 (đã merge). Nhóm B (T4–T7) cùng 2 commit `fix:` đã merge qua PR #5 (merge commit 10f28e2).
@@ -85,6 +87,13 @@
 - **"Xoá toàn bộ dữ liệu đọc" giữ object store `settings`**: xoá dữ liệu đọc là việc người dùng muốn, còn giao diện/tốc độ/Pomodoro là tuỳ chọn; giữ lại tránh việc vừa xoá xong giao diện tự đổi và tránh đụng tới quyền host tuỳ chọn. Nút xoá tài liệu chỉ xoá 5 store của tài liệu đó và chỉ hiện khi tài liệu còn dữ liệu.
 - **README/PRIVACY mô tả đúng phần đã làm, không hứa tính năng v1**: tài liệu riêng tư nêu rõ IndexedDB, `localStorage`, cờ `autoOpenPdf` trong `chrome.storage.sync` và việc PDF trên web được tải trực tiếp từ máy chủ gốc. Mục v1 trong PLAN ghi thêm điều kiện key lưu cục bộ và chỉ gửi khi người dùng yêu cầu, để sau này không phải sửa lại cam kết.
 - **`file://` không cố fetch**: viewer nhận ra scheme này và hiện hướng dẫn dùng file picker/kéo thả hoặc bật "Allow access to file URLs"; tránh thêm host `file:///*` khi chưa được duyệt.
+- **T12 giữ core AI thuần, không phụ thuộc `fetch`/DOM**: `types.ts`, `errors.ts` và `summarize/*` chỉ dùng kiểu và hàm thuần, nhờ vậy T13 chỉ việc cắm `fetch` vào cùng interface. `LLMError` mang `kind` chuẩn hoá; `normalizeHttpError` chỉ đọc 2.000 ký tự đầu của body và không bao giờ đưa body vào `message` để tránh lộ key.
+- **`parseRetryAfter` nhận cả giây và ngày HTTP, trả mili giây**: giá trị âm hoặc không hiểu trả `null`; ngày đã qua trả `0`. T13 sẽ dùng `retryAfterMs` để chờ đúng `Retry-After`.
+- **Ước lượng token bằng ký tự, không thêm tokenizer**: 3 ký tự/token khi phát hiện chữ Việt có dấu, 4 khi không; đây là ước lượng để chọn ngân sách, sai số chấp nhận được và không kéo thêm dependency nặng. Nhận diện tiếng Việt dùng danh sách nguyên âm có dấu precomposed sau NFC (không chỉ `ăâđêôơư`) để bắt cả `ệ`, `ế`, `ổ`…
+- **Chia đoạn theo đoạn văn, giữ số trang từng đoạn**: đoạn quá dài cắt theo ranh giới từ với sàn 200 ký tự; sàn này chỉ để tránh vòng lặp vô hạn, ngân sách thật 12k token lớn hơn nhiều. `splitIntoChunks` trả `pages` không trùng để map-reduce trích dẫn đúng trang.
+- **Prompt là tiếng Anh, kết quả theo ngôn ngữ người dùng chọn**: prompt tiếng Anh ổn định qua các model; `language = 'document'` dựa vào mẫu văn bản, còn `'vi'` luôn ép tiếng Việt. Prompt nhắc rõ văn bản PDF là dữ liệu không tin cậy và bọc nội dung trong `<<< >>>`.
+- **Parser JSON chịu lỗi thay vì báo lỗi**: bỏ fence ```json, cắt từ `{` đầu tới `}` cuối; JSON hỏng hoặc thiếu cả `summary` lẫn `keyPoints` thì coi toàn bộ câu trả lời là `summary`, để người dùng vẫn đọc được nội dung. Số trang ngoài phạm vi mục, không nguyên hoặc không phải số bị loại.
+- **Cache key băm chuỗi NUL của `docId + khoảng trang + tiêu đề + provider + model + PROMPT_VERSION + ngôn ngữ`**: tách bằng NUL để tiêu đề chứa ký tự phân tách cũng không gây trùng khoá; tiêu đề và model được `trim` trước khi băm.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
