@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
-- Task đang làm: Nhóm D xong — T12, T13 đã push, PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7) mở vào `main`, CI `check` xanh, **chưa merge**
-- Bước tiếp theo chính xác: bắt đầu Nhóm E trên nhánh `feat/v1-summary-ui` tách từ `feat/v1-ai-core`, làm T14 (Cài đặt AI: lưu key local/session, xin quyền host theo provider, kiểm tra kết nối, hộp xác nhận lần đầu; cập nhật `docs/PERMISSIONS.md` và test manifest).
+- Task đang làm: đã sửa 3 lỗi review của PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7), mỗi lỗi một commit kèm test (`5924abc`, `03c077c`, `05c3eed`), 235 test pass; đã push, chờ CI xanh, **chưa merge**
+- Bước tiếp theo chính xác: `git checkout feat/v1-summary-ui` rồi `git merge feat/v1-ai-core` (không rebase, không force push), sửa chỗ ảnh hưởng tới T14a nếu có, push; sau đó làm T14b — giao diện Cài đặt → AI trong `SettingsPanel.tsx`/`App.tsx`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -28,8 +28,13 @@
 
 - [x] T13 — Bốn provider bằng `fetch`: `src/core/llm/models.ts` (base URL + model mặc định, nguồn tài liệu chính thức ghi trong comment), `auth.ts` (key rỗng báo `invalid-key` không gọi mạng), `json.ts` (JSON hỏng là `bad-response`), `http.ts` (`postJson` tự thử lại 429 tối đa 2 lần, dùng `Retry-After` nếu có, nếu không backoff 0,5 s/1 s, mọi lỗi chuẩn hoá qua `LLMError`, `normalizeBaseUrl` cho OpenAI-compatible), `openai.ts` (dùng chung cho OpenAI và endpoint tương thích, `max_completion_tokens` vs `max_tokens`), `gemini.ts` (`:generateContent`, key qua header `x-goog-api-key`, bỏ phần `thought`), `anthropic.ts` (`/v1/messages`, header `anthropic-dangerous-direct-browser-access`), `openai-compatible.ts`, `index.ts` (registry + `getProvider`). Fixture trong `tests/fixtures/llm/` và `tests/llm-providers.test.ts` (28 test, tổng 223).
 
+- [x] Fix PR #7 (1) — `normalizeHttpError` map 400 kèm `API_KEY_INVALID`/`API key not valid` thành `invalid-key` (Gemini trả 400 chứ không phải 401); thêm loại lỗi `model-not-found` cho 404 hoặc body báo model không tồn tại, kèm câu tiếng Việt trong `aiErrorMessages`; fixture `tests/fixtures/llm/gemini-invalid-key.json` (commit 5924abc).
+- [x] Fix PR #7 (2) — `DEFAULT_MAX_OUTPUT_TOKENS = 8192`; OpenAI gửi `reasoning_effort: "low"` (chỉ provider `openai`), Gemini gửi `thinkingConfig.thinkingLevel: "LOW"`; đọc lý do kết thúc `finish_reason: "length"` / `finishReason: "MAX_TOKENS"` / `stop_reason: "max_tokens"` và ném lỗi `truncated` thay vì đưa chuỗi bị cắt vào parser; `checkConnection` chỉ cần HTTP 2xx (commit 03c077c).
+- [x] Fix PR #7 (3) — `openai-compatible` không bắt buộc key: key rỗng thì bỏ header `Authorization`; `openai`/`gemini`/`anthropic` vẫn bắt buộc qua `requireApiKey` (commit 05c3eed).
+
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E sẽ tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
+- Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 chờ CI xanh, chưa merge. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
+- `feat/v1-summary-ui` đang có T14a (nền Cài đặt AI: schema, quyền host, lưu key, manifest, `docs/PERMISSIONS.md`) và phần tách T14 trong PLAN; nhánh này tách từ `feat/v1-ai-core` trước 3 commit fix nên khi merge sẽ có thể xung đột `PROGRESS.md`/`docs/PLAN.md` — giữ cả T14a/T14b và T12/T13 đã tick.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -103,6 +108,12 @@
 - **Kiểm tra kết nối dùng chính model người dùng chọn**: đổi `checkConnection(config, model)` để lỗi sai tên model hiện ra ngay lúc kiểm tra, thay vì báo "kết nối OK" rồi hỏng khi tóm tắt thật.
 - **Test dùng `mockImplementation` trả `Response` mới cho mỗi lần gọi**: `Response` chỉ đọc body một lần, nên mock tái dùng một object sẽ hỏng ở lần retry thứ hai — đây là lỗi của test helper, không phải của code.
 - **Streaming chưa làm ở T13**: chưa cần cho luồng tóm tắt (chờ một kết quả rồi hiện), và thêm streaming làm phức tạp retry/abort; ghi lại để cân nhắc ở v1.1.
+- **Hạ mức suy luận của model reasoning khi tóm tắt** (đã tra tài liệu ngày 11/11/2026):
+  - OpenAI Chat Completions: `reasoning_effort` nhận `none|minimal|low|medium|high|xhigh|max`, mặc định `medium`; ReadFocus gửi `low` (mức thấp hợp lệ cho tóm tắt), chỉ cho provider `openai` vì server OpenAI-compatible có thể từ chối trường lạ (<https://platform.openai.com/docs/api-reference/chat/create>).
+  - Gemini: `generationConfig.thinkingConfig.thinkingLevel` nhận `MINIMAL|LOW|MEDIUM|HIGH`; `gemini-3.8-flash` mặc định `medium` nên ReadFocus gửi `LOW` (<https://ai.google.dev/api/generate-content>, <https://ai.google.dev/gemini-api/docs/thinking>).
+  - Giới hạn đầu ra mặc định nâng 2.048 → 8.192 token để phần thinking không ăn hết chỗ của câu trả lời.
+- **Phát hiện câu trả lời bị cắt và báo lỗi `truncated`**: OpenAI `finish_reason: "length"`, Gemini `candidates[0].finishReason: "MAX_TOKENS"`, Anthropic `stop_reason: "max_tokens"` đều bị chặn trước parser, vì chuỗi JSON dở sẽ bị parser "chịu lỗi" coi là summary và người dùng nhận bản tóm tắt cụt mà không biết. `checkConnection` chỉ xét HTTP 2xx, không áp kiểm tra này.
+- **`openai-compatible` không bắt buộc key**: Ollama/LM Studio chạy nội bộ không cần key; khi key rỗng thì bỏ hẳn header `Authorization` thay vì gửi `Bearer ` rỗng. Ba provider còn lại vẫn dùng `requireApiKey` để báo `invalid-key` ngay, không gọi mạng.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
