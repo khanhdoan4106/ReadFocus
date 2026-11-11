@@ -1,0 +1,16 @@
+{
+  "id": "chatcmpl-test",
+  "object": "chat.completion",
+  "created": 0,
+  "model": "gpt-6.1-sol",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "{\"summary\":\"Tóm tắt chương thử nghiệm\",\"keyPoints\":[{\"text\":\"Ý chính\",\"pages\":[2,3]}],\"terms\":[{\"term\":\"Thuật ngữ\",\"definition\":\"Định nghĩa\"}]}"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}

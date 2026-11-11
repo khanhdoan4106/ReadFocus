@@ -15,7 +15,6 @@ export type LLMRequest = {
   prompt: string;
   model: string;
   maxTokens?: number;
-  temperature?: number;
 };
 
 export type LLMCallOptions = {
@@ -39,5 +38,5 @@ export type LLMProvider = {
   defaultBaseUrl: string;
   complete(request: LLMRequest, config: ProviderConfig, options?: LLMCallOptions): Promise<string>;
   /** Kiểm tra key bằng một request rất nhỏ, không gửi nội dung tài liệu. */
-  checkConnection(config: ProviderConfig, options?: LLMCallOptions): Promise<void>;
+  checkConnection(config: ProviderConfig, model: string, options?: LLMCallOptions): Promise<void>;
 };

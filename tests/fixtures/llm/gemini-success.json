@@ -1,0 +1,17 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          { "text": "Đây là phần suy nghĩ, không phải kết quả.", "thought": true },
+          {
+            "text": "{\"summary\":\"Tóm tắt chương\",\"keyPoints\":[{\"text\":\"Ý chính\",\"pages\":[2]}],"
+          },
+          { "text": "\"terms\":[]}" }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ]
+}
