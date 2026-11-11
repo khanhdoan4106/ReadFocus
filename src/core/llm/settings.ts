@@ -21,8 +21,27 @@ export type AiSettings = {
 
 const PROVIDER_IDS: readonly ProviderId[] = ['openai', 'gemini', 'anthropic', 'openai-compatible'];
 
+/** Thứ tự hiển thị trong Cài đặt → AI. */
+export const PROVIDERS: readonly ProviderId[] = PROVIDER_IDS;
+
 export function isProviderId(value: unknown): value is ProviderId {
   return typeof value === 'string' && (PROVIDER_IDS as readonly string[]).includes(value);
+}
+
+/** Ba provider đám mây bắt buộc key; Ollama/LM Studio chạy nội bộ thì không. */
+export function providerRequiresKey(providerId: ProviderId): boolean {
+  return providerId !== 'openai-compatible';
+}
+
+/**
+ * Kiểm tra tối thiểu trước khi gọi mạng từ giao diện. Chỉ thiếu key mới chặn;
+ * model rỗng đã được `sanitizeAiSettings` thay bằng model mặc định.
+ */
+export function aiConfigProblem(settings: AiSettings, apiKey: string): 'missing-key' | null {
+  if (providerRequiresKey(settings.providerId) && apiKey.trim() === '') {
+    return 'missing-key';
+  }
+  return null;
 }
 
 export function defaultAiSettings(): AiSettings {

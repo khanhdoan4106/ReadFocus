@@ -1,6 +1,21 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
+import { isLLMError } from '../core/llm/errors';
+import { getProvider } from '../core/llm';
+import { DEFAULT_MODELS } from '../core/llm/models';
+import {
+  isLocalBaseUrl,
+  providerDefaultBaseUrl,
+  providerOriginPattern,
+} from '../core/llm/permissions';
+import {
+  aiConfigProblem,
+  defaultAiSettings,
+  type AiSettings,
+  type SummaryLanguage,
+} from '../core/llm/settings';
+import type { ProviderId } from '../core/llm/types';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
@@ -55,6 +70,14 @@ import {
   saveProgress,
   saveSetting,
 } from '../storage/db';
+import {
+  clearApiKey,
+  keyScopeFor,
+  loadAiSettings,
+  loadApiKey,
+  saveAiSettings,
+  saveApiKey,
+} from '../storage/ai';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
@@ -147,6 +170,20 @@ function errorMessage(reason: ErrorReason): string {
   }
 }
 
+/** Câu lỗi AI; thêm gợi ý CORS khi dùng server local (Ollama, LM Studio). */
+function aiErrorMessage(error: unknown, settings: AiSettings): string {
+  if (!isLLMError(error)) return vi.aiErrorMessages.unknown;
+  const base = vi.aiErrorMessages[error.kind];
+  if (error.kind !== 'network' && error.kind !== 'unknown') return base;
+
+  const baseUrl =
+    settings.baseUrl.trim() === '' ? providerDefaultBaseUrl(settings.providerId) : settings.baseUrl;
+  if (settings.providerId === 'openai-compatible' && isLocalBaseUrl(baseUrl)) {
+    return `${base} ${vi.aiCorsHint}`;
+  }
+  return base;
+}
+
 export function App() {
   const [status, setStatus] = useState<Status>('empty');
   const [error, setError] = useState<ErrorReason>('unknown');
@@ -183,12 +220,22 @@ export function App() {
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
+  const [aiKey, setAiKey] = useState('');
+  const [aiKeyVisible, setAiKeyVisible] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNotice, setAiNotice] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
+  const [aiConsentOpen, setAiConsentOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [searchRequest, setSearchRequest] = useState(0);
   const autoOpenSupported =
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
     chrome.storage?.sync !== undefined;
+  const aiSupported =
+    typeof chrome !== 'undefined' &&
+    chrome.permissions !== undefined &&
+    chrome.storage?.local !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -208,6 +255,8 @@ export function App() {
   });
   const speedReadyRef = useRef(false);
   const settingsReadyRef = useRef(false);
+  const aiReadyRef = useRef(false);
+  const pendingConsentRef = useRef<(() => void) | null>(null);
   const lastActivityRef = useRef(Date.now());
   // Số phút/trang đã đọc chờ ghi vào thống kê ngày.
   const statsPendingRef = useRef({ minutes: 0, pages: 0 });
@@ -514,6 +563,157 @@ export function App() {
 
   const handleWordsPerMinute = useCallback((value: number) => {
     setSpeed(speedFromWordsPerMinute(value));
+  }, []);
+
+  // Nạp tuỳ chọn AI và key đã lưu. Key không bao giờ đi qua log hay thông báo.
+  useEffect(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    if (!local) return;
+    void loadAiSettings(local)
+      .then(async (settings) => {
+        setAiSettings(settings);
+        const store = settings.saveKey ? local : chrome.storage?.session;
+        if (store) setAiKey(await loadApiKey(store));
+        aiReadyRef.current = true;
+      })
+      .catch(() => {
+        aiReadyRef.current = true;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!aiReadyRef.current) return;
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    if (!local) return;
+    void saveAiSettings(local, aiSettings);
+  }, [aiSettings]);
+
+  const handleAiProvider = useCallback((providerId: ProviderId) => {
+    setAiSettings((current) => ({
+      ...current,
+      providerId,
+      model: DEFAULT_MODELS[providerId],
+    }));
+    setAiNotice(null);
+  }, []);
+
+  const handleAiModel = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, model: value }));
+  }, []);
+
+  const handleAiBaseUrl = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, baseUrl: value }));
+  }, []);
+
+  const handleAiLanguage = useCallback((language: SummaryLanguage) => {
+    setAiSettings((current) => ({ ...current, language }));
+  }, []);
+
+  const handleAiKey = useCallback((value: string) => {
+    setAiKey(value);
+    setAiNotice(null);
+  }, []);
+
+  const handleAiKeyVisible = useCallback(() => {
+    setAiKeyVisible((visible) => !visible);
+  }, []);
+
+  // Chỉ ghi key khi rời ô nhập, tránh ghi storage theo từng ký tự.
+  const handleAiKeyBlur = useCallback(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    const store = aiSettings.saveKey ? local : chrome.storage?.session;
+    if (!local || !store) return;
+    void (aiKey.trim() === ''
+      ? clearApiKey(store)
+      : saveApiKey(store, aiKey).catch(() =>
+          setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }),
+        ));
+  }, [aiKey, aiSettings.saveKey]);
+
+  const handleAiClearKey = useCallback(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    const store = aiSettings.saveKey ? local : chrome.storage?.session;
+    setAiKey('');
+    setAiNotice(null);
+    if (store) void clearApiKey(store);
+  }, [aiSettings.saveKey]);
+
+  // Đổi nơi lưu key: xoá ở store cũ rồi ghi sang store mới để không còn bản sao.
+  const handleAiSaveKey = useCallback(
+    (saveKey: boolean) => {
+      setAiSettings((current) => ({ ...current, saveKey }));
+      const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+      const session = typeof chrome === 'undefined' ? undefined : chrome.storage?.session;
+      const previous = keyScopeFor(!saveKey) === 'local' ? local : session;
+      const next = keyScopeFor(saveKey) === 'local' ? local : session;
+      if (!previous || !next) return;
+      void clearApiKey(previous)
+        .then(() => (aiKey.trim() === '' ? undefined : saveApiKey(next, aiKey)))
+        .catch(() => setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }));
+    },
+    [aiKey],
+  );
+
+  const runAiConnectionTest = useCallback(async () => {
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions?.request) {
+      setAiNotice({ tone: 'error', message: vi.aiUnsupported });
+      return;
+    }
+
+    const model =
+      aiSettings.model.trim() === ''
+        ? DEFAULT_MODELS[aiSettings.providerId]
+        : aiSettings.model.trim();
+    setAiBusy(true);
+    setAiNotice(null);
+    try {
+      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+      const granted = await chromeApi.permissions.request({ origins: [origin] });
+      if (!granted) {
+        setAiNotice({ tone: 'error', message: vi.aiPermissionDenied });
+        return;
+      }
+      await getProvider(aiSettings.providerId).checkConnection(
+        { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+        model,
+      );
+      setAiNotice({ tone: 'ok', message: vi.aiTestOk });
+    } catch (error) {
+      setAiNotice({ tone: 'error', message: aiErrorMessage(error, aiSettings) });
+    } finally {
+      setAiBusy(false);
+    }
+  }, [aiKey, aiSettings]);
+
+  const handleAiTestConnection = useCallback(() => {
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    if (aiSettings.consentGiven) {
+      void runAiConnectionTest();
+      return;
+    }
+    pendingConsentRef.current = () => void runAiConnectionTest();
+    setAiConsentOpen(true);
+  }, [aiKey, aiSettings, runAiConnectionTest]);
+
+  const handleAiConsentAccept = useCallback(() => {
+    setAiSettings((current) => ({ ...current, consentGiven: true }));
+    setAiConsentOpen(false);
+    const next = pendingConsentRef.current;
+    pendingConsentRef.current = null;
+    next?.();
+  }, []);
+
+  const handleAiConsentCancel = useCallback(() => {
+    pendingConsentRef.current = null;
+    setAiConsentOpen(false);
   }, []);
 
   const markActive = useCallback(() => {
@@ -1303,6 +1503,24 @@ export function App() {
             settings={{
               theme,
               onChangeTheme: handleTheme,
+              ai: {
+                settings: aiSettings,
+                apiKey: aiKey,
+                keyVisible: aiKeyVisible,
+                supported: aiSupported,
+                busy: aiBusy,
+                notice: aiNotice,
+                onChangeProvider: handleAiProvider,
+                onChangeModel: handleAiModel,
+                onChangeBaseUrl: handleAiBaseUrl,
+                onChangeLanguage: handleAiLanguage,
+                onChangeKey: handleAiKey,
+                onToggleKeyVisible: handleAiKeyVisible,
+                onBlurKey: handleAiKeyBlur,
+                onClearKey: handleAiClearKey,
+                onChangeSaveKey: handleAiSaveKey,
+                onTestConnection: handleAiTestConnection,
+              },
               wordsPerMinute: readingWordsPerMinute,
               onChangeWordsPerMinute: handleWordsPerMinute,
               autoOpenPdf,
@@ -1358,6 +1576,36 @@ export function App() {
           >
             ×
           </button>
+        </div>
+      )}
+
+      {aiConsentOpen && (
+        <div class="consent-backdrop">
+          <div
+            class="consent-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-consent-title"
+          >
+            <h2 class="consent-dialog__title" id="ai-consent-title">
+              {vi.aiConsentTitle}
+            </h2>
+            <p class="consent-dialog__body">
+              {vi.aiConsentBody(vi.aiProviders[aiSettings.providerId])}
+            </p>
+            <div class="consent-dialog__actions">
+              <button
+                type="button"
+                class="settings-button settings-button--primary"
+                onClick={handleAiConsentAccept}
+              >
+                {vi.aiConsentAccept}
+              </button>
+              <button type="button" class="settings-button" onClick={handleAiConsentCancel}>
+                {vi.aiConsentCancel}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

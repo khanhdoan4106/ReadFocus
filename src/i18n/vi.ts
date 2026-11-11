@@ -1,4 +1,4 @@
-import type { LLMErrorKind } from '../core/llm/types';
+import type { LLMErrorKind, ProviderId } from '../core/llm/types';
 
 export const vi = {
   appName: 'ReadFocus',
@@ -91,6 +91,48 @@ export const vi = {
   themeSystem: 'Theo hệ thống',
   themeLight: 'Sáng',
   themeDark: 'Tối',
+
+  aiTitle: 'Tóm tắt bằng AI',
+  aiHint:
+    'AI là tuỳ chọn. ReadFocus chỉ gửi nội dung khi bạn bấm Kiểm tra kết nối hoặc Tóm tắt, và gửi thẳng tới nhà cung cấp bạn chọn — không qua máy chủ trung gian.',
+  aiProviderLabel: 'Nhà cung cấp',
+  aiProviders: {
+    openai: 'OpenAI',
+    gemini: 'Google Gemini',
+    anthropic: 'Anthropic Claude',
+    'openai-compatible': 'OpenAI-compatible (Ollama, LM Studio)',
+  } satisfies Record<ProviderId, string>,
+  aiModelLabel: 'Model',
+  aiModelHint: 'Gõ đúng tên model mà nhà cung cấp hỗ trợ.',
+  aiBaseUrlLabel: 'Địa chỉ API',
+  aiBaseUrlHint:
+    'Ví dụ http://localhost:11434/v1 cho Ollama hoặc http://localhost:1234/v1 cho LM Studio.',
+  aiKeyLabel: 'API key',
+  aiKeyPlaceholder: 'Dán key vào đây',
+  aiShowKey: 'Hiện key',
+  aiHideKey: 'Ẩn key',
+  aiClearKey: 'Xoá key',
+  aiKeyHint: 'Key được lưu không mã hoá trên máy này, không đồng bộ lên tài khoản.',
+  aiKeySaveFailed: 'Không lưu được key. Kiểm tra quyền lưu trữ của extension rồi thử lại.',
+  aiSaveKey: 'Lưu key trên máy này',
+  aiSaveKeyHint: 'Tắt để chỉ giữ key tới khi đóng trình duyệt.',
+  aiLanguageLabel: 'Ngôn ngữ tóm tắt',
+  aiLanguageVi: 'Tiếng Việt',
+  aiLanguageDocument: 'Theo ngôn ngữ tài liệu',
+  aiTestConnection: 'Kiểm tra kết nối',
+  aiTesting: 'Đang kiểm tra kết nối…',
+  aiTestOk: 'Kết nối thành công.',
+  aiMissingKey: 'Nhập API key trước khi kiểm tra kết nối.',
+  aiPermissionDenied:
+    'Chưa cấp quyền truy cập tới nhà cung cấp nên chưa kiểm tra được. Thử lại và bấm Cho phép.',
+  aiUnsupported: 'Phần AI chỉ hoạt động khi ReadFocus được cài trong Chrome.',
+  aiCorsHint:
+    'Nếu dùng Ollama hoặc LM Studio, kiểm tra dịch vụ đang chạy và đã cho phép origin của extension (biến môi trường OLLAMA_ORIGINS) chưa.',
+  aiConsentTitle: 'Gửi nội dung tới nhà cung cấp?',
+  aiConsentBody: (provider: string) =>
+    `Khi tóm tắt hoặc kiểm tra kết nối, phần nội dung bạn chọn sẽ được gửi tới ${provider} và xử lý theo chính sách riêng của họ. ReadFocus không có máy chủ trung gian và không gửi dữ liệu nào khác.`,
+  aiConsentAccept: 'Đồng ý và tiếp tục',
+  aiConsentCancel: 'Để sau',
 
   readingSpeedTitle: 'Tốc độ đọc',
   readingSpeedLabel: 'Từ mỗi phút',

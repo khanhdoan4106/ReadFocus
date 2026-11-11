@@ -7,7 +7,13 @@ import {
   providerDefaultBaseUrl,
   providerOriginPattern,
 } from '../src/core/llm/permissions';
-import { defaultAiSettings, isProviderId, sanitizeAiSettings } from '../src/core/llm/settings';
+import {
+  aiConfigProblem,
+  defaultAiSettings,
+  isProviderId,
+  providerRequiresKey,
+  sanitizeAiSettings,
+} from '../src/core/llm/settings';
 
 describe('sanitizeAiSettings', () => {
   it('giữ tuỳ chọn hợp lệ', () => {
@@ -61,6 +67,29 @@ describe('sanitizeAiSettings', () => {
     expect(isProviderId('openai-compatible')).toBe(true);
     expect(isProviderId('openai ')).toBe(false);
     expect(isProviderId(undefined)).toBe(false);
+  });
+});
+
+describe('providerRequiresKey', () => {
+  it('ba provider đám mây bắt buộc key, OpenAI-compatible thì không', () => {
+    expect(providerRequiresKey('openai')).toBe(true);
+    expect(providerRequiresKey('gemini')).toBe(true);
+    expect(providerRequiresKey('anthropic')).toBe(true);
+    expect(providerRequiresKey('openai-compatible')).toBe(false);
+  });
+});
+
+describe('aiConfigProblem', () => {
+  it('báo thiếu key với provider đám mây khi ô key trống', () => {
+    const settings = { ...defaultAiSettings(), providerId: 'openai' as const };
+    expect(aiConfigProblem(settings, '')).toBe('missing-key');
+    expect(aiConfigProblem(settings, '   ')).toBe('missing-key');
+    expect(aiConfigProblem(settings, 'sk-test')).toBeNull();
+  });
+
+  it('OpenAI-compatible chạy được khi không có key', () => {
+    const settings = { ...defaultAiSettings(), providerId: 'openai-compatible' as const };
+    expect(aiConfigProblem(settings, '')).toBeNull();
   });
 });
 
