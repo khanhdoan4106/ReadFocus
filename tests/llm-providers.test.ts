@@ -324,6 +324,28 @@ describe('openAiCompatibleProvider', () => {
     expect(call.headers.get('authorization')).toBe('Bearer local-key');
   });
 
+  it('không bắt buộc key: key rỗng thì bỏ header Authorization', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse(openaiSuccess));
+
+    await expect(openAiCompatibleProvider.complete(request, { apiKey: '   ' })).resolves.toBe(
+      OPENAI_TEXT,
+    );
+
+    const call = firstCall(fetchMock);
+    expect(call.headers.get('authorization')).toBeNull();
+  });
+
+  it('kiểm tra kết nối chạy được khi không có key', async () => {
+    const fetchMock = installFetch();
+    fetchMock.mockResolvedValueOnce(jsonResponse({}, 200));
+
+    await expect(
+      openAiCompatibleProvider.checkConnection({ apiKey: '' }, 'llama3.2'),
+    ).resolves.toBeUndefined();
+    expect(firstCall(fetchMock).headers.get('authorization')).toBeNull();
+  });
+
   it('dùng base URL mặc định khi người dùng để trống', async () => {
     const fetchMock = installFetch();
     fetchMock.mockResolvedValueOnce(jsonResponse(openaiSuccess));
