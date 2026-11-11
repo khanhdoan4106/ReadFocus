@@ -1,5 +1,5 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { isLLMError } from '../core/llm/errors';
 import { getProvider } from '../core/llm';
@@ -15,7 +15,19 @@ import {
   type AiSettings,
   type SummaryLanguage,
 } from '../core/llm/settings';
-import type { ProviderId } from '../core/llm/types';
+import type { LLMErrorKind, ProviderId } from '../core/llm/types';
+import type { TextPage } from '../core/summarize/chunk';
+import { PROMPT_VERSION, resolveOutputLanguage } from '../core/summarize/prompt';
+import { summaryCacheKey } from '../core/summarize/cache-key';
+import { summarizeSection } from '../core/summarize/run';
+import {
+  estimateSpansWork,
+  mapWithConcurrency,
+  pagesInSpan,
+  type WorkEstimate,
+} from '../core/summarize/work';
+import { filterSummarizableSections, findSummaryForSection } from '../core/summarize/format';
+import type { SummaryRecord } from '../core/summarize/record';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
@@ -65,10 +77,13 @@ import {
   loadProgress,
   loadRecentStats,
   loadSetting,
+  loadSummariesForDoc,
   recordDocumentOpen,
   savePageTexts,
   saveProgress,
   saveSetting,
+  saveSummary,
+  type TocItem,
 } from '../storage/db';
 import {
   clearApiKey,
@@ -228,6 +243,31 @@ export function App() {
   const [aiConsentOpen, setAiConsentOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [searchRequest, setSearchRequest] = useState(0);
+
+  const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
+  const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryProgress, setSummaryProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [summaryError, setSummaryError] = useState<{ kind: LLMErrorKind; message: string } | null>(
+    null,
+  );
+  const [currentSummaryRecord, setCurrentSummaryRecord] = useState<SummaryRecord | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
+  const summaryAbortRef = useRef<AbortController | null>(null);
+
+  const [estimateDialog, setEstimateDialog] = useState<{
+    open: boolean;
+    estimate: WorkEstimate | null;
+    sectionsCount: number;
+    sections: TocItem[];
+  } | null>(null);
+  const [batchLoadingProgress, setBatchLoadingProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const batchAbortRef = useRef<AbortController | null>(null);
   const autoOpenSupported =
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
@@ -345,6 +385,7 @@ export function App() {
         setPageWords(
           Object.fromEntries(tocPages.map((page) => [page.page, countWords(page.text)])),
         );
+        setExtractedPages(tocPages.map((page) => ({ page: page.page, text: page.text })));
       } catch {
         flush();
         if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
@@ -432,7 +473,17 @@ export function App() {
           size: file.size,
           pageCount: result.doc.numPages,
         });
+        void loadSummariesForDoc(hash).then((records) => {
+          setSummaries(records);
+        });
+      } else {
+        setSummaries([]);
       }
+      setExtractedPages([]);
+      setCurrentSummaryRecord(null);
+      setSummaryError(null);
+      summaryAbortRef.current?.abort();
+      batchAbortRef.current?.abort();
 
       analysisTokenRef.current += 1;
       const token = analysisTokenRef.current;
@@ -716,6 +767,295 @@ export function App() {
     setAiConsentOpen(false);
   }, []);
 
+  const currentSection = useMemo(() => {
+    if (!toc || toc.items.length === 0) return null;
+    return (
+      toc.items.find((item) => pageNumber >= item.startPage && pageNumber <= item.endPage) ?? null
+    );
+  }, [toc, pageNumber]);
+
+  const currentSectionNoText = useMemo(() => {
+    if (!currentSection) return false;
+    const pages = pagesInSpan(extractedPages, currentSection);
+    if (pages.length === 0) {
+      return analysis.phase === 'done';
+    }
+    return !pages.some((page) => page.text.trim().length > 0);
+  }, [currentSection, extractedPages, analysis.phase]);
+
+  const summarizedSpans = useMemo(
+    () => new Set(summaries.map((s) => `${s.startPage}-${s.endPage}`)),
+    [summaries],
+  );
+
+  useEffect(() => {
+    if (!currentSection || !docId) {
+      setCurrentSummaryRecord(null);
+      setIsFromCache(false);
+      setSummaryError(null);
+      return;
+    }
+    const match = findSummaryForSection(summaries, currentSection);
+    if (match) {
+      setCurrentSummaryRecord(match);
+      setIsFromCache(true);
+      setSummaryError(null);
+    } else {
+      setCurrentSummaryRecord(null);
+      setIsFromCache(false);
+      setSummaryError(null);
+    }
+  }, [currentSection, summaries, docId]);
+
+  const doSummarizeCurrentSection = useCallback(async () => {
+    if (!currentSection || !docId) return;
+
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (chromeApi?.permissions) {
+      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+      const granted = await chromeApi.permissions.request({ origins: [origin] });
+      if (!granted) {
+        setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
+        return;
+      }
+    }
+
+    const pages = pagesInSpan(extractedPages, currentSection);
+    if (pages.length === 0 || !pages.some((page) => page.text.trim().length > 0)) {
+      setSummaryError({ kind: 'bad-response', message: vi.summarizeNoText });
+      return;
+    }
+
+    const abortCtrl = new AbortController();
+    summaryAbortRef.current = abortCtrl;
+    setSummaryLoading(true);
+    setSummaryProgress(null);
+    setSummaryError(null);
+
+    try {
+      const provider = getProvider(aiSettings.providerId);
+      const result = await summarizeSection({
+        provider,
+        config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+        model: aiSettings.model,
+        kind: analysis.phase === 'done' ? analysis.profile.kind : 'unknown',
+        title: currentSection.title,
+        pages,
+        language: aiSettings.language,
+        signal: abortCtrl.signal,
+        onProgress: (done, total) => setSummaryProgress({ done, total }),
+      });
+
+      const sampleText = pages.map((p) => p.text).join('\n\n');
+      const resolvedLang = resolveOutputLanguage(aiSettings.language, sampleText);
+
+      const cacheKey = await summaryCacheKey({
+        docId,
+        startPage: currentSection.startPage,
+        endPage: currentSection.endPage,
+        title: currentSection.title,
+        providerId: aiSettings.providerId,
+        model: aiSettings.model,
+        promptVersion: PROMPT_VERSION,
+        language: resolvedLang,
+      });
+
+      const record: SummaryRecord = {
+        id: cacheKey,
+        docId,
+        startPage: currentSection.startPage,
+        endPage: currentSection.endPage,
+        title: currentSection.title,
+        providerId: aiSettings.providerId,
+        model: aiSettings.model,
+        promptVersion: PROMPT_VERSION,
+        language: resolvedLang,
+        summary: result.summary,
+        keyPoints: result.keyPoints,
+        terms: result.terms,
+        createdAt: Date.now(),
+      };
+
+      await saveSummary(record);
+      setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
+      setCurrentSummaryRecord(record);
+      setIsFromCache(false);
+    } catch (error) {
+      if (abortCtrl.signal.aborted) {
+        setSummaryError({ kind: 'cancelled', message: vi.aiErrorMessages.cancelled });
+      } else if (isLLMError(error)) {
+        setSummaryError({ kind: error.kind, message: aiErrorMessage(error, aiSettings) });
+      } else {
+        setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
+      }
+    } finally {
+      setSummaryLoading(false);
+      setSummaryProgress(null);
+      summaryAbortRef.current = null;
+    }
+  }, [currentSection, docId, aiSettings, aiKey, extractedPages, analysis]);
+
+  const handleSummarizeCurrentSection = useCallback(() => {
+    if (!currentSection || !docId) return;
+
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+
+    if (!aiSettings.consentGiven) {
+      pendingConsentRef.current = () => void doSummarizeCurrentSection();
+      setAiConsentOpen(true);
+      return;
+    }
+    void doSummarizeCurrentSection();
+  }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection]);
+
+  const handleCancelSummary = useCallback(() => {
+    summaryAbortRef.current?.abort();
+  }, []);
+
+  const handleRetrySummary = useCallback(() => {
+    handleSummarizeCurrentSection();
+  }, [handleSummarizeCurrentSection]);
+
+  const handleSummarizeAllClick = useCallback(() => {
+    if (!toc || !docId) return;
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    const filtered = filterSummarizableSections(toc.items);
+    const sectionsWithText = filtered.filter((s) =>
+      pagesInSpan(extractedPages, s).some((p) => p.text.trim().length > 0),
+    );
+    if (sectionsWithText.length === 0) {
+      setSummaryError({ kind: 'bad-response', message: vi.summarizeNoText });
+      return;
+    }
+    const estimate = estimateSpansWork(
+      sectionsWithText.map((s) => ({ startPage: s.startPage, endPage: s.endPage })),
+      extractedPages,
+    );
+    setEstimateDialog({
+      open: true,
+      estimate,
+      sectionsCount: sectionsWithText.length,
+      sections: sectionsWithText,
+    });
+  }, [toc, docId, aiSettings, aiKey, extractedPages]);
+
+  const runSummarizeAll = useCallback(
+    async (sections: TocItem[]) => {
+      const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+      if (chromeApi?.permissions) {
+        const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+        const granted = await chromeApi.permissions.request({ origins: [origin] });
+        if (!granted) {
+          setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
+          return;
+        }
+      }
+
+      const abortCtrl = new AbortController();
+      batchAbortRef.current = abortCtrl;
+      setBatchLoadingProgress({ done: 0, total: sections.length });
+      let doneCount = 0;
+
+      try {
+        const provider = getProvider(aiSettings.providerId);
+        await mapWithConcurrency(
+          sections,
+          2,
+          async (section) => {
+            abortCtrl.signal.throwIfAborted();
+            if (!docId) return;
+            const pages = pagesInSpan(extractedPages, section);
+            const sampleText = pages.map((p) => p.text).join('\n\n');
+            const resolvedLang = resolveOutputLanguage(aiSettings.language, sampleText);
+
+            const cacheKey = await summaryCacheKey({
+              docId,
+              startPage: section.startPage,
+              endPage: section.endPage,
+              title: section.title,
+              providerId: aiSettings.providerId,
+              model: aiSettings.model,
+              promptVersion: PROMPT_VERSION,
+              language: resolvedLang,
+            });
+
+            const existing = summaries.find((s) => s.id === cacheKey);
+            if (!existing) {
+              const result = await summarizeSection({
+                provider,
+                config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+                model: aiSettings.model,
+                kind: analysis.phase === 'done' ? analysis.profile.kind : 'unknown',
+                title: section.title,
+                pages,
+                language: aiSettings.language,
+                signal: abortCtrl.signal,
+              });
+
+              const record: SummaryRecord = {
+                id: cacheKey,
+                docId,
+                startPage: section.startPage,
+                endPage: section.endPage,
+                title: section.title,
+                providerId: aiSettings.providerId,
+                model: aiSettings.model,
+                promptVersion: PROMPT_VERSION,
+                language: resolvedLang,
+                summary: result.summary,
+                keyPoints: result.keyPoints,
+                terms: result.terms,
+                createdAt: Date.now(),
+              };
+
+              await saveSummary(record);
+              setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
+            }
+
+            doneCount += 1;
+            setBatchLoadingProgress({ done: doneCount, total: sections.length });
+          },
+          abortCtrl.signal,
+        );
+      } catch (error) {
+        if (!abortCtrl.signal.aborted) {
+          if (isLLMError(error)) {
+            setSummaryError({ kind: error.kind, message: aiErrorMessage(error, aiSettings) });
+          } else {
+            setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
+          }
+        }
+      } finally {
+        setBatchLoadingProgress(null);
+        batchAbortRef.current = null;
+      }
+    },
+    [docId, aiSettings, aiKey, analysis, extractedPages, summaries],
+  );
+
+  const handleConfirmSummarizeAll = useCallback(() => {
+    if (!estimateDialog) return;
+    const { sections } = estimateDialog;
+    setEstimateDialog(null);
+
+    if (!aiSettings.consentGiven) {
+      pendingConsentRef.current = () => void runSummarizeAll(sections);
+      setAiConsentOpen(true);
+      return;
+    }
+    void runSummarizeAll(sections);
+  }, [estimateDialog, aiSettings.consentGiven, runSummarizeAll]);
+
+  const handleCancelSummarizeAll = useCallback(() => {
+    batchAbortRef.current?.abort();
+  }, []);
+
   const markActive = useCallback(() => {
     lastActivityRef.current = Date.now();
   }, []);
@@ -912,6 +1252,11 @@ export function App() {
     setHighlight(null);
     setIndexRange(null);
     setRangeError(null);
+    setSummaries([]);
+    setCurrentSummaryRecord(null);
+    setExtractedPages([]);
+    summaryAbortRef.current?.abort();
+    batchAbortRef.current?.abort();
   }, []);
 
   const handleDeleteDocument = useCallback(async () => {
@@ -931,6 +1276,11 @@ export function App() {
     setSearchIndex(null);
     setAnalysis({ phase: 'idle' });
     setPageWords({});
+    setSummaries([]);
+    setCurrentSummaryRecord(null);
+    setExtractedPages([]);
+    summaryAbortRef.current?.abort();
+    batchAbortRef.current?.abort();
     setToast(vi.deleteDocumentDone);
   }, [docId, fileName]);
 
@@ -1530,6 +1880,36 @@ export function App() {
               onDeleteDocument: () => void handleDeleteDocument(),
               onDeleteAll: () => void handleDeleteAll(),
             }}
+            summary={{
+              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              onOpenSettings: () => {},
+              currentSection,
+              summary: currentSummaryRecord,
+              isCached: isFromCache,
+              loading: summaryLoading,
+              loadingProgress: summaryProgress,
+              error: summaryError,
+              noText: currentSectionNoText,
+              onSummarize: handleSummarizeCurrentSection,
+              onRegenerate: handleSummarizeCurrentSection,
+              onCancel: handleCancelSummary,
+              onRetry: handleRetrySummary,
+              onSelectPage: goToPage,
+              canSummarizeAll: status === 'ready' && toc !== null && toc.items.length > 0,
+              summarizeAllProgress: batchLoadingProgress,
+              onSummarizeAllClick: handleSummarizeAllClick,
+              onCancelSummarizeAll: handleCancelSummarizeAll,
+              estimateDialog: estimateDialog
+                ? {
+                    open: estimateDialog.open,
+                    estimate: estimateDialog.estimate,
+                    sectionsCount: estimateDialog.sectionsCount,
+                    onConfirm: handleConfirmSummarizeAll,
+                    onCancel: () => setEstimateDialog(null),
+                  }
+                : null,
+            }}
+            summarizedSpans={summarizedSpans}
             searchRequest={searchRequest}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
