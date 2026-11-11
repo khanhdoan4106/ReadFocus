@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: T14b xong (giao diện Cài đặt → AI), đã commit `7980e2d`; T14a + merge `feat/v1-ai-core` đã push
-- Bước tiếp theo chính xác: T15 — tab Tóm tắt: tóm tắt mục đang đọc, map-reduce cho mục dài, IndexedDB v2 + store `summaries` + migration, trích dẫn trang bấm được, tóm tắt toàn bộ có ước lượng và xác nhận, huỷ, đánh dấu mục đã tóm tắt trong mục lục.
+- Task đang làm: T15a xong (lưu cache và runner), chuẩn bị làm T15b (giao diện tab Tóm tắt)
+- Bước tiếp theo chính xác: T15b — giao diện tab Tóm tắt: nút "Tóm tắt mục này" cho mục đang đọc, hiển thị tóm tắt, ý chính kèm trang bấm được, thuật ngữ, Tạo lại, Sao chép, Huỷ; nhãn provider/model, "lấy từ cache"; Tóm tắt toàn bộ với ước lượng + xác nhận, tối đa 2 request song song, có thanh tiến độ; đánh dấu mục có tóm tắt trong tab Mục lục; xử lý bản scan và lỗi chuẩn hoá trong vi.ts.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -33,6 +33,7 @@
 - [x] Fix PR #7 (2) — `DEFAULT_MAX_OUTPUT_TOKENS = 8192`; OpenAI gửi `reasoning_effort: "low"` (chỉ provider `openai`), Gemini gửi `thinkingConfig.thinkingLevel: "LOW"`; đọc lý do kết thúc `finish_reason: "length"` / `finishReason: "MAX_TOKENS"` / `stop_reason: "max_tokens"` và ném lỗi `truncated` thay vì đưa chuỗi bị cắt vào parser; `checkConnection` chỉ cần HTTP 2xx (commit 03c077c).
 - [x] Fix PR #7 (3) — `openai-compatible` không bắt buộc key: key rỗng thì bỏ header `Authorization`; `openai`/`gemini`/`anthropic` vẫn bắt buộc qua `requireApiKey` (commit 05c3eed).
 - [x] T14b — Giao diện Cài đặt → AI: `SettingsPanel.tsx` thêm khối Tóm tắt bằng AI (provider, model, base URL chỉ hiện với OpenAI-compatible, ô key password có Hiện/Ẩn/Xoá key, công tắc "Lưu key trên máy này", chọn ngôn ngữ tóm tắt, nút Kiểm tra kết nối, thông báo lỗi/thành công); `App.tsx` nạp/lưu `AiSettings` + key theo scope, xin quyền host đúng origin rồi gọi `checkConnection`, hộp xác nhận gửi dữ liệu lần đầu; `settings.ts` thêm `PROVIDERS`, `providerRequiresKey`, `aiConfigProblem` (4 test, tổng 259); câu chữ mới trong `vi.ts` (commit 7980e2d). Kiểm tra trong preview: tab Cài đặt hiện đủ khối AI, đúng câu tiếng Việt, không lỗi console; preview không có `chrome.storage` nên khối AI bị khoá kèm gợi ý như mong đợi.
+- [x] T15a — Core tóm tắt + lưu cache: `src/core/summarize/record.ts` (kiểu `SummaryRecord`, `sanitizeSummaryRecord`), `src/core/summarize/run.ts` (`summarizeSection` map-reduce 2 tầng cho mục dài), `src/core/summarize/work.ts` (`estimateSectionWork`, `estimateSpansWork`, `mapWithConcurrency`), IndexedDB version 2 nâng cấp store `summaries` với index `by-doc`, migration giữ nguyên toàn bộ dữ liệu v1 (`documents`, `progress`, `settings`), `deleteDocumentData`/`clearAllData` xoá cả summaries. Thêm `tests/summarize-run.test.ts`, `tests/summarize-work.test.ts`, `tests/db-v2.test.ts` (17 test mới, tổng 276 test).
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
@@ -124,6 +125,7 @@
 - **Hộp xác nhận gửi dữ liệu hiện ở lần Kiểm tra kết nối đầu tiên**: đây là thao tác đầu tiên thực sự gửi dữ liệu ra ngoài; nhập/lưu key chỉ ghi trên máy nên không chặn. Đồng ý thì lưu `consentGiven: true` và chạy tiếp thao tác đang chờ; "Để sau" thì không gửi gì. Thiếu key được báo trước khi mở hộp thoại để người dùng không phải xác nhận rồi mới biết lỗi.
 - **Key chỉ ghi khi rời ô nhập** (`onBlur`), không ghi theo từng ký tự; đổi "Lưu key trên máy này" thì xoá key ở store cũ rồi ghi sang store mới để không còn bản sao trong `local` lẫn `session`. "Xoá key" chỉ xoá key, giữ provider/model/ngôn ngữ.
 - **Khối AI bị khoá khi không có `chrome.storage`** (preview hoặc trang thường): hiện gợi ý "chỉ hoạt động khi cài trong Chrome", cùng cách xử lý với công tắc tự mở PDF. Quyền host được xin ngay trong cú bấm Kiểm tra kết nối (`chrome.permissions.request`), đúng origin của provider hoặc base URL, rồi mới gọi `checkConnection`.
+- **T15a map-reduce 2 tầng cho mục dài**: mục vừa ngân sách gọi một lần; mục dài chia đoạn qua `splitIntoChunks`, tóm tắt từng phần giữ trang, rồi gộp lại bằng `buildMergePrompt`. `WorkEstimate` tính số request và token tối thiểu trước khi chạy. Cache tóm tắt nâng cấp IndexedDB lên version 2 thêm store `summaries` (index `by-doc`), migration có điều kiện theo `oldVersion` bảo toàn toàn bộ dữ liệu v1.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
