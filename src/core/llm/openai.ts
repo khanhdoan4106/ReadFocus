@@ -1,11 +1,14 @@
 import { requireApiKey } from './auth';
-import { badResponse } from './errors';
+import { badResponse, truncated } from './errors';
 import { isRecord, joinText, parseJson } from './json';
 import { DEFAULT_MAX_OUTPUT_TOKENS, OPENAI_BASE_URL, OPENAI_DEFAULT_MODEL } from './models';
 import { normalizeBaseUrl, postJson } from './http';
 import type { LLMCallOptions, LLMProvider, LLMRequest, ProviderConfig, ProviderId } from './types';
 
 type MaxTokensField = 'max_completion_tokens' | 'max_tokens';
+
+/** Mức thấp nhất hợp lệ cho tóm tắt; chỉ gửi cho OpenAI thật. */
+export type ReasoningEffort = 'low';
 
 export type OpenAiProviderOptions = {
   id: ProviderId;
@@ -15,12 +18,17 @@ export type OpenAiProviderOptions = {
   maxTokensField: MaxTokensField;
   /** Chỉ OpenAI-compatible mới cho phép đổi base URL. */
   allowCustomBaseUrl: boolean;
+  /** OpenAI-compatible (Ollama, LM Studio) chạy nội bộ nên không cần key. */
+  requiresApiKey: boolean;
+  /** `reasoning_effort` chỉ dành cho OpenAI; server tương thích có thể từ chối. */
+  reasoningEffort?: ReasoningEffort;
 };
 
 /** Dùng chung cho OpenAI và các endpoint tương thích (Ollama, LM Studio). */
 export function buildOpenAiBody(
   request: LLMRequest,
   maxTokensField: MaxTokensField,
+  reasoningEffort?: ReasoningEffort,
 ): Record<string, unknown> {
   return {
     model: request.model,
@@ -29,7 +37,13 @@ export function buildOpenAiBody(
       { role: 'user', content: request.prompt },
     ],
     [maxTokensField]: request.maxTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
+    ...(reasoningEffort === undefined ? {} : { reasoning_effort: reasoningEffort }),
   };
+}
+
+/** Không gửi header Authorization khi key rỗng (OpenAI-compatible nội bộ). */
+function openAiHeaders(apiKey: string): Record<string, string> {
+  return apiKey === '' ? {} : { authorization: `Bearer ${apiKey}` };
 }
 
 export function parseOpenAiText(text: string): string {
@@ -40,6 +54,10 @@ export function parseOpenAiText(text: string): string {
   }
 
   const choice = choices[0];
+  if (isRecord(choice) && choice.finish_reason === 'length') {
+    throw truncated('OpenAI stopped at the output token limit');
+  }
+
   const message = isRecord(choice) ? choice.message : undefined;
   const content = isRecord(message) ? message.content : undefined;
 
@@ -67,6 +85,8 @@ export function parseOpenAiText(text: string): string {
 
 export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvider {
   const endpoint = (baseUrl: string) => `${baseUrl}/chat/completions`;
+  const resolveKey = (config: ProviderConfig) =>
+    options.requiresApiKey ? requireApiKey(config) : config.apiKey.trim();
 
   return {
     id: options.id,
@@ -78,7 +98,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvide
       config: ProviderConfig,
       callOptions?: LLMCallOptions,
     ): Promise<string> {
-      const apiKey = requireApiKey(config);
+      const apiKey = resolveKey(config);
       const baseUrl = options.allowCustomBaseUrl
         ? normalizeBaseUrl(config.baseUrl, options.defaultBaseUrl)
         : options.defaultBaseUrl;
@@ -86,8 +106,8 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvide
       const response = await postJson(
         {
           url: endpoint(baseUrl),
-          headers: { authorization: `Bearer ${apiKey}` },
-          body: buildOpenAiBody(request, options.maxTokensField),
+          headers: openAiHeaders(apiKey),
+          body: buildOpenAiBody(request, options.maxTokensField, options.reasoningEffort),
         },
         callOptions,
       );
@@ -98,7 +118,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvide
       model: string,
       callOptions?: LLMCallOptions,
     ): Promise<void> {
-      const apiKey = requireApiKey(config);
+      const apiKey = resolveKey(config);
       const baseUrl = options.allowCustomBaseUrl
         ? normalizeBaseUrl(config.baseUrl, options.defaultBaseUrl)
         : options.defaultBaseUrl;
@@ -106,7 +126,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvide
       await postJson(
         {
           url: endpoint(baseUrl),
-          headers: { authorization: `Bearer ${apiKey}` },
+          headers: openAiHeaders(apiKey),
           body: buildOpenAiBody(
             {
               system: 'You are a connection test.',
@@ -115,6 +135,7 @@ export function createOpenAiProvider(options: OpenAiProviderOptions): LLMProvide
               maxTokens: 8,
             },
             options.maxTokensField,
+            options.reasoningEffort,
           ),
         },
         callOptions,
@@ -130,4 +151,6 @@ export const openaiProvider: LLMProvider = createOpenAiProvider({
   defaultBaseUrl: OPENAI_BASE_URL,
   maxTokensField: 'max_completion_tokens',
   allowCustomBaseUrl: false,
+  requiresApiKey: true,
+  reasoningEffort: 'low',
 });

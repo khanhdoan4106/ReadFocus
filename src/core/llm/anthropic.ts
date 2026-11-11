@@ -1,5 +1,5 @@
 import { requireApiKey } from './auth';
-import { badResponse } from './errors';
+import { badResponse, truncated } from './errors';
 import { isRecord, joinText, parseJson } from './json';
 import { ANTHROPIC_BASE_URL, ANTHROPIC_DEFAULT_MODEL, DEFAULT_MAX_OUTPUT_TOKENS } from './models';
 import { postJson } from './http';
@@ -32,6 +32,9 @@ function anthropicHeaders(apiKey: string): Record<string, string> {
 
 export function parseAnthropicText(text: string): string {
   const root = parseJson(text);
+  if (isRecord(root) && root.stop_reason === 'max_tokens') {
+    throw truncated('Anthropic stopped at the output token limit');
+  }
   const content = isRecord(root) ? root.content : undefined;
   if (!Array.isArray(content)) throw badResponse('Missing response content');
 

@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v1-ai-core` (Nhóm D, T12–T13)
-- Task đang làm: T14a xong (nền Cài đặt AI). Nhóm D đã có PR [#7](https://github.com/khanhdoan4106/ReadFocus/pull/7) mở vào `main`, CI xanh, **chưa merge**
-- Bước tiếp theo chính xác: làm T14b — giao diện **Cài đặt → AI** trong `SettingsPanel.tsx` + `App.tsx`: chọn provider/model/base URL/ngôn ngữ, ô key password (hiện/ẩn, Xoá key), tuỳ chọn "Không lưu key", nút Kiểm tra kết nối (xin quyền host qua `chrome.permissions.request`), hộp xác nhận lần đầu, câu chữ trong `src/i18n/vi.ts`.
+- Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
+- Task đang làm: đã merge `feat/v1-ai-core` (T12, T13, 3 fix review PR #7) vào nhánh này; T14a xong, T14b đang làm
+- Bước tiếp theo chính xác: T14b — giao diện **Cài đặt → AI** trong `SettingsPanel.tsx` + `App.tsx`: chọn provider/model/base URL/ngôn ngữ, ô key password (hiện/ẩn, Xoá key), tuỳ chọn "Không lưu key", nút Kiểm tra kết nối (xin quyền host qua `chrome.permissions.request`), hộp xác nhận lần đầu, câu chữ trong `src/i18n/vi.ts`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -29,10 +29,13 @@
 - [x] T13 — Bốn provider bằng `fetch`: `src/core/llm/models.ts` (base URL + model mặc định, nguồn tài liệu chính thức ghi trong comment), `auth.ts` (key rỗng báo `invalid-key` không gọi mạng), `json.ts` (JSON hỏng là `bad-response`), `http.ts` (`postJson` tự thử lại 429 tối đa 2 lần, dùng `Retry-After` nếu có, nếu không backoff 0,5 s/1 s, mọi lỗi chuẩn hoá qua `LLMError`, `normalizeBaseUrl` cho OpenAI-compatible), `openai.ts` (dùng chung cho OpenAI và endpoint tương thích, `max_completion_tokens` vs `max_tokens`), `gemini.ts` (`:generateContent`, key qua header `x-goog-api-key`, bỏ phần `thought`), `anthropic.ts` (`/v1/messages`, header `anthropic-dangerous-direct-browser-access`), `openai-compatible.ts`, `index.ts` (registry + `getProvider`). Fixture trong `tests/fixtures/llm/` và `tests/llm-providers.test.ts` (28 test, tổng 223).
 
 - [x] T14a — Nền Cài đặt AI: `src/core/llm/settings.ts` (kiểu `AiSettings`, `defaultAiSettings`, `sanitizeAiSettings`, `isProviderId`), `src/core/llm/permissions.ts` (danh sách `LLM_HOST_ORIGINS`, `originPatternForUrl` bỏ cổng/đường dẫn, `providerOriginPattern`, `providerDefaultBaseUrl`, `isLocalBaseUrl`), `src/storage/ai.ts` (lưu/đọc/xoá key trong `chrome.storage.local` hoặc `.session`, tuỳ chọn AI lưu riêng, không bao giờ log key), `manifest.json` thêm 5 origin AI vào `optional_host_permissions`, cập nhật `docs/PERMISSIONS.md`. Thêm `tests/ai-settings.test.ts`, `tests/ai-storage.test.ts`, cập nhật `tests/manifest.test.ts` (21 test mới, tổng 244).
+- [x] Fix PR #7 (1) — `normalizeHttpError` map 400 kèm `API_KEY_INVALID`/`API key not valid` thành `invalid-key` (Gemini trả 400 chứ không phải 401); thêm loại lỗi `model-not-found` cho 404 hoặc body báo model không tồn tại, kèm câu tiếng Việt trong `aiErrorMessages`; fixture `tests/fixtures/llm/gemini-invalid-key.json` (commit 5924abc).
+- [x] Fix PR #7 (2) — `DEFAULT_MAX_OUTPUT_TOKENS = 8192`; OpenAI gửi `reasoning_effort: "low"` (chỉ provider `openai`), Gemini gửi `thinkingConfig.thinkingLevel: "LOW"`; đọc lý do kết thúc `finish_reason: "length"` / `finishReason: "MAX_TOKENS"` / `stop_reason: "max_tokens"` và ném lỗi `truncated` thay vì đưa chuỗi bị cắt vào parser; `checkConnection` chỉ cần HTTP 2xx (commit 03c077c).
+- [x] Fix PR #7 (3) — `openai-compatible` không bắt buộc key: key rỗng thì bỏ header `Authorization`; `openai`/`gemini`/`anthropic` vẫn bắt buộc qua `requireApiKey` (commit 05c3eed).
 
 ## Dở dang / ghi chú cho phiên sau
-- Nhóm D trên `feat/v1-ai-core`: T12 và T13 xong (223 test), PR #7 đã mở, CI xanh, chưa merge. Nhóm E (`feat/v1-summary-ui`) tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
-- T14a xong trên `feat/v1-summary-ui` (đã push, **chưa mở PR** vì nhóm E phụ thuộc PR #7; mở sau khi PR #7 merge rồi mới đổi base về `main`). T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
+- Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
+- `feat/v1-summary-ui` đã merge `feat/v1-ai-core` (merge commit, không rebase); T14a xong, đã push, **chưa mở PR** vì nhóm E phụ thuộc PR #7. T14b là phần giao diện, chưa làm. `src/viewer/SettingsPanel.tsx` và `App.tsx` chưa có gì liên quan tới AI; các helper đã sẵn: `loadAiSettings`/`saveAiSettings` nhận `chrome.storage.local`, `saveApiKey`/`loadApiKey`/`clearApiKey` nhận store theo `keyScopeFor(settings.saveKey)`.
 - PR #6 (Nhóm C) đã merge vào `main`; `feat/v1-ai-core` tạo từ `main` sau merge.
 - Nhánh `feat/v0-focus-polish` gồm các commit: f36f598 (T8), 7d9d58d (T9 context menu/toolbar), 060b354 (T9 tự mở PDF), 505597c (T10), 1cc2ee8 (T11) và các commit `docs:` tương ứng.
 - Repo đã có remote `origin` (https://github.com/khanhdoan4106/ReadFocus.git), `main` đã push, `gh` cài ở `C:\Program Files\GitHub CLI\gh.exe` (không có trong PATH — gọi bằng đường dẫn đầy đủ).
@@ -111,6 +114,12 @@
 - **Helper lưu key nhận store qua tham số**: nhờ vậy test dùng store giả trong môi trường node, không cần `chrome`, và không có đường nào vô tình in key ra log/test. `saveApiKey` từ chối key rỗng thay vì ghi chuỗi trắng.
 - **Match pattern của Chrome không có cổng**: `originPatternForUrl` chỉ giữ scheme + hostname (`http://localhost:11434` → `http://localhost/*`), đúng cách Chrome so khớp và tránh xin quyền sai. Base URL lạ/hỏng rơi về `http://localhost/*` thay vì xin quyền rộng.
 - **`optional_host_permissions` mở rộng đúng 5 origin AI**: test manifest khẳng định danh sách này khớp `docs/PLAN.md`; không có `host_permissions` bắt buộc, nên lúc cài Chrome vẫn không cảnh báo đọc mọi trang.
+- **Hạ mức suy luận của model reasoning khi tóm tắt** (đã tra tài liệu ngày 11/11/2026):
+  - OpenAI Chat Completions: `reasoning_effort` nhận `none|minimal|low|medium|high|xhigh|max`, mặc định `medium`; ReadFocus gửi `low` (mức thấp hợp lệ cho tóm tắt), chỉ cho provider `openai` vì server OpenAI-compatible có thể từ chối trường lạ (<https://platform.openai.com/docs/api-reference/chat/create>).
+  - Gemini: `generationConfig.thinkingConfig.thinkingLevel` nhận `MINIMAL|LOW|MEDIUM|HIGH`; `gemini-3.8-flash` mặc định `medium` nên ReadFocus gửi `LOW` (<https://ai.google.dev/api/generate-content>, <https://ai.google.dev/gemini-api/docs/thinking>).
+  - Giới hạn đầu ra mặc định nâng 2.048 → 8.192 token để phần thinking không ăn hết chỗ của câu trả lời.
+- **Phát hiện câu trả lời bị cắt và báo lỗi `truncated`**: OpenAI `finish_reason: "length"`, Gemini `candidates[0].finishReason: "MAX_TOKENS"`, Anthropic `stop_reason: "max_tokens"` đều bị chặn trước parser, vì chuỗi JSON dở sẽ bị parser "chịu lỗi" coi là summary và người dùng nhận bản tóm tắt cụt mà không biết. `checkConnection` chỉ xét HTTP 2xx, không áp kiểm tra này.
+- **`openai-compatible` không bắt buộc key**: Ollama/LM Studio chạy nội bộ không cần key; khi key rỗng thì bỏ hẳn header `Authorization` thay vì gửi `Bearer ` rỗng. Ba provider còn lại vẫn dùng `requireApiKey` để báo `invalid-key` ngay, không gọi mạng.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
 
 ## Cần người dùng thử thủ công / trả lời
