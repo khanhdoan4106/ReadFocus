@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v2-ask` (Nhóm G, T19–T21); v0, v1 và nhóm F (OCR, PR #9) đã merge
-- Task đang làm: T19 xong (embedding qua API); tiếp theo T20
-- Bước tiếp theo chính xác: T20 — tab Tìm kiếm có công tắc "Theo ý nghĩa", nút tạo chỉ mục ý nghĩa (ước lượng số request, xác nhận gửi, tiến độ, huỷ), ô model embedding trong Cài đặt → AI, hybrid MiniSearch + cosine; sau đó T21 Hỏi đáp. Nguồn embedding trên máy (`@huggingface/transformers`) đã được người dùng quyết định HOÃN (xem Quyết định).
+- Task đang làm: T19, T20 xong; tiếp theo T21 (Hỏi đáp)
+- Bước tiếp theo chính xác: T21 — `src/core/ask/` (ngữ cảnh top-k bằng `hybridRetrieve` hoặc MiniSearch, prompt JSON `{answer, citations[{page, quote}], found}`, kiểm tra trích dẫn), store `qa`, tab Hỏi đáp (hộp xác nhận/consent, nút Huỷ, Sao chép, Hỏi lại, lịch sử, xoá); sau đó tự rà soát 11 mục, push, mở PR `feat/v2-ask`, CI xanh, đăng bảng rà soát, DỪNG.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -39,6 +39,7 @@
 - [x] T17 — OCR core: `src/core/ocr/` (types, options, pages, result, geometry, run, tesseract-engine), plugin `vite-plugins/ocr-assets.ts` gói worker/core/ngôn ngữ vào `dist/ocr/` và bỏ URL CDN mặc định, CSP `wasm-unsafe-eval`, IndexedDB v3 (embeddings, qa, flashcards, `pages` nhận `source`/`confidence`/`ocr`) kèm migration từ v1 và v2, xoá theo tài liệu và xoá toàn bộ. Test: `tests/ocr.test.ts`, `tests/db-v3.test.ts`, `tests/ocr-bundle.test.ts`.
 - [x] T18 — OCR UI: `OcrPanel` (chọn khoảng trang mặc định ± 2 trang, tối đa 100, tiến độ, huỷ, báo cáo trang lỗi và trang độ tin cậy thấp), `src/viewer/ocr.ts` (render ~2x, đọc lớp chữ), chạy `withOcrEngine` + `runOcr` với `createTesseractEngine` nạp động, lưu từng trang vào `pages` (giữ khi lập chỉ mục lại), lập lại profile/mục lục/chỉ mục/thời gian đọc bằng `runExtraction` với chữ OCR thay cho lớp chữ trống, lớp phủ tô kết quả tìm kiếm theo phần trăm trang (`highlight.ts`), nhãn "OCR" trên trang (đỏ khi độ tin cậy < 60), fixture `tests/fixtures/scanned-vi.pdf` (`npm run fixtures:scan`).
 - [x] T19 — Embedding qua API: `src/core/embed/` (`chunk` chia đoạn ~300 từ gối 40 từ trong phạm vi một trang, `vector` cosine/chuẩn hoá L2/brute-force, `hybrid` RRF, `retrieve` trộn MiniSearch + cosine, `models` model mặc định/khoá nguồn/tiền tố e5 và nomic, `api` OpenAI + Gemini `batchEmbedContents` + OpenAI-compatible `/embeddings`, `run` chạy theo lô có huỷ và lưu từng lô). IndexedDB: `saveEmbeddings`, `loadEmbeddings` (lọc theo khoá nguồn), `deleteEmbeddingsForDoc`; `AiSettings.embedModel`. Test: `tests/embed.test.ts`, `tests/embed-storage.test.ts`.
+- [x] T20 — Tìm theo ý nghĩa: hook `src/viewer/semantic.ts` (`useSemanticIndex`: nạp vector theo (tài liệu, nguồn), tạo chỉ mục theo lô có tiến độ và huỷ, embedding câu tìm, hybrid; huỷ khi đổi tài liệu/nguồn/đóng viewer; `permissions.request` là lời gọi đầu tiên trong thao tác bấm), `SearchPanel` có công tắc "Theo ý nghĩa" (hộp xác nhận ghi số đoạn, số request, provider, model; chưa có chỉ mục thì tìm từ khoá như cũ), ô model embedding trong Cài đặt → AI, `aiErrorMessage` tách ra `src/viewer/ai-errors.ts`.
 - [x] Rà soát v1 trước merge PR #8: sửa batch gọi API ngầm sau lỗi (`runSummaryBatch`), cache chỉ khớp provider/model/prompt/ngôn ngữ/tiêu đề, model rỗng dùng mặc định, ước lượng chỉ tính mục chưa cache và đã lập chỉ mục, tóm tắt gắn đúng tài liệu/mục và bị huỷ khi đổi tài liệu hoặc đóng viewer, `Dialog` (focus trap, Esc, trả focus, chặn phím tắt), câu chữ lỗi, AGENTS.md, hướng dẫn OLLAMA_ORIGINS.
 
 ## Dở dang / ghi chú cho phiên sau
@@ -150,6 +151,8 @@
 - **Đoạn embedding nằm gọn trong một trang** (~300 từ, gối 40 từ, đoạn cuối quá ngắn gộp lại): trích dẫn "trang X" của hỏi đáp luôn xác định và kiểm chứng được theo trang.
 - **Khoá nguồn vector = provider + model (chữ thường) + base URL (chỉ OpenAI-compatible) + phiên bản chia đoạn**; bản ghi kèm băm nội dung đoạn nên đoạn đổi (OCR lại) thì tính lại. Vector được chuẩn hoá L2 khi nhận nên cosine là tích vô hướng. `loadEmbeddings` lọc theo khoá nên không dùng lẫn vector giữa model/nguồn.
 - **Hybrid xếp hạng bằng RRF (k=60)** thay vì cộng điểm: BM25 và cosine khác thang đo. Kết quả từ khoá (cấp đoạn MiniSearch) được ánh xạ về đoạn embedding chứa nó.
+- **Tìm theo ý nghĩa chỉ gửi câu tìm khi người dùng bấm Tìm (gửi form)**, không gửi theo từng ký tự: mỗi lần tìm là một request embedding. Tìm từ khoá vẫn chạy ngay khi gõ như v0. Chỉ mục chỉ tạo sau hộp xác nhận nêu rõ số đoạn, số request, provider và model; tạo xong mới gửi được câu tìm, nên câu tìm luôn đi tới đúng provider đã được xác nhận.
+- **Hook `useSemanticIndex` tách khỏi `App.tsx`** vì App đã hơn 2.200 dòng; App chỉ truyền `docId`, các trang đã trích, cấu hình AI và key. Lượt tạo chỉ mục và lượt tìm có AbortController riêng để tìm không huỷ việc tạo chỉ mục.
 
 ## Cần người dùng thử thủ công / trả lời
 - Load unpacked `dist/` trong `chrome://extensions`, xác nhận: extension hiện tên ReadFocus, icon hiển thị rõ ở 16/48/128, bấm icon trên toolbar mở tab `viewer.html`.
@@ -179,6 +182,7 @@
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 - Kiểm tra T17 sau khi load unpacked (chưa có UI, chỉ kiểm tra gói): mở `chrome://extensions`, bấm Reload extension và xác nhận không có lỗi CSP; mở `dist/ocr/` thấy `worker.min.js`, `core/` ba file `*-lstm.wasm.js`, `lang/vie|eng.traineddata.gz`. OCR thật được thử tay ở T18.
 - Kiểm tra T18 sau khi load unpacked (cần thử trong Chrome vì OCR thật chưa chạy được trong test): mở `tests/fixtures/scanned-vi.pdf` → hiện cảnh báo bản scan và khung "Nhận dạng chữ (OCR)" với khoảng trang mặc định; bấm nút, xem tiến độ từng trang, mở DevTools tab Network thấy không có request ra ngoài, và Task Manager của Chrome thấy worker dừng khi xong; sau khi xong mục lục có "Chương 1/2/3", tìm "giới thiệu" nhảy đúng trang và tô vàng đúng chỗ (thử zoom đổi), "chuong" khi bật "Tìm không dấu"; mỗi trang có nhãn "OCR"; bấm Huỷ giữa chừng (trang đã xong vẫn giữ), đổi sang file khác khi đang chạy (OCR dừng, không lẫn kết quả); đóng và mở lại cùng file thấy chữ OCR còn nguyên (mục lục, tìm kiếm, nhãn OCR); tóm tắt AI một mục dùng được chữ OCR; xoá dữ liệu tài liệu thì mất chữ OCR; thử dark mode cho khung OCR và nhãn; thử cả PDF có lớp chữ (không hiện khung OCR) và PDF lẫn trang scan.
+- Kiểm tra T20 sau khi load unpacked (cần key thật, chưa chạy được trong test tự động): Cài đặt → AI hiện ô "Model embedding" (đổi provider thì ô về trống, Anthropic báo không hỗ trợ); tab Tìm kiếm bật "Theo ý nghĩa": chưa có chỉ mục thì hiện nút tạo, hộp xác nhận đúng số đoạn/request, bấm Cho phép khi Chrome hỏi quyền; có tiến độ và huỷ được, tạo xong nhập câu (ví dụ ý không có đúng từ trong sách) rồi bấm Tìm: kết quả có trang, bấm nhảy đúng trang; đổi model embedding thì phải tạo lại; mở file khác khi đang tạo thì dừng; xoá dữ liệu tài liệu thì mất chỉ mục; thử Gemini (xác nhận định dạng `batchEmbedContents`) và Ollama (`nomic-embed-text`).
 
 ## Dependency đã thêm (và lý do)
 - `preact` — UI nhẹ theo stack đã chốt.
