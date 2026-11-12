@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v2-ocr` (Nhóm F, T17–T18); v0 và v1 đã merge (PR #4–#8)
-- Task đang làm: T17 chưa có code; đã thử bundle `tesseract.js@7.0.0` từ `src/` bằng rolldown (entry chính và entry worker): chuỗi `https://cdn.jsdelivr.net/npm/...` vẫn còn trong bundle (workerPath, corePath, langPath mặc định), nên CI grep sẽ đỏ. Đang CHỜ người dùng quyết định (không sửa chuỗi, không sửa workflow).
-- Bước tiếp theo chính xác: `tesseract.js@7.0.0` chứa sẵn chuỗi `https://cdn.jsdelivr.net/npm/...` làm mặc định trong `dist/tesseract.esm.min.js`, `dist/worker.min.js` (và `src/`), nên bước grep CDN trong CI sẽ đỏ dù đã cấu hình đường dẫn cục bộ. Theo luật v2, không tự sửa workflow hay lách grep: đợi người dùng chọn hướng, rồi làm T17. Dữ liệu ngôn ngữ nên dùng `@tesseract.js-data/{vie,eng}/4.0.0_best_int` (vie 1,4 MB, eng 3,0 MB, license MIT); core cần `tesseract-core-lstm.wasm.js`, `-simd-lstm`, `-relaxedsimd-lstm` (~3,9 MB mỗi file); extension cần thêm `content_security_policy` với `wasm-unsafe-eval`.
+- Task đang làm: T17 xong (OCR core, DB v3); chuẩn bị T18 (OCR UI)
+- Bước tiếp theo chính xác: T18 — nút "Nhận dạng chữ (OCR)" khi phát hiện bản scan, chọn khoảng trang bằng `defaultOcrRange`/`validateOcrRange`, render trang ra canvas ~2x, chạy `withOcrEngine` + `runOcr` với `createTesseractEngine(buildOcrOptions(chrome.runtime.getURL))`, lưu từng trang bằng `savePageTexts` (`buildOcrPageRecords`), chạy lại profile/mục lục/chỉ mục/thời gian đọc, lớp phủ tô chữ bằng `boxToPageRect`, cảnh báo độ tin cậy, fixture scan tiếng Việt. Lưu ý: `clearPageTexts` ở lượt lập chỉ mục đang xoá cả trang OCR, cần giữ trang OCR khi lập chỉ mục lại.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -36,6 +36,7 @@
 - [x] T15a — Core tóm tắt + lưu cache: `src/core/summarize/record.ts` (kiểu `SummaryRecord`, `sanitizeSummaryRecord`), `src/core/summarize/run.ts` (`summarizeSection` map-reduce 2 tầng cho mục dài), `src/core/summarize/work.ts` (`estimateSectionWork`, `estimateSpansWork`, `mapWithConcurrency`), IndexedDB version 2 nâng cấp store `summaries` với index `by-doc`, migration giữ nguyên toàn bộ dữ liệu v1 (`documents`, `progress`, `settings`), `deleteDocumentData`/`clearAllData` xoá cả summaries. Thêm `tests/summarize-run.test.ts`, `tests/summarize-work.test.ts`, `tests/db-v2.test.ts` (17 test mới, tổng 276 test).
 - [x] T15b — Giao diện tab Tóm tắt: `SummaryPanel.tsx` (tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng request + token và xác nhận, chạy song song tối đa 2 request, thanh tiến độ, huỷ, tạo lại, sao chép clipboard text thuần, xử lý bản scan/mục không chữ, các lỗi chuẩn hoá và nút thử lại khi `truncated`); `Sidebar.tsx` thêm tab Tóm tắt và dấu `✦` cho các mục mục lục đã có tóm tắt; `format.ts` định dạng clipboard và lọc mục; CSS giao diện; câu chữ tiếng Việt tự nhiên trong `vi.ts` (4 test mới trong `tests/summarize-format.test.ts`, tổng 280 test).
 - [x] T16 — Hoàn thiện: README (phần AI, cách lấy key từng nhà cung cấp, hướng dẫn Ollama với `OLLAMA_ORIGINS`), `docs/PRIVACY.md` (gửi gì, cho ai, khi nào, key lưu ở đâu, cách xoá), CHANGELOG `[Unreleased]`; sửa format Prettier ở `format.ts` và test đi kèm.
+- [x] T17 — OCR core: `src/core/ocr/` (types, options, pages, result, geometry, run, tesseract-engine), plugin `vite-plugins/ocr-assets.ts` gói worker/core/ngôn ngữ vào `dist/ocr/` và bỏ URL CDN mặc định, CSP `wasm-unsafe-eval`, IndexedDB v3 (embeddings, qa, flashcards, `pages` nhận `source`/`confidence`/`ocr`) kèm migration từ v1 và v2, xoá theo tài liệu và xoá toàn bộ. Test: `tests/ocr.test.ts`, `tests/db-v3.test.ts`, `tests/ocr-bundle.test.ts`.
 - [x] Rà soát v1 trước merge PR #8: sửa batch gọi API ngầm sau lỗi (`runSummaryBatch`), cache chỉ khớp provider/model/prompt/ngôn ngữ/tiêu đề, model rỗng dùng mặc định, ước lượng chỉ tính mục chưa cache và đã lập chỉ mục, tóm tắt gắn đúng tài liệu/mục và bị huỷ khi đổi tài liệu hoặc đóng viewer, `Dialog` (focus trap, Esc, trả focus, chặn phím tắt), câu chữ lỗi, AGENTS.md, hướng dẫn OLLAMA_ORIGINS.
 
 ## Dở dang / ghi chú cho phiên sau
@@ -131,6 +132,12 @@
 - **T15a map-reduce 2 tầng cho mục dài**: mục vừa ngân sách gọi một lần; mục dài chia đoạn qua `splitIntoChunks`, tóm tắt từng phần giữ trang, rồi gộp lại bằng `buildMergePrompt`. `WorkEstimate` tính số request và token tối thiểu trước khi chạy. Cache tóm tắt nâng cấp IndexedDB lên version 2 thêm store `summaries` (index `by-doc`), migration có điều kiện theo `oldVersion` bảo toàn toàn bộ dữ liệu v1.
 - **T15b giao diện tab Tóm tắt**: kết quả hiển thị dạng text thuần không dùng innerHTML hay dangerouslySetInnerHTML; trích dẫn số trang bấm để cuộn tới trang; đánh dấu `✦` trong mục lục cho các mục đã tóm tắt; "Tóm tắt toàn bộ" giới hạn 100 trang, ước lượng request + token và hiện hộp xác nhận trước khi chạy, tối đa 2 request song song qua `mapWithConcurrency`, hoàn thành mục nào lưu và hiển thị ngay mục đó; lỗi `truncated` có nút thử lại.
 - Node cục bộ là 26.13.0, `.nvmrc` vẫn là 22 theo PLAN; CI dùng Node 22.
+- **OCR: bỏ URL CDN mặc định của tesseract.js bằng plugin build (người dùng đã duyệt, không sửa CI)**: `tesseract.js@7.0.0` đặt sẵn `https://cdn.jsdelivr.net/npm/...` làm đường dẫn mặc định, kể cả khi bundle từ `src/`. Chỗ có chuỗi: `dist/tesseract.esm.min.js` (workerPath mặc định) và `dist/worker.min.js` (corePath và langPath mặc định, hai dạng `4.0.0_best_int` / `4.0.0`); không có chuỗi nào khác (core wasm không chứa URL). `vite-plugins/ocr-assets.ts` thay tiền tố đó bằng `ocr-path-not-configured://` (nếu quên cấu hình đường dẫn cục bộ thì thư viện lỗi rõ ràng chứ không gọi ra mạng), chỉ áp cho file trong `node_modules/tesseract.js/dist/`, và dừng build nếu `worker.min.js` còn CDN sau khi thay. Code luôn truyền `workerPath`/`corePath`/`langPath` bằng `chrome.runtime.getURL` (`buildOcrOptions`). Test `tests/ocr-bundle.test.ts` đọc thật hai file thư viện và quét `dist/` (bỏ qua nếu chưa build); bước grep của CI giữ nguyên.
+- **Dùng bản `dist` của tesseract.js và `worker.min.js` dựng sẵn**: bản webpack này đã được thư viện kiểm thử, tránh phải tự bundle worker CommonJS bằng Vite (cần `global`, `importScripts`). Chỉ import mặc định (`Tesseract.createWorker`), kiểu lấy từ gói chính thức qua `tesseract-module.d.ts`.
+- **Dữ liệu ngôn ngữ `4.0.0_best_int` (vie 1,4 MB, eng 3,0 MB)** thay vì bộ "fast": bộ này là bản `best` lượng tử hoá số nguyên nên vừa nhẹ vừa chính xác hơn, và là bộ tesseract.js dùng cho chế độ LSTM-only. Core chỉ lấy ba biến thể `*-lstm.wasm.js` (chọn theo SIMD ở runtime), bỏ biến thể legacy. Worker chạy `workerBlobURL: false`, `gzip: true`, `cacheMethod: 'none'`.
+- **Hộp bao từ lưu cùng trang OCR** (`pages.ocr = { width, height, words }`) để mở lại file vẫn tô được kết quả tìm kiếm; `boxToPageRect` quy đổi theo tỉ lệ ảnh OCR / trang đang hiển thị nên đúng với mọi mức zoom.
+- **Huỷ OCR dừng worker ngay** (`terminate`) vì tesseract không huỷ được từng lần nhận dạng; kết quả các trang đã xong được gửi qua `onPage` trước đó. Trang lỗi riêng thì bỏ qua, lỗi liên tiếp 3 lần thì dừng cả lượt.
+- **DB v3 tạo sẵn ba store `embeddings`, `qa`, `flashcards`** (khoá `id`, index `by-doc`) ở T17 vì T18 cần `source` và để một lần migration; kiểu bản ghi chi tiết do T19, T21, T22 định nghĩa. `deleteDocumentData`/`clearAllData` dùng chung danh sách `DOC_SCOPED_STORES` nên store mới được xoá đủ.
 
 ## Cần người dùng thử thủ công / trả lời
 - Load unpacked `dist/` trong `chrome://extensions`, xác nhận: extension hiện tên ReadFocus, icon hiển thị rõ ở 16/48/128, bấm icon trên toolbar mở tab `viewer.html`.
@@ -158,6 +165,7 @@
   - Thử trên file scan (`scanned.pdf`): báo "Mục này không có văn bản (hoặc tài liệu là bản scan) nên không thể tóm tắt".
   - Xoá dữ liệu tài liệu thì các bản tóm tắt bị xoá.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
+- Kiểm tra T17 sau khi load unpacked (chưa có UI, chỉ kiểm tra gói): mở `chrome://extensions`, bấm Reload extension và xác nhận không có lỗi CSP; mở `dist/ocr/` thấy `worker.min.js`, `core/` ba file `*-lstm.wasm.js`, `lang/vie|eng.traineddata.gz`. OCR thật được thử tay ở T18.
 
 ## Dependency đã thêm (và lý do)
 - `preact` — UI nhẹ theo stack đã chốt.
@@ -170,3 +178,6 @@
 - `pdfjs-dist` (6.5.438) — render PDF; worker bundle qua `?url` nên không tải code từ xa.
 - `idb` (8.0.4) — lớp mỏng trên IndexedDB, có kiểu cho schema; dùng cho T3 trở đi.
 - `minisearch` — chỉ mục tìm kiếm theo PLAN (T6); chạy hoàn toàn cục bộ, không gọi mạng.
+
+- `tesseract.js` (7.0.0, Apache-2.0) — OCR chạy trên máy; kéo theo `tesseract.js-core` 7.0.0 (Apache-2.0), `wasm-feature-detect`, `idb-keyval`, `zlibjs`, `bmp-js`. Zip tăng từ ~0,58 MB lên ~9,6 MB (core ba biến thể 11,7 MB chưa nén, dữ liệu vie + eng 4,4 MB đã gz).
+- `@tesseract.js-data/vie`, `@tesseract.js-data/eng` (1.0.0, MIT; dữ liệu huấn luyện Tesseract Apache-2.0) — devDependency, chỉ để chép `4.0.0_best_int/*.traineddata.gz` vào `dist/ocr/lang/` lúc build.

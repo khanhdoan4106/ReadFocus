@@ -270,7 +270,7 @@ Ba nhóm, mỗi nhóm một nhánh và một PR. Xong mỗi nhóm: tự rà soá
 
 Nhóm F, nhánh `feat/v2-ocr`:
 
-- [ ] **T17** OCR core: bundle `tesseract.js` cục bộ (worker, core, vie + eng), worker OCR, interface để mock, DB v3 + migration (làm ở đây vì T18 cần trường `source`), logic thuần có test.
+- [x] **T17** OCR core: bundle `tesseract.js` cục bộ (worker, core, vie + eng), worker OCR, interface để mock, DB v3 + migration (làm ở đây vì T18 cần trường `source`), logic thuần có test.
 - [ ] **T18** OCR UI: nút và chọn khoảng trang, tiến độ, huỷ, lưu text, chạy lại profile/mục lục/chỉ mục/thời gian đọc, lớp phủ tô chữ cho kết quả tìm kiếm, cảnh báo độ tin cậy, fixture scan tiếng Việt.
 
 Nhóm G, nhánh `feat/v2-ask`:
