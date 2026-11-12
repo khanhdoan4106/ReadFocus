@@ -118,7 +118,7 @@ export const vi = {
   semanticHybridNote: 'Kết quả kết hợp tìm theo từ khoá và theo ý nghĩa, xếp theo mức liên quan.',
   semanticConfirmTitle: 'Tạo chỉ mục theo ý nghĩa?',
   semanticConfirmBody: (chunks: number, requests: number, provider: string, model: string) =>
-    `ReadFocus sẽ gửi ${chunks} đoạn văn của tài liệu (khoảng ${requests} request) tới ${provider} (model ${model}) để tạo vector. Vector được lưu trên máy này và xoá cùng dữ liệu tài liệu. Việc này có thể tốn phí theo bảng giá của nhà cung cấp.`,
+    `ReadFocus sẽ gửi ${chunks} đoạn văn của tài liệu (khoảng ${requests} request) tới ${provider} (model ${model}) để tạo chỉ mục theo ý nghĩa. Chỉ mục được lưu trên máy này và xoá cùng dữ liệu tài liệu. Việc này có thể tốn phí theo bảng giá của nhà cung cấp.`,
   semanticConfirmAccept: 'Gửi và tạo chỉ mục',
   semanticConfirmCancel: 'Để sau',
 
