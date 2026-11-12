@@ -35,22 +35,18 @@ import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { buildProfile, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
-import { addReadingSample, chapterEstimate, MAX_ACTIVE_GAP_MS } from '../core/reading-time';
+import { chapterEstimate } from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
 import { countWords } from '../core/text';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { clampBandHeight, clampMinutes, formatTimer } from '../core/focus';
-import { emptyDayStats, type DayStats } from '../core/stats';
 import { vi } from '../i18n/vi';
 import {
-  addDailyReading,
   clearAllData,
   clearPageTexts,
   loadOcrPages,
   deleteDocumentData,
-  loadDayStats,
   loadProgress,
-  loadRecentStats,
   loadSummariesForDoc,
   recordDocumentOpen,
   savePageTexts,
@@ -70,6 +66,7 @@ import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { useAiSettings } from './hooks/useAiSettings';
 import { useFocusTimer } from './hooks/useFocusTimer';
+import { useReadingStats } from './hooks/useReadingStats';
 import { useSettings } from './hooks/useSettings';
 import { Sidebar } from './Sidebar';
 
@@ -122,8 +119,6 @@ export function App() {
     quote?: boolean;
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [todayStats, setTodayStats] = useState<DayStats>(() => emptyDayStats());
-  const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const settings = useSettings({ showToast: setToast });
   const readingWordsPerMinute = settings.wordsPerMinute;
@@ -188,12 +183,6 @@ export function App() {
   const restoringRef = useRef<number | null>(null);
   // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
   const analysisTokenRef = useRef(0);
-  // Đồng hồ đọc: thời gian đang đọc trang hiện tại, chỉ cộng khi tab hiển thị.
-  const clockRef = useRef<{ page: number; activeMs: number; lastTick: number | null }>({
-    page: 1,
-    activeMs: 0,
-    lastTick: null,
-  });
 
   /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
   const resetBackgroundRuns = useCallback(() => {
@@ -224,8 +213,6 @@ export function App() {
     },
     [],
   );
-  // Số phút/trang đã đọc chờ ghi vào thống kê ngày.
-  const statsPendingRef = useRef({ minutes: 0, pages: 0 });
 
   useEffect(() => {
     return () => {
@@ -512,11 +499,7 @@ export function App() {
       setStatus('ready');
 
       // Tài liệu mới: bỏ mẫu đọc của tài liệu trước, bắt đầu đo từ trang khôi phục.
-      clockRef.current = {
-        page: resumePage,
-        activeMs: 0,
-        lastTick: document.visibilityState === 'visible' ? Date.now() : null,
-      };
+      stats.restartClock(resumePage);
       setPageWords({});
 
       if (hash) {
@@ -962,21 +945,6 @@ export function App() {
     void runSummarizeAll(batchOutcome.failed);
   }, [batchOutcome, runSummarizeAll]);
 
-  const refreshStats = useCallback(async () => {
-    const [today, recent] = await Promise.all([loadDayStats(), loadRecentStats(7)]);
-    setTodayStats(today);
-    setRecentStats(recent);
-  }, []);
-
-  const flushStats = useCallback(async () => {
-    const pending = statsPendingRef.current;
-    if (pending.minutes < 0.01 && pending.pages === 0) return;
-    statsPendingRef.current = { minutes: 0, pages: 0 };
-    const today = await addDailyReading(pending.minutes, pending.pages);
-    setTodayStats(today);
-    setRecentStats(await loadRecentStats(7));
-  }, []);
-
   useEffect(() => {
     if (toast === null) return;
     const id = setTimeout(() => setToast(null), 6000);
@@ -1043,76 +1011,16 @@ export function App() {
     }
 
     await resetDocument();
-    statsPendingRef.current = { minutes: 0, pages: 0 };
-    setTodayStats(emptyDayStats());
-    setRecentStats([]);
+    stats.reset();
     setToast(vi.deleteAllDone);
   }, [resetDocument]);
 
-  // Ghi thống kê định kỳ thay vì mỗi giây.
-  useEffect(() => {
-    if (status !== 'ready') return;
-    const id = setInterval(() => void flushStats(), 30_000);
-    return () => {
-      clearInterval(id);
-      void flushStats();
-    };
-  }, [status, flushStats]);
-
-  // Đồng hồ chỉ chạy khi tab hiển thị; khoảng nghỉ dài hơn 2 phút không được tính.
-  useEffect(() => {
-    if (status !== 'ready') return;
-    const clock = clockRef.current;
-
-    const tick = () => {
-      const now = Date.now();
-      if (document.visibilityState !== 'visible') {
-        clock.lastTick = null;
-        return;
-      }
-      if (clock.lastTick === null) {
-        clock.lastTick = now;
-        return;
-      }
-      const delta = Math.min(Math.max(now - clock.lastTick, 0), MAX_ACTIVE_GAP_MS);
-      clock.activeMs += delta;
-      statsPendingRef.current.minutes += delta / 60_000;
-      clock.lastTick = now;
-    };
-
-    const onVisibilityChange = () => {
-      clock.lastTick = null;
-      tick();
-      if (document.visibilityState !== 'visible') void flushStats();
-    };
-
-    const timer = setInterval(tick, 1000);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    tick();
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      clock.lastTick = null;
-    };
-  }, [flushStats, status]);
-
-  // Rời trang thì chốt mẫu đọc của trang vừa xem để học tốc độ thực tế.
-  useEffect(() => {
-    const clock = clockRef.current;
-    if (clock.page === pageNumber) return;
-
-    const words = pageWords[clock.page] ?? 0;
-    if (words > 0 && clock.activeMs > 0) {
-      setSpeed((current) => addReadingSample(current, { words, activeMs: clock.activeMs }));
-    }
-    if (clock.activeMs >= 1000) statsPendingRef.current.pages += 1;
-
-    clock.page = pageNumber;
-    clock.activeMs = 0;
-    clock.lastTick = document.visibilityState === 'visible' ? Date.now() : null;
-  }, [pageNumber, pageWords]);
-
+  const stats = useReadingStats({
+    ready: status === 'ready',
+    pageNumber,
+    pageWords,
+    setSpeed,
+  });
   const chapterMinutes = chapterEstimate(toc, pageNumber, readingWordsPerMinute);
   const {
     timer,
@@ -1134,9 +1042,6 @@ export function App() {
     toggleFullscreen,
     moveBand,
   } = useFocusTimer({ showToast: setToast, chapterMinutes });
-  useEffect(() => {
-    void refreshStats();
-  }, [refreshStats]);
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
   useEffect(() => {
@@ -1546,8 +1451,8 @@ export function App() {
               breakMinutes,
               bandHeight,
               fullscreen,
-              statsToday: todayStats,
-              statsRecent: recentStats,
+              statsToday: stats.today,
+              statsRecent: stats.recent,
               onStartChapter: startChapterTimer,
               onStartPomodoro: startPomodoroTimer,
               onToggleTimer: toggleTimer,
