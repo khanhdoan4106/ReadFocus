@@ -1,6 +1,6 @@
 # PERMISSIONS — ReadFocus
 
-Mỗi quyền trong `manifest.json` phải có lý do rõ ràng. Ở v0, ReadFocus không gửi dữ liệu ra mạng. Ở v1, extension chỉ gọi thẳng API của nhà cung cấp AI khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối.
+Mỗi quyền trong `manifest.json` phải có lý do rõ ràng. Ở v0, ReadFocus không gửi dữ liệu ra mạng. Từ v1, extension chỉ gọi thẳng API của nhà cung cấp AI khi người dùng chủ động bấm (tóm tắt, kiểm tra kết nối; từ v2 thêm tạo chỉ mục và tìm theo ý nghĩa, hỏi đáp, tạo thẻ bằng AI). v2 không thêm quyền nào mới.
 
 | Quyền | Dùng ở đâu | Lý do |
 |---|---|---|
@@ -31,7 +31,8 @@ Khi bật công tắc:
 - Quyền được xin bằng `chrome.permissions.request` ở lần bấm **Kiểm tra kết nối**, **Tóm tắt mục này** hoặc **Tóm tắt toàn bộ** (sau hộp xác nhận gửi dữ liệu nếu là lần đầu), là lời gọi đầu tiên trong thao tác bấm đó. Chọn provider hay lưu key không xin quyền và không gửi gì.
 - Provider đám mây dùng origin cố định ở trên. `openai-compatible` dùng origin lấy từ base URL người dùng nhập (bỏ cổng và đường dẫn, chỉ giữ scheme + host), nên `http://localhost:11434` khớp `http://localhost/*`.
 - Nếu người dùng từ chối, không request nào được gửi; giao diện nói rõ cần cấp quyền để dùng AI.
-- Chỉ gửi dữ liệu khi người dùng bấm **Tóm tắt** hoặc **Kiểm tra kết nối**, và chỉ tới origin của provider đã chọn. Không analytics, không telemetry, không tải code từ xa.
+- v2 dùng lại đúng các origin này cho embeddings (`/embeddings`, `:batchEmbedContents`), hỏi đáp và tạo thẻ bằng AI; quyền cũng được xin bằng `chrome.permissions.request` ở đầu thao tác bấm tương ứng (xác nhận tạo chỉ mục, **Tìm**, **Hỏi**, **Tạo thêm bằng AI**).
+- Chỉ gửi dữ liệu khi người dùng bấm một nút nói trên, và chỉ tới origin của provider đã chọn. Không analytics, không telemetry, không tải code từ xa.
 
 `web_accessible_resources` cho `viewer.html` với `matches: ["<all_urls>"]` là cần thiết để rule chuyển hướng được phép mở trang viewer của extension.
 

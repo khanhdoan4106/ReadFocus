@@ -110,6 +110,7 @@ import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
 import { useAsk } from './ask';
+import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
@@ -983,6 +984,15 @@ export function App() {
     pages: extractedPages,
     index: searchIndex,
     semantic,
+    settings: aiSettings,
+    apiKey: aiKey,
+    ensureConsent: ensureAskConsent,
+  });
+  const flashcards = useFlashcards({
+    docId,
+    summaries,
+    section: currentSection,
+    pages: extractedPages,
     settings: aiSettings,
     apiKey: aiKey,
     ensureConsent: ensureAskConsent,
@@ -2174,6 +2184,19 @@ export function App() {
                 : null,
             }}
             semantic={semantic}
+            flashPanel={{
+              flashcards,
+              hasDocument: docId !== null,
+              documentName: fileName,
+              canGenerate: currentSection !== null,
+              aiConfigured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              sectionLabel: currentSection
+                ? currentSection.title ||
+                  vi.summarySectionRange(currentSection.startPage, currentSection.endPage)
+                : null,
+              onOpenSettings: () => {},
+              onSelectPage: goToPage,
+            }}
             askPanel={{
               ask,
               hasDocument: docId !== null,
