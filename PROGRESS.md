@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: T16 xong (tài liệu AI); nhóm E đã đủ T14–T16, chờ mở PR vào `main`
-- Bước tiếp theo chính xác: push `feat/v1-summary-ui`, mở PR vào `main` theo `.github/pull_request_template.md`, `gh pr checks --watch` cho tới khi xanh, rồi dừng (không merge).
+- Task đang làm: đã rà soát v1 (mục 1–13) trước khi merge PR #8; mọi mục đã xử lý, chờ người dùng thử tay và merge
+- Bước tiếp theo chính xác: người dùng thử tay checklist trong PR #8 rồi merge; không còn việc dở trên nhánh.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -36,6 +36,7 @@
 - [x] T15a — Core tóm tắt + lưu cache: `src/core/summarize/record.ts` (kiểu `SummaryRecord`, `sanitizeSummaryRecord`), `src/core/summarize/run.ts` (`summarizeSection` map-reduce 2 tầng cho mục dài), `src/core/summarize/work.ts` (`estimateSectionWork`, `estimateSpansWork`, `mapWithConcurrency`), IndexedDB version 2 nâng cấp store `summaries` với index `by-doc`, migration giữ nguyên toàn bộ dữ liệu v1 (`documents`, `progress`, `settings`), `deleteDocumentData`/`clearAllData` xoá cả summaries. Thêm `tests/summarize-run.test.ts`, `tests/summarize-work.test.ts`, `tests/db-v2.test.ts` (17 test mới, tổng 276 test).
 - [x] T15b — Giao diện tab Tóm tắt: `SummaryPanel.tsx` (tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng request + token và xác nhận, chạy song song tối đa 2 request, thanh tiến độ, huỷ, tạo lại, sao chép clipboard text thuần, xử lý bản scan/mục không chữ, các lỗi chuẩn hoá và nút thử lại khi `truncated`); `Sidebar.tsx` thêm tab Tóm tắt và dấu `✦` cho các mục mục lục đã có tóm tắt; `format.ts` định dạng clipboard và lọc mục; CSS giao diện; câu chữ tiếng Việt tự nhiên trong `vi.ts` (4 test mới trong `tests/summarize-format.test.ts`, tổng 280 test).
 - [x] T16 — Hoàn thiện: README (phần AI, cách lấy key từng nhà cung cấp, hướng dẫn Ollama với `OLLAMA_ORIGINS`), `docs/PRIVACY.md` (gửi gì, cho ai, khi nào, key lưu ở đâu, cách xoá), CHANGELOG `[Unreleased]`; sửa format Prettier ở `format.ts` và test đi kèm.
+- [x] Rà soát v1 trước merge PR #8: sửa batch gọi API ngầm sau lỗi (`runSummaryBatch`), cache chỉ khớp provider/model/prompt/ngôn ngữ/tiêu đề, model rỗng dùng mặc định, ước lượng chỉ tính mục chưa cache và đã lập chỉ mục, tóm tắt gắn đúng tài liệu/mục và bị huỷ khi đổi tài liệu hoặc đóng viewer, `Dialog` (focus trap, Esc, trả focus, chặn phím tắt), câu chữ lỗi, AGENTS.md, hướng dẫn OLLAMA_ORIGINS.
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
