@@ -12,7 +12,8 @@ Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension 
 - trang đang đọc và thời gian đã đọc;
 - thống kê số phút, số trang theo ngày;
 - cài đặt như giao diện, tốc độ đọc, Pomodoro và chiều cao dải sáng;
-- bản tóm tắt AI đã tạo (cache, kèm nhà cung cấp và model đã dùng), nếu bạn từng tóm tắt.
+- bản tóm tắt AI đã tạo (cache, kèm nhà cung cấp và model đã dùng), nếu bạn từng tóm tắt;
+- vector tìm theo ý nghĩa và lịch sử hỏi đáp của từng tài liệu, nếu bạn từng dùng hai tính năng đó.
 
 Ngoài ra:
 
@@ -77,3 +78,17 @@ Cách nhà cung cấp lưu hoặc dùng dữ liệu tuỳ theo điều khoản v
 - **Xoá dữ liệu của …** hoặc **Xoá toàn bộ dữ liệu đọc**: xoá luôn các bản tóm tắt của tài liệu tương ứng.
 - Gỡ extension xoá toàn bộ dữ liệu của ReadFocus, gồm key và tóm tắt.
 - Thu hồi quyền truy cập nhà cung cấp: `chrome://extensions` → ReadFocus → Chi tiết → Quyền truy cập trang web. Nếu key có thể đã lộ, hãy thu hồi nó ở trang quản lý của nhà cung cấp.
+
+## Tìm theo ý nghĩa và hỏi đáp (v2)
+
+Hai tính năng này dùng cùng nhà cung cấp, key và quyền truy cập như tóm tắt AI, và chỉ chạy khi bạn bấm nút. Anthropic không có API embeddings nên không dùng được tìm theo ý nghĩa.
+
+**Tìm theo ý nghĩa.**
+
+- **Tạo chỉ mục theo ý nghĩa** (tab Tìm kiếm, bật **Theo ý nghĩa**) gửi *toàn bộ văn bản đã trích của tài liệu*, chia thành các đoạn khoảng 300 từ, tới nhà cung cấp để tạo vector. ReadFocus hiện hộp xác nhận ghi số đoạn, số request, nhà cung cấp và model trước khi gửi; việc này có thể tốn phí theo bảng giá của nhà cung cấp.
+- Mỗi lần bạn bấm **Tìm** ở chế độ này, câu bạn gõ được gửi tới nhà cung cấp đó để tạo vector so khớp. Gõ vào ô tìm không gửi gì; tìm theo từ khoá vẫn chạy hoàn toàn trên máy.
+- Vector lưu trong IndexedDB (store `embeddings`), gắn với nhà cung cấp, model và địa chỉ API đã dùng; đổi model thì chỉ mục cũ không được dùng lại.
+
+**Hỏi đáp.** Mỗi câu hỏi là một request, gửi *câu hỏi và vài đoạn văn liên quan nhất của tài liệu* (kèm số trang). Câu hỏi và câu trả lời được lưu trong IndexedDB (store `qa`) để xem lại; chỉ hiển thị dạng văn bản thuần. Trích dẫn trang chỉ được hiện khi kiểm chứng được với văn bản của trang đó.
+
+**Cách xoá.** Nút **Xoá** và **Xoá lịch sử hỏi đáp** trong tab Hỏi đáp; **Xoá dữ liệu của …** và **Xoá toàn bộ dữ liệu đọc** xoá luôn vector và lịch sử hỏi đáp.

@@ -4,11 +4,7 @@ import { sha256Hex } from '../core/hash';
 import { isLLMError } from '../core/llm/errors';
 import { getProvider } from '../core/llm';
 import { DEFAULT_MODELS, resolveModel } from '../core/llm/models';
-import {
-  isLocalBaseUrl,
-  providerDefaultBaseUrl,
-  providerOriginPattern,
-} from '../core/llm/permissions';
+import { providerOriginPattern } from '../core/llm/permissions';
 import {
   aiConfigProblem,
   defaultAiSettings,
@@ -111,7 +107,10 @@ import { OcrPanel, type OcrReport } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { readTextLayers, renderPageForOcr } from './ocr';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
+import { useAsk } from './ask';
+import { useSemanticIndex } from './semantic';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
 
@@ -201,20 +200,6 @@ function errorMessage(reason: ErrorReason): string {
   }
 }
 
-/** Câu lỗi AI; thêm gợi ý CORS khi dùng server local (Ollama, LM Studio). */
-function aiErrorMessage(error: unknown, settings: AiSettings): string {
-  if (!isLLMError(error)) return vi.aiErrorMessages.unknown;
-  const base = vi.aiErrorMessages[error.kind];
-  if (error.kind !== 'network' && error.kind !== 'unknown') return base;
-
-  const baseUrl =
-    settings.baseUrl.trim() === '' ? providerDefaultBaseUrl(settings.providerId) : settings.baseUrl;
-  if (settings.providerId === 'openai-compatible' && isLocalBaseUrl(baseUrl)) {
-    return `${base} ${vi.aiCorsHint}`;
-  }
-  return base;
-}
-
 export function App() {
   const [status, setStatus] = useState<Status>('empty');
   const [error, setError] = useState<ErrorReason>('unknown');
@@ -237,6 +222,7 @@ export function App() {
     page: number;
     query: string;
     ignoreDiacritics: boolean;
+    quote?: boolean;
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [timer, setTimer] = useState<FocusTimer>(IDLE_TIMER);
@@ -587,6 +573,14 @@ export function App() {
     [goToPage],
   );
 
+  const handleCitation = useCallback(
+    (page: number, quote: string) => {
+      goToPage(page);
+      setHighlight({ page, query: quote, ignoreDiacritics: true, quote: true });
+    },
+    [goToPage],
+  );
+
   const handleFile = useCallback(
     async (file: File) => {
       setStatus('opening');
@@ -825,12 +819,17 @@ export function App() {
       ...current,
       providerId,
       model: DEFAULT_MODELS[providerId],
+      embedModel: '',
     }));
     setAiNotice(null);
   }, []);
 
   const handleAiModel = useCallback((value: string) => {
     setAiSettings((current) => ({ ...current, model: value }));
+  }, []);
+
+  const handleAiEmbedModel = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, embedModel: value }));
   }, []);
 
   const handleAiBaseUrl = useCallback((value: string) => {
@@ -962,6 +961,32 @@ export function App() {
   }, [currentSection, extractedPages, analysis.phase]);
 
   const aiModel = resolveModel(aiSettings.providerId, aiSettings.model);
+  const ensureAskConsent = useCallback(
+    (proceed: () => void) => {
+      if (aiSettings.consentGiven) {
+        proceed();
+        return;
+      }
+      pendingConsentRef.current = proceed;
+      setAiConsentOpen(true);
+    },
+    [aiSettings.consentGiven],
+  );
+  const semantic = useSemanticIndex({
+    docId,
+    pages: extractedPages,
+    settings: aiSettings,
+    apiKey: aiKey,
+  });
+  const ask = useAsk({
+    docId,
+    pages: extractedPages,
+    index: searchIndex,
+    semantic,
+    settings: aiSettings,
+    apiKey: aiKey,
+    ensureConsent: ensureAskConsent,
+  });
   const summaryConfig = useMemo<SummaryConfig>(
     () => ({ providerId: aiSettings.providerId, model: aiModel, language: aiSettings.language }),
     [aiSettings.providerId, aiModel, aiSettings.language],
@@ -2096,6 +2121,7 @@ export function App() {
                 notice: aiNotice,
                 onChangeProvider: handleAiProvider,
                 onChangeModel: handleAiModel,
+                onChangeEmbedModel: handleAiEmbedModel,
                 onChangeBaseUrl: handleAiBaseUrl,
                 onChangeLanguage: handleAiLanguage,
                 onChangeKey: handleAiKey,
@@ -2146,6 +2172,17 @@ export function App() {
                     onCancel: () => setEstimateDialog(null),
                   }
                 : null,
+            }}
+            semantic={semantic}
+            askPanel={{
+              ask,
+              hasDocument: docId !== null,
+              hasText: extractedPages.some((page) => page.text.trim() !== ''),
+              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              semanticReady: semantic.state === 'ready',
+              providerId: aiSettings.providerId,
+              onOpenSettings: () => {},
+              onSelectCitation: handleCitation,
             }}
             summarizedSpans={summarizedSpans}
             searchRequest={searchRequest}

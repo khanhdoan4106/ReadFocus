@@ -7,6 +7,8 @@ import {
   sanitizeDayStats,
   type DayStats,
 } from '../core/stats';
+import type { QaRecord } from '../core/ask/types';
+import type { EmbeddingRecord } from '../core/embed/types';
 import type { OcrPageRecord } from '../core/ocr/pages';
 import { sanitizeSummaryRecord, type SummaryRecord } from '../core/summarize/record';
 
@@ -43,8 +45,8 @@ export type PageText = {
  * khoá `id` và index `by-doc`; các trường riêng do từng tính năng định nghĩa.
  */
 export type DocScopedRecord = { id: string; docId: string } & Record<string, unknown>;
-export type EmbeddingRecord = DocScopedRecord;
-export type QaRecord = DocScopedRecord;
+export type { EmbeddingRecord };
+export type { QaRecord };
 export type FlashcardRecord = DocScopedRecord;
 
 /** Các store có index `by-doc`, bị xoá cùng tài liệu. */
@@ -360,6 +362,89 @@ export async function loadSummariesForDoc(docId: string): Promise<SummaryRecord[
       .filter((record): record is SummaryRecord => record !== null);
   } catch {
     return [];
+  }
+}
+
+/** Lưu một lô vector; ghi đè bản ghi cùng `id`. Lỗi lưu không chặn việc tìm kiếm. */
+export async function saveEmbeddings(records: readonly EmbeddingRecord[]): Promise<void> {
+  if (records.length === 0) return;
+  try {
+    const db = await getDb();
+    const tx = db.transaction('embeddings', 'readwrite');
+    for (const record of records) void tx.store.put(record);
+    await tx.done;
+  } catch {
+    // Không lưu được vector thì lần sau tính lại.
+  }
+}
+
+/** Vector của một tài liệu theo đúng khoá nguồn; vector của nguồn khác bị bỏ. */
+export async function loadEmbeddings(docId: string, key: string): Promise<EmbeddingRecord[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('embeddings', 'by-doc', docId);
+    return records.filter(
+      (record) =>
+        record.key === key && record.vector instanceof Float32Array && record.vector.length > 0,
+    );
+  } catch {
+    return [];
+  }
+}
+
+/** Xoá toàn bộ vector của một tài liệu (mọi nguồn). */
+export async function deleteEmbeddingsForDoc(docId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const keys = await db.getAllKeysFromIndex('embeddings', 'by-doc', docId);
+    const tx = db.transaction('embeddings', 'readwrite');
+    for (const key of keys) void tx.store.delete(key);
+    await tx.done;
+  } catch {
+    // Bỏ qua: vector thừa không ảnh hưởng kết quả vì được lọc theo khoá nguồn.
+  }
+}
+
+export async function saveQa(record: QaRecord): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('qa', record);
+  } catch {
+    // Không lưu được lịch sử thì vẫn hiện câu trả lời.
+  }
+}
+
+/** Lịch sử hỏi đáp của một tài liệu, mới nhất trước. */
+export async function loadQa(docId: string): Promise<QaRecord[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('qa', 'by-doc', docId);
+    return records
+      .filter((record) => typeof record.question === 'string' && typeof record.answer === 'string')
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteQa(id: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.delete('qa', id);
+  } catch {
+    // Bỏ qua: mục còn lại sẽ hiện lần sau.
+  }
+}
+
+export async function clearQaForDoc(docId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const keys = await db.getAllKeysFromIndex('qa', 'by-doc', docId);
+    const tx = db.transaction('qa', 'readwrite');
+    for (const key of keys) void tx.store.delete(key);
+    await tx.done;
+  } catch {
+    // Bỏ qua.
   }
 }
 

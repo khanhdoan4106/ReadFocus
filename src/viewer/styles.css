@@ -424,6 +424,28 @@ body {
   width: 100%;
 }
 
+.search__form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.search__form .search__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search__semantic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .search__toggle {
   display: flex;
   align-items: center;
@@ -1370,4 +1392,54 @@ body {
 .ocr-badge--low {
   color: var(--danger);
   border-color: var(--danger);
+}
+
+.ask__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ask__input {
+  font: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+  width: 100%;
+  resize: vertical;
+}
+
+.ask__history,
+.ask__citation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ask__answer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ask__citations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ask__citation-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.ask__quote {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
 }

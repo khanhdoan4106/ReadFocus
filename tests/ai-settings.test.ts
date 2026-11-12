@@ -20,6 +20,7 @@ describe('sanitizeAiSettings', () => {
     const settings = {
       providerId: 'gemini',
       model: 'gemini-test',
+      embedModel: 'embed-test',
       baseUrl: 'https://gateway.example.com/v1',
       saveKey: false,
       language: 'document',
@@ -29,6 +30,11 @@ describe('sanitizeAiSettings', () => {
       ...settings,
       baseUrl: 'https://gateway.example.com/v1',
     });
+  });
+
+  it('cài đặt cũ không có embedModel thì để rỗng (dùng mặc định của provider)', () => {
+    expect(sanitizeAiSettings({ providerId: 'openai', model: 'x' }).embedModel).toBe('');
+    expect(sanitizeAiSettings({ embedModel: 42 }).embedModel).toBe('');
   });
 
   it('dữ liệu hỏng trả về mặc định', () => {

@@ -1,3 +1,4 @@
+import { EMBED_DEFAULT_MODELS } from '../core/embed/models';
 import type { AiSettings, SummaryLanguage } from '../core/llm/settings';
 import { PROVIDERS } from '../core/llm/settings';
 import type { ProviderId } from '../core/llm/types';
@@ -13,6 +14,7 @@ export type AiPanelProps = {
   notice: { tone: 'ok' | 'error'; message: string } | null;
   onChangeProvider: (providerId: ProviderId) => void;
   onChangeModel: (value: string) => void;
+  onChangeEmbedModel: (value: string) => void;
   onChangeBaseUrl: (value: string) => void;
   onChangeLanguage: (value: SummaryLanguage) => void;
   onChangeKey: (value: string) => void;
@@ -109,6 +111,25 @@ export function SettingsPanel({
           />
         </label>
         <p class="settings-card__hint">{vi.aiModelHint}</p>
+
+        {providerId === 'anthropic' ? (
+          <p class="settings-card__hint">{vi.aiEmbedUnsupported}</p>
+        ) : (
+          <>
+            <label class="settings-field settings-field--stack">
+              <span>{vi.aiEmbedModelLabel}</span>
+              <input
+                type="text"
+                value={ai.settings.embedModel}
+                placeholder={EMBED_DEFAULT_MODELS[providerId]}
+                disabled={aiDisabled}
+                spellcheck={false}
+                onInput={(event) => ai.onChangeEmbedModel(event.currentTarget.value)}
+              />
+            </label>
+            <p class="settings-card__hint">{vi.aiEmbedModelHint}</p>
+          </>
+        )}
 
         {providerId === 'openai-compatible' && (
           <>

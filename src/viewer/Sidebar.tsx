@@ -3,12 +3,14 @@ import { estimateItemMinutes, estimateRemainingTime, roundedMinutes } from '../c
 import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
+import { AskPanel, type AskPanelProps } from './AskPanel';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
+import type { SemanticApi } from './semantic';
 import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
-type SidebarTab = 'toc' | 'summary' | 'search' | 'focus' | 'settings';
+type SidebarTab = 'toc' | 'summary' | 'ask' | 'search' | 'focus' | 'settings';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -19,6 +21,8 @@ type SidebarProps = {
   focus: FocusPanelProps;
   settings: SettingsPanelProps;
   summary: SummaryPanelProps;
+  semantic: SemanticApi;
+  askPanel: AskPanelProps;
   summarizedSpans: ReadonlySet<string>;
   searchRequest: number;
   onSelectPage: (page: number) => void;
@@ -34,6 +38,8 @@ export function Sidebar({
   focus,
   settings,
   summary,
+  semantic,
+  askPanel,
   summarizedSpans,
   searchRequest,
   onSelectPage,
@@ -68,6 +74,15 @@ export function Sidebar({
           onClick={() => setTab('summary')}
         >
           {vi.summaryTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'ask'}
+          class={`sidebar__tab${tab === 'ask' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('ask')}
+        >
+          {vi.askTab}
         </button>
         <button
           type="button"
@@ -161,9 +176,18 @@ export function Sidebar({
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.summaryTab}>
           <SummaryPanel {...summary} onOpenSettings={() => setTab('settings')} />
         </div>
+      ) : tab === 'ask' ? (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.askTab}>
+          <AskPanel {...askPanel} onOpenSettings={() => setTab('settings')} />
+        </div>
       ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
-          <SearchPanel index={index} focusRequest={searchRequest} onSelectResult={onSelectResult} />
+          <SearchPanel
+            index={index}
+            semantic={semantic}
+            focusRequest={searchRequest}
+            onSelectResult={onSelectResult}
+          />
         </div>
       ) : tab === 'focus' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>

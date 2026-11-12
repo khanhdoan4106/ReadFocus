@@ -10,6 +10,8 @@ export type SummaryLanguage = 'vi' | 'document';
 export type AiSettings = {
   providerId: ProviderId;
   model: string;
+  /** Model embedding (tìm theo ý nghĩa, hỏi đáp); rỗng thì dùng mặc định của provider. */
+  embedModel: string;
   /** Chỉ dùng cho `openai-compatible`. */
   baseUrl: string;
   /** `false` nghĩa là key chỉ nằm trong `chrome.storage.session`. */
@@ -48,6 +50,7 @@ export function defaultAiSettings(): AiSettings {
   return {
     providerId: 'openai',
     model: DEFAULT_MODELS.openai,
+    embedModel: '',
     baseUrl: '',
     saveKey: true,
     language: 'vi',
@@ -74,6 +77,7 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
   return {
     providerId,
     model,
+    embedModel: typeof value.embedModel === 'string' ? value.embedModel.trim() : '',
     baseUrl: typeof value.baseUrl === 'string' ? value.baseUrl.trim() : '',
     saveKey: typeof value.saveKey === 'boolean' ? value.saveKey : true,
     language,
