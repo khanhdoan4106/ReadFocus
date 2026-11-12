@@ -4,6 +4,7 @@ import { formatSummaryClipboard } from '../core/summarize/format';
 import type { SummaryRecord } from '../core/summarize/record';
 import type { WorkEstimate } from '../core/summarize/work';
 import { vi } from '../i18n/vi';
+import { Dialog } from './Dialog';
 import type { TocItem } from '../storage/db';
 
 export type SummaryPanelProps = {
@@ -13,6 +14,8 @@ export type SummaryPanelProps = {
   summary: SummaryRecord | null;
   isCached: boolean;
   loading: boolean;
+  /** Một mục khác đang được tóm tắt; khoá các nút bắt đầu. */
+  busyElsewhere: boolean;
   loadingProgress: { done: number; total: number } | null;
   error: { kind: LLMErrorKind; message: string } | null;
   noText: boolean;
@@ -25,10 +28,16 @@ export type SummaryPanelProps = {
   summarizeAllProgress: { done: number; total: number } | null;
   onSummarizeAllClick: () => void;
   onCancelSummarizeAll: () => void;
+  summarizeAllOutcome: {
+    failed: TocItem[];
+    error: { kind: LLMErrorKind; message: string } | null;
+  } | null;
+  onRetryFailed: () => void;
   estimateDialog: {
     open: boolean;
     estimate: WorkEstimate | null;
     sectionsCount: number;
+    cachedCount: number;
     onConfirm: () => void;
     onCancel: () => void;
   } | null;
@@ -41,6 +50,7 @@ export function SummaryPanel({
   summary,
   isCached,
   loading,
+  busyElsewhere,
   loadingProgress,
   error,
   noText,
@@ -53,6 +63,8 @@ export function SummaryPanel({
   summarizeAllProgress,
   onSummarizeAllClick,
   onCancelSummarizeAll,
+  summarizeAllOutcome,
+  onRetryFailed,
   estimateDialog,
 }: SummaryPanelProps) {
   const [copied, setCopied] = useState(false);
@@ -133,11 +145,27 @@ export function SummaryPanel({
               <button
                 type="button"
                 class="settings-button settings-button--primary"
-                disabled={loading}
+                disabled={loading || busyElsewhere}
                 onClick={onSummarizeAllClick}
               >
                 {vi.summarizeAllSections}
               </button>
+            </div>
+          )}
+
+          {summarizeAllOutcome?.error && (
+            <div class="settings-notice settings-notice--error" role="alert">
+              {summarizeAllOutcome.error.message}
+            </div>
+          )}
+          {summarizeAllOutcome && summarizeAllOutcome.failed.length > 0 && (
+            <div class="settings-notice settings-notice--error" role="alert">
+              <span>{vi.summarizeAllFailed(summarizeAllOutcome.failed.length)}</span>
+              <div class="summary-actions" style={{ marginTop: '0.4rem' }}>
+                <button type="button" class="settings-button" onClick={onRetryFailed}>
+                  {vi.summarizeAllRetryFailed}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -201,7 +229,7 @@ export function SummaryPanel({
                   <button
                     type="button"
                     class="settings-button"
-                    disabled={loading}
+                    disabled={loading || busyElsewhere || Boolean(summarizeAllProgress)}
                     onClick={onRegenerate}
                   >
                     {vi.summarizeRegenerate}
@@ -216,7 +244,7 @@ export function SummaryPanel({
                 <button
                   type="button"
                   class="settings-button settings-button--primary"
-                  disabled={loading || Boolean(summarizeAllProgress)}
+                  disabled={loading || busyElsewhere || Boolean(summarizeAllProgress)}
                   onClick={onSummarize}
                 >
                   {vi.summarizeCurrentSection}
@@ -292,30 +320,31 @@ export function SummaryPanel({
 
       {/* Hộp xác nhận tóm tắt toàn bộ */}
       {estimateDialog?.open && estimateDialog.estimate && (
-        <div class="consent-backdrop">
-          <div class="consent-dialog" role="dialog" aria-modal="true">
-            <h2 class="consent-dialog__title">{vi.summarizeAllConfirmTitle}</h2>
-            <p class="consent-dialog__body">
-              {vi.summarizeAllConfirmBody(
-                estimateDialog.sectionsCount,
-                estimateDialog.estimate.requests,
-                estimateDialog.estimate.inputTokens,
-              )}
-            </p>
-            <div class="consent-dialog__actions">
-              <button
-                type="button"
-                class="settings-button settings-button--primary"
-                onClick={estimateDialog.onConfirm}
-              >
-                {vi.summarizeAllConfirmAccept}
-              </button>
-              <button type="button" class="settings-button" onClick={estimateDialog.onCancel}>
-                {vi.summarizeAllConfirmCancel}
-              </button>
-            </div>
+        <Dialog titleId="summary-estimate-title" onClose={estimateDialog.onCancel}>
+          <h2 class="consent-dialog__title" id="summary-estimate-title">
+            {vi.summarizeAllConfirmTitle}
+          </h2>
+          <p class="consent-dialog__body">
+            {vi.summarizeAllConfirmBody(
+              estimateDialog.sectionsCount,
+              estimateDialog.cachedCount,
+              estimateDialog.estimate.requests,
+              estimateDialog.estimate.inputTokens,
+            )}
+          </p>
+          <div class="consent-dialog__actions">
+            <button
+              type="button"
+              class="settings-button settings-button--primary"
+              onClick={estimateDialog.onConfirm}
+            >
+              {vi.summarizeAllConfirmAccept}
+            </button>
+            <button type="button" class="settings-button" onClick={estimateDialog.onCancel}>
+              {vi.summarizeAllConfirmCancel}
+            </button>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

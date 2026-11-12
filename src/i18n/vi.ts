@@ -122,7 +122,7 @@ export const vi = {
   aiTestConnection: 'Kiểm tra kết nối',
   aiTesting: 'Đang kiểm tra kết nối…',
   aiTestOk: 'Kết nối thành công.',
-  aiMissingKey: 'Nhập API key trước khi kiểm tra kết nối.',
+  aiMissingKey: 'Nhập API key trước.',
   aiPermissionDenied:
     'Chưa cấp quyền truy cập tới nhà cung cấp nên chưa kiểm tra được. Thử lại và bấm Cho phép.',
   aiUnsupported: 'Phần AI chỉ hoạt động khi ReadFocus được cài trong Chrome.',
@@ -148,8 +148,19 @@ export const vi = {
   summarizeCurrentSection: 'Tóm tắt mục này',
   summarizeAllSections: 'Tóm tắt toàn bộ',
   summarizeAllConfirmTitle: 'Tóm tắt toàn bộ tài liệu?',
-  summarizeAllConfirmBody: (sections: number, requests: number, tokens: number) =>
-    `Tài liệu có ${sections} mục trong 100 trang đầu. Ước lượng: ${requests} lượt gọi API · tối thiểu ~${tokens.toLocaleString('vi-VN')} token đầu vào. Bạn có muốn tiếp tục?`,
+  summarizeAllConfirmBody: (
+    sections: number,
+    alreadyDone: number,
+    requests: number,
+    tokens: number,
+  ) =>
+    `Sẽ tóm tắt ${sections} mục đã lập chỉ mục${alreadyDone > 0 ? ` (bỏ qua ${alreadyDone} mục đã có tóm tắt)` : ''}. Ước lượng: ${requests} request, tối thiểu khoảng ${tokens.toLocaleString('vi-VN')} token đầu vào. Nội dung các mục này sẽ được gửi tới nhà cung cấp bạn đã chọn. Tiếp tục?`,
+  summarizeAllNoText:
+    'Chưa có mục nào đủ văn bản để tóm tắt. Hãy lập chỉ mục các trang cần tóm tắt; bản scan không có chữ nên không tóm tắt được.',
+  summarizeAllNothingToDo: 'Mọi mục đã lập chỉ mục đều đã có tóm tắt.',
+  summarizeAllFailed: (count: number) =>
+    `${count} mục chưa tóm tắt được (câu trả lời bị cắt hoặc không đọc được). Thử lại, hoặc đổi model trong Cài đặt → AI.`,
+  summarizeAllRetryFailed: 'Thử lại các mục lỗi',
   summarizeAllConfirmAccept: 'Bắt đầu tóm tắt',
   summarizeAllConfirmCancel: 'Huỷ bỏ',
   summarizeAllProgress: (done: number, total: number) => `Đang tóm tắt… ${done}/${total} mục`,
@@ -160,7 +171,7 @@ export const vi = {
   summarizeCancel: 'Huỷ',
   summarizeCancelling: 'Đang huỷ…',
   summarizeFromCache: 'Lấy từ cache',
-  summarizeNoText: 'Mục này không có văn bản (hoặc tài liệu là bản scan) nên không thể tóm tắt.',
+  summarizeNoText: 'Mục này không có văn bản (có thể là bản scan) nên không tóm tắt được.',
   summaryKeyPointsTitle: 'Ý chính',
   summaryTermsTitle: 'Thuật ngữ',
   summaryPageRef: (page: number) => `Trang ${page}`,
