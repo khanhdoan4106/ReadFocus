@@ -35,18 +35,8 @@ import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { buildProfile, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
-import {
-  addReadingSample,
-  chapterEstimate,
-  emptyReadingSpeed,
-  MAX_ACTIVE_GAP_MS,
-  sanitizeReadingSpeed,
-  speedFromWordsPerMinute,
-  wordsPerMinute as learnedWordsPerMinute,
-  type ReadingSpeed,
-} from '../core/reading-time';
+import { addReadingSample, chapterEstimate, MAX_ACTIVE_GAP_MS } from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
-import { parseThemePreference, THEME_SETTING_KEY, type ThemePreference } from '../core/theme';
 import { countWords } from '../core/text';
 import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import {
@@ -98,8 +88,8 @@ import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { useAiSettings } from './hooks/useAiSettings';
+import { useSettings } from './hooks/useSettings';
 import { Sidebar } from './Sidebar';
-import { applyTheme, watchSystemTheme } from './theme';
 
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
 
@@ -151,7 +141,6 @@ export function App() {
   const [toc, setToc] = useState<TocResult | null>(null);
   const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
   const [pageWords, setPageWords] = useState<Record<number, number>>({});
-  const [speed, setSpeed] = useState<ReadingSpeed>(emptyReadingSpeed);
   const [highlight, setHighlight] = useState<{
     page: number;
     query: string;
@@ -170,14 +159,15 @@ export function App() {
   const [todayStats, setTodayStats] = useState<DayStats>(() => emptyDayStats());
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const settings = useSettings({ showToast: setToast });
+  const readingWordsPerMinute = settings.wordsPerMinute;
+  const setSpeed = settings.setSpeed;
   const ai = useAiSettings();
   const aiSettings = ai.settings;
   const aiKey = ai.apiKey;
   const aiSupported = ai.supported;
   const aiModel = ai.model;
   const setAiNotice = ai.setNotice;
-  const [theme, setTheme] = useState<ThemePreference>('system');
   const [searchRequest, setSearchRequest] = useState(0);
 
   const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
@@ -221,10 +211,6 @@ export function App() {
   const indexedRangeRef = useRef<PageRange | null>(null);
   // Tăng mỗi khi mở hoặc đóng tài liệu để bỏ kết quả của lượt tóm tắt cũ.
   const summaryGenerationRef = useRef(0);
-  const autoOpenSupported =
-    typeof chrome !== 'undefined' &&
-    chrome.permissions !== undefined &&
-    chrome.storage?.sync !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -242,7 +228,6 @@ export function App() {
     activeMs: 0,
     lastTick: null,
   });
-  const speedReadyRef = useRef(false);
   const settingsReadyRef = useRef(false);
 
   /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
@@ -680,44 +665,6 @@ export function App() {
     }, 400);
     return () => clearTimeout(timer);
   }, [docId, pageNumber, status]);
-
-  // Nạp tốc độ đọc đã học từ các phiên trước.
-  useEffect(() => {
-    void loadSetting<unknown>('readingSpeed').then((value) => {
-      if (value !== null) setSpeed(sanitizeReadingSpeed(value));
-      speedReadyRef.current = true;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!speedReadyRef.current) return;
-    void saveSetting('readingSpeed', speed);
-  }, [speed]);
-
-  // Nạp giao diện đã chọn; "theo hệ thống" thì đổi màu khi hệ điều hành đổi.
-  useEffect(() => {
-    void loadSetting<unknown>(THEME_SETTING_KEY).then((value) => {
-      setTheme(parseThemePreference(value));
-    });
-  }, []);
-
-  useEffect(() => {
-    applyTheme(theme);
-    if (theme !== 'system') return;
-    return watchSystemTheme((resolved) => {
-      document.documentElement.dataset.theme = resolved;
-    });
-  }, [theme]);
-
-  const handleTheme = useCallback((value: ThemePreference) => {
-    setTheme(value);
-    applyTheme(value);
-    void saveSetting(THEME_SETTING_KEY, value);
-  }, []);
-
-  const handleWordsPerMinute = useCallback((value: number) => {
-    setSpeed(speedFromWordsPerMinute(value));
-  }, []);
 
   const currentSection = useMemo(() => {
     if (!toc || toc.items.length === 0) return null;
@@ -1180,57 +1127,6 @@ export function App() {
     return () => clearTimeout(id);
   }, [toast]);
 
-  // Đọc trạng thái tự mở PDF và đối chiếu quyền host thực tế.
-  useEffect(() => {
-    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
-    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
-
-    void Promise.all([
-      chromeApi.storage.sync.get('autoOpenPdf'),
-      chromeApi.permissions.contains({ origins: ['*://*/*'] }),
-    ])
-      .then(([stored, granted]) => {
-        const wantsEnabled = stored.autoOpenPdf === true;
-        setAutoOpenPdf(wantsEnabled && granted);
-        if (wantsEnabled && !granted) {
-          void chromeApi.storage.sync.set({ autoOpenPdf: false });
-          void chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
-        }
-      })
-      .catch(() => setAutoOpenPdf(false));
-  }, []);
-
-  const handleAutoOpenPdf = useCallback(async (enabled: boolean) => {
-    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
-    if (!chromeApi?.permissions || !chromeApi.storage?.sync) return;
-
-    try {
-      if (enabled) {
-        // Phải gọi request() ngay trong thao tác bấm của người dùng.
-        const granted = await chromeApi.permissions.request({ origins: ['*://*/*'] });
-        if (!granted) {
-          setAutoOpenPdf(false);
-          setToast(vi.autoOpenPermissionDenied);
-          return;
-        }
-        await chromeApi.storage.sync.set({ autoOpenPdf: true });
-        setAutoOpenPdf(true);
-        await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
-        setToast(vi.autoOpenEnabled);
-        return;
-      }
-
-      await chromeApi.storage.sync.set({ autoOpenPdf: false });
-      setAutoOpenPdf(false);
-      await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
-      await chromeApi.permissions.remove({ origins: ['*://*/*'] });
-      setToast(vi.autoOpenDisabled);
-    } catch {
-      setAutoOpenPdf(false);
-      setToast(vi.autoOpenPermissionDenied);
-    }
-  }, []);
-
   /** Đóng tài liệu đang mở và xoá trạng thái phân tích trong bộ nhớ. */
   const resetDocument = useCallback(async () => {
     analysisTokenRef.current += 1;
@@ -1384,7 +1280,6 @@ export function App() {
     clock.lastTick = document.visibilityState === 'visible' ? Date.now() : null;
   }, [pageNumber, pageWords]);
 
-  const readingWordsPerMinute = learnedWordsPerMinute(speed);
   const chapterMinutes = chapterEstimate(toc, pageNumber, readingWordsPerMinute);
   const remainingTimerMs = timerRemaining(timer, now);
 
@@ -1873,14 +1768,14 @@ export function App() {
               onToggleFullscreen: toggleFullscreen,
             }}
             settings={{
-              theme,
-              onChangeTheme: handleTheme,
+              theme: settings.theme,
+              onChangeTheme: settings.onChangeTheme,
               ai: ai.panel,
               wordsPerMinute: readingWordsPerMinute,
-              onChangeWordsPerMinute: handleWordsPerMinute,
-              autoOpenPdf,
-              autoOpenSupported,
-              onToggleAutoOpen: handleAutoOpenPdf,
+              onChangeWordsPerMinute: settings.onChangeWordsPerMinute,
+              autoOpenPdf: settings.autoOpenPdf,
+              autoOpenSupported: settings.autoOpenSupported,
+              onToggleAutoOpen: settings.onToggleAutoOpen,
               documentName: status === 'ready' && docId !== null ? fileName : null,
               onDeleteDocument: () => void handleDeleteDocument(),
               onDeleteAll: () => void handleDeleteAll(),
