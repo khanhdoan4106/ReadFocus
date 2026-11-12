@@ -5,7 +5,8 @@ import {
   mapWithConcurrency,
   pagesInSpan,
 } from '../src/core/summarize/work';
-import type { TextPage } from '../src/core/summarize/chunk';
+import { splitIntoChunks, type TextPage } from '../src/core/summarize/chunk';
+import { estimateTokens } from '../src/core/summarize/tokens';
 
 describe('pagesInSpan', () => {
   it('lọc đúng các trang thuộc khoảng [startPage, endPage]', () => {
@@ -31,8 +32,7 @@ describe('estimateSectionWork', () => {
   it('mục nằm trong ngân sách chỉ tốn 1 request', () => {
     const pages: TextPage[] = [{ page: 1, text: 'Short section text' }];
     const est = estimateSectionWork(pages, 100);
-    expect(est.requests).toBe(1);
-    expect(est.inputTokens).toBeGreaterThan(0);
+    expect(est).toEqual({ requests: 1, inputTokens: estimateTokens('Short section text') });
   });
 
   it('mục bị chia n đoạn tốn n + 1 request (n đoạn + 1 gộp)', () => {
@@ -42,7 +42,10 @@ describe('estimateSectionWork', () => {
       { page: 2, text: longText },
     ];
     const est = estimateSectionWork(pages, 100);
-    expect(est.requests).toBeGreaterThan(2); // ít nhất 2 đoạn + 1 gộp
+    const chunks = splitIntoChunks(pages, 100);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(est.requests).toBe(chunks.length + 1);
+    expect(est.inputTokens).toBe(chunks.reduce((sum, chunk) => sum + chunk.tokens, 0));
   });
 });
 
@@ -58,8 +61,12 @@ describe('estimateSpansWork', () => {
     ];
 
     const total = estimateSpansWork(spans, pages, 1000);
-    expect(total.requests).toBe(2);
-    expect(total.inputTokens).toBeGreaterThan(0);
+    expect(total).toEqual({
+      requests: 2,
+      inputTokens:
+        estimateSectionWork([pages[0]!], 1000).inputTokens +
+        estimateSectionWork([pages[1]!], 1000).inputTokens,
+    });
   });
 });
 

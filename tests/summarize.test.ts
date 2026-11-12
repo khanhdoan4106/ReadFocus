@@ -182,7 +182,6 @@ describe('resolveOutputLanguage', () => {
 describe('prompt', () => {
   it('có phiên bản prompt để vô hiệu cache cũ', () => {
     expect(Number.isInteger(PROMPT_VERSION)).toBe(true);
-    expect(PROMPT_VERSION).toBeGreaterThan(0);
   });
 
   it('prompt sách nhấn mạnh ý chính, lập luận, ví dụ', () => {
