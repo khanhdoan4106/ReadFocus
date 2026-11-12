@@ -2,29 +2,22 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
 import { aiConfigProblem } from '../core/llm/settings';
-import type { TextPage } from '../core/summarize/chunk';
-import { hasTextLayer, type PageRange } from '../core/ocr/pages';
+import { type PageRange } from '../core/ocr/pages';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
-import { buildProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { chapterEstimate } from '../core/reading-time';
-import { buildSearchIndex, type SearchIndex } from '../core/search';
-import { countWords } from '../core/text';
-import { buildToc, type TocPage, type TocResult } from '../core/toc';
 import { clampBandHeight, clampMinutes, formatTimer } from '../core/focus';
 import { vi } from '../i18n/vi';
 import {
   clearAllData,
-  clearPageTexts,
   deleteDocumentData,
   loadProgress,
   recordDocumentOpen,
-  savePageTexts,
   saveProgress,
 } from '../storage/db';
-import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
+import { INDEX_PAGE_LIMIT } from './extract';
 import { OcrPanel } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { openPdfData, readPdfFile } from './pdf';
@@ -32,8 +25,8 @@ import { Dialog } from './Dialog';
 import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
-import type { Analysis } from './hooks/types';
 import { useAiSettings } from './hooks/useAiSettings';
+import { useExtraction } from './hooks/useExtraction';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
 import { useOcr } from './hooks/useOcr';
@@ -46,11 +39,6 @@ import { Sidebar } from './Sidebar';
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
-type IndexRange = {
-  from: string;
-  to: string;
-};
-
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
 
 async function hashData(data: ArrayBuffer): Promise<string | null> {
@@ -73,12 +61,6 @@ export function App() {
   const [scale, setScale] = useState(1);
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   const [isDragging, setIsDragging] = useState(false);
-  const [analysis, setAnalysis] = useState<Analysis>({ phase: 'idle' });
-  const [indexRange, setIndexRange] = useState<IndexRange | null>(null);
-  const [rangeError, setRangeError] = useState<string | null>(null);
-  const [toc, setToc] = useState<TocResult | null>(null);
-  const [searchIndex, setSearchIndex] = useState<SearchIndex | null>(null);
-  const [pageWords, setPageWords] = useState<Record<number, number>>({});
   const [highlight, setHighlight] = useState<{
     page: number;
     query: string;
@@ -96,11 +78,29 @@ export function App() {
   const aiSupported = ai.supported;
   const [searchRequest, setSearchRequest] = useState(0);
 
-  const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
   // Văn bản OCR đã lưu, dùng thay cho lớp chữ trống khi lập chỉ mục.
   const ocrTextRef = useRef<Map<number, string>>(new Map());
   // Khoảng trang đã lập chỉ mục gần nhất, để lập lại sau OCR.
   const indexedRangeRef = useRef<PageRange | null>(null);
+
+  const extraction = useExtraction({ ocrTextRef, indexedRangeRef });
+  const {
+    analysis,
+    indexRange,
+    setIndexRange,
+    rangeError,
+    toc,
+    searchIndex,
+    pageWords,
+    extractedPages,
+  } = extraction;
+  const runExtraction = extraction.runExtraction;
+  const stats = useReadingStats({
+    ready: status === 'ready',
+    pageNumber,
+    pageWords,
+    setSpeed,
+  });
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -110,12 +110,10 @@ export function App() {
   pageNumberRef.current = pageNumber;
   // Trang đích trong lúc chờ nhảy tới tiến độ đã lưu; `null` khi không khôi phục.
   const restoringRef = useRef<number | null>(null);
-  // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
-  const analysisTokenRef = useRef(0);
 
   useEffect(() => {
     return () => {
-      analysisTokenRef.current += 1;
+      extraction.invalidate();
       void closeRef.current?.();
       closeRef.current = null;
       docRef.current = null;
@@ -132,88 +130,6 @@ export function App() {
     if (scroller && slot) {
       scroller.scrollTo({ top: Math.max(slot.offsetTop - 8, 0) });
     }
-  }, []);
-
-  const runExtraction = useCallback(
-    async (pdfDoc: PDFDocumentProxy, from: number, to: number, id: string | null) => {
-      const token = analysisTokenRef.current + 1;
-      analysisTokenRef.current = token;
-      const total = to - from + 1;
-      setRangeError(null);
-      setAnalysis({ phase: 'extracting', done: 0, total });
-
-      if (id) void clearPageTexts(id);
-      indexedRangeRef.current = { from, to };
-
-      const pending: { page: number; text: string }[] = [];
-      const flush = () => {
-        if (!id || pending.length === 0) return;
-        void savePageTexts(id, pending.splice(0, pending.length));
-      };
-
-      try {
-        const outline = await readOutline(pdfDoc);
-        const outlineDepth = outline.reduce((max, entry) => Math.max(max, entry.level), 0);
-        const samples: PageSample[] = [];
-        const tocPages: TocPage[] = [];
-
-        await extractRange(pdfDoc, {
-          from,
-          to,
-          shouldStop: () => analysisTokenRef.current !== token,
-          onPage: (extracted) => {
-            // Trang scan đã OCR: dùng chữ OCR (đã lưu riêng, không ghi đè bản ghi OCR).
-            const ocrText = ocrTextRef.current.get(extracted.page);
-            const useOcr = ocrText !== undefined && !hasTextLayer(extracted);
-            const page = useOcr ? { ...extracted, text: ocrText, lines: [] } : extracted;
-            samples.push(page);
-            tocPages.push({
-              page: page.page,
-              text: page.text,
-              lines: page.lines,
-              width: page.width,
-              height: page.height,
-            });
-            if (!useOcr) pending.push({ page: page.page, text: page.text });
-            if (pending.length >= 10) flush();
-            if (analysisTokenRef.current === token) {
-              setAnalysis({ phase: 'extracting', done: samples.length, total });
-            }
-          },
-        });
-        flush();
-
-        if (analysisTokenRef.current !== token) return;
-        const profile = buildProfile(samples, { outlineDepth });
-        setAnalysis({ phase: 'done', profile });
-        setToc(
-          buildToc({
-            pages: tocPages,
-            outline,
-            pageCount: pdfDoc.numPages,
-            kind: profile.kind,
-          }),
-        );
-        setSearchIndex(
-          buildSearchIndex(tocPages.map((page) => ({ page: page.page, text: page.text }))),
-        );
-        setPageWords(
-          Object.fromEntries(tocPages.map((page) => [page.page, countWords(page.text)])),
-        );
-        setExtractedPages(tocPages.map((page) => ({ page: page.page, text: page.text })));
-      } catch {
-        flush();
-        if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
-      }
-    },
-    [],
-  );
-
-  /** Tài liệu dài chưa trích văn bản vẫn hiện được outline ngay. */
-  const loadOutlineToc = useCallback(async (pdfDoc: PDFDocumentProxy, token: number) => {
-    const outline = await readOutline(pdfDoc);
-    if (analysisTokenRef.current !== token || outline.length === 0) return;
-    setToc(buildToc({ pages: [], outline, pageCount: pdfDoc.numPages }));
   }, []);
 
   const goToPage = useCallback(
@@ -319,7 +235,6 @@ export function App() {
 
       // Tài liệu mới: bỏ mẫu đọc của tài liệu trước, bắt đầu đo từ trang khôi phục.
       stats.restartClock(resumePage);
-      setPageWords({});
 
       if (hash) {
         void recordDocumentOpen({
@@ -330,24 +245,9 @@ export function App() {
         });
       }
       summarize.load(hash);
-      setExtractedPages([]);
       resetBackgroundRuns();
-
-      analysisTokenRef.current += 1;
-      const token = analysisTokenRef.current;
-      setToc(null);
-      setSearchIndex(null);
       setHighlight(null);
-      setIndexRange(null);
-      setRangeError(null);
-      setAnalysis({ phase: 'idle' });
-
-      if (result.doc.numPages > INDEX_PAGE_LIMIT) {
-        setIndexRange({ from: '1', to: String(INDEX_PAGE_LIMIT) });
-        void loadOutlineToc(result.doc, token);
-      } else {
-        void runExtraction(result.doc, 1, result.doc.numPages, hash);
-      }
+      extraction.begin(result.doc, hash);
 
       if (resumePage > 1) {
         setTimeout(() => {
@@ -357,7 +257,15 @@ export function App() {
         }, 0);
       }
     },
-    [loadOutlineToc, runExtraction, scrollToPage],
+    [
+      extraction.begin,
+      extraction.invalidate,
+      ocr.load,
+      resetBackgroundRuns,
+      scrollToPage,
+      stats.restartClock,
+      summarize.load,
+    ],
   );
 
   const openFromUrl = useCallback(
@@ -459,7 +367,7 @@ export function App() {
 
   /** Đóng tài liệu đang mở và xoá trạng thái phân tích trong bộ nhớ. */
   const resetDocument = useCallback(async () => {
-    analysisTokenRef.current += 1;
+    extraction.invalidate();
     await closeRef.current?.();
     closeRef.current = null;
     docRef.current = null;
@@ -468,15 +376,10 @@ export function App() {
     setDocId(null);
     setFileName('');
     setStatus('empty');
-    setToc(null);
-    setSearchIndex(null);
-    setAnalysis({ phase: 'idle' });
-    setPageWords({});
+    extraction.clear();
     setHighlight(null);
-    setIndexRange(null);
-    setRangeError(null);
+    extraction.clearRange();
     summarize.forget();
-    setExtractedPages([]);
     ocr.forget();
     resetBackgroundRuns();
   }, [resetBackgroundRuns]);
@@ -492,14 +395,10 @@ export function App() {
     }
 
     // Dừng lượt trích đang chạy và bỏ chỉ mục của tài liệu vừa xoá.
-    analysisTokenRef.current += 1;
+    extraction.invalidate();
     setDocId(null);
-    setToc(null);
-    setSearchIndex(null);
-    setAnalysis({ phase: 'idle' });
-    setPageWords({});
+    extraction.clear();
     summarize.forget();
-    setExtractedPages([]);
     ocr.forget();
     resetBackgroundRuns();
     setToast(vi.deleteDocumentDone);
@@ -519,12 +418,6 @@ export function App() {
     setToast(vi.deleteAllDone);
   }, [resetDocument]);
 
-  const stats = useReadingStats({
-    ready: status === 'ready',
-    pageNumber,
-    pageWords,
-    setSpeed,
-  });
   const chapterMinutes = chapterEstimate(toc, pageNumber, readingWordsPerMinute);
   const {
     timer,
@@ -600,30 +493,6 @@ export function App() {
       return;
     }
     goToPage(parsed);
-  };
-
-  const startIndexing = () => {
-    if (!doc || !indexRange) return;
-
-    const from = Number.parseInt(indexRange.from, 10);
-    const to = Number.parseInt(indexRange.to, 10);
-    if (
-      !Number.isInteger(from) ||
-      !Number.isInteger(to) ||
-      from < 1 ||
-      to < from ||
-      to > doc.numPages
-    ) {
-      setRangeError(vi.indexRangeInvalid);
-      return;
-    }
-    if (to - from + 1 > INDEX_PAGE_LIMIT) {
-      setRangeError(vi.indexRangeTooLong(INDEX_PAGE_LIMIT));
-      return;
-    }
-
-    setIndexRange(null);
-    void runExtraction(doc, from, to, docId);
   };
 
   const totalPages = doc?.numPages ?? 0;
@@ -793,7 +662,7 @@ export function App() {
               class="notice__form"
               onSubmit={(event) => {
                 event.preventDefault();
-                startIndexing();
+                extraction.startIndexing(doc, docId);
               }}
             >
               <p class="notice__text">{vi.longDocWarning(INDEX_PAGE_LIMIT)}</p>

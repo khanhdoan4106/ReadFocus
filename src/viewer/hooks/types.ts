@@ -6,3 +6,8 @@ export type Analysis =
   | { phase: 'extracting'; done: number; total: number }
   | { phase: 'done'; profile: DocumentProfile }
   | { phase: 'error' };
+
+export type IndexRange = {
+  from: string;
+  to: string;
+};

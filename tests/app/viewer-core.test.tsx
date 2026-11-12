@@ -3,7 +3,16 @@ import 'fake-indexeddb/auto';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vi as t } from '../../src/i18n/vi';
-import { freshEnvironment, openFile, renderApp, seedAi, tab, tick, waitForReady } from './helpers';
+import {
+  fetchSpy,
+  freshEnvironment,
+  openFile,
+  renderApp,
+  seedAi,
+  tab,
+  tick,
+  waitForReady,
+} from './helpers';
 import { registerPdf } from './mocks';
 
 vi.mock('../../src/viewer/pdf', async () => (await import('./mocks')).pdfModule());
@@ -232,5 +241,48 @@ describe('viewer: phím tắt và hộp thoại', () => {
     await waitFor(() =>
       expect(screen.queryByText(t.timerModeFocus, { selector: '.toolbar__timer-mode' })).toBeNull(),
     );
+  });
+});
+
+describe('viewer: mở PDF từ địa chỉ (menu chuột phải, nút trên thanh công cụ)', () => {
+  function setViewerUrl(search: string) {
+    (window as unknown as { happyDOM: { setURL: (url: string) => void } }).happyDOM.setURL(
+      `chrome-extension://readfocus/viewer.html${search}`,
+    );
+  }
+
+  afterEach(() => setViewerUrl(''));
+
+  it('tải đúng một lần rồi mở; render lại không tải lại', async () => {
+    registerPdf('tai-lieu.pdf', BOOK, OUTLINE);
+    fetchSpy.mockResolvedValueOnce(new Response(new Blob(['tai-lieu.pdf'])));
+    setViewerUrl(`?url=${encodeURIComponent('https://example.com/docs/tai-lieu.pdf')}`);
+
+    renderApp();
+    await waitForReady();
+    await tick(50);
+
+    expect(screen.getByText('tai-lieu.pdf')).toBeTruthy();
+    // Đổi trang gây render lại nhiều lần; không được tải lại tài liệu.
+    fireEvent.click(screen.getByLabelText(t.nextPage));
+    await waitFor(() => expect(screen.getByText(t.pageLabel(2, 4))).toBeTruthy());
+    await tick(50);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://example.com/docs/tai-lieu.pdf');
+  });
+
+  it('địa chỉ file:// thì báo cần bật quyền truy cập file, không gọi mạng', async () => {
+    setViewerUrl(`?url=${encodeURIComponent('file:///C:/sach.pdf')}`);
+    renderApp();
+    expect(await screen.findByText(t.errorFileUrl)).toBeTruthy();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('tải lỗi thì báo lỗi và cho chọn file khác', async () => {
+    fetchSpy.mockResolvedValueOnce(new Response('x', { status: 404 }));
+    setViewerUrl(`?url=${encodeURIComponent('https://example.com/khong-co.pdf')}`);
+    renderApp();
+    expect(await screen.findByText(t.errorFetch)).toBeTruthy();
+    expect(screen.getByRole('button', { name: t.retry })).toBeTruthy();
   });
 });
