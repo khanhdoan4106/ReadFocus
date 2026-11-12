@@ -3,15 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { sha256Hex } from '../core/hash';
 import { isLLMError } from '../core/llm/errors';
 import { getProvider } from '../core/llm';
-import { DEFAULT_MODELS, resolveModel } from '../core/llm/models';
 import { providerOriginPattern } from '../core/llm/permissions';
-import {
-  aiConfigProblem,
-  defaultAiSettings,
-  type AiSettings,
-  type SummaryLanguage,
-} from '../core/llm/settings';
-import type { LLMErrorKind, ProviderId } from '../core/llm/types';
+import { aiConfigProblem } from '../core/llm/settings';
+import type { LLMErrorKind } from '../core/llm/types';
 import type { TextPage } from '../core/summarize/chunk';
 import { PROMPT_VERSION } from '../core/summarize/prompt';
 import { summaryCacheKey } from '../core/summarize/cache-key';
@@ -93,14 +87,6 @@ import {
   saveSummary,
   type TocItem,
 } from '../storage/db';
-import {
-  clearApiKey,
-  keyScopeFor,
-  loadAiSettings,
-  loadApiKey,
-  saveAiSettings,
-  saveApiKey,
-} from '../storage/ai';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { OcrPanel, type OcrReport } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
@@ -111,6 +97,7 @@ import { Dialog } from './Dialog';
 import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
+import { useAiSettings } from './hooks/useAiSettings';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
 
@@ -184,12 +171,12 @@ export function App() {
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
-  const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
-  const [aiKey, setAiKey] = useState('');
-  const [aiKeyVisible, setAiKeyVisible] = useState(false);
-  const [aiBusy, setAiBusy] = useState(false);
-  const [aiNotice, setAiNotice] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
-  const [aiConsentOpen, setAiConsentOpen] = useState(false);
+  const ai = useAiSettings();
+  const aiSettings = ai.settings;
+  const aiKey = ai.apiKey;
+  const aiSupported = ai.supported;
+  const aiModel = ai.model;
+  const setAiNotice = ai.setNotice;
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [searchRequest, setSearchRequest] = useState(0);
 
@@ -238,10 +225,6 @@ export function App() {
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
     chrome.storage?.sync !== undefined;
-  const aiSupported =
-    typeof chrome !== 'undefined' &&
-    chrome.permissions !== undefined &&
-    chrome.storage?.local !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -261,8 +244,6 @@ export function App() {
   });
   const speedReadyRef = useRef(false);
   const settingsReadyRef = useRef(false);
-  const aiReadyRef = useRef(false);
-  const pendingConsentRef = useRef<(() => void) | null>(null);
 
   /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
   const resetBackgroundRuns = useCallback(() => {
@@ -738,159 +719,6 @@ export function App() {
     setSpeed(speedFromWordsPerMinute(value));
   }, []);
 
-  // Nạp tuỳ chọn AI và key đã lưu. Key không bao giờ đi qua log hay thông báo.
-  useEffect(() => {
-    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
-    if (!local) return;
-    void loadAiSettings(local)
-      .then(async (settings) => {
-        setAiSettings(settings);
-        const store = settings.saveKey ? local : chrome.storage?.session;
-        if (store) setAiKey(await loadApiKey(store));
-        aiReadyRef.current = true;
-      })
-      .catch(() => {
-        aiReadyRef.current = true;
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!aiReadyRef.current) return;
-    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
-    if (!local) return;
-    void saveAiSettings(local, aiSettings);
-  }, [aiSettings]);
-
-  const handleAiProvider = useCallback((providerId: ProviderId) => {
-    setAiSettings((current) => ({
-      ...current,
-      providerId,
-      model: DEFAULT_MODELS[providerId],
-      embedModel: '',
-    }));
-    setAiNotice(null);
-  }, []);
-
-  const handleAiModel = useCallback((value: string) => {
-    setAiSettings((current) => ({ ...current, model: value }));
-  }, []);
-
-  const handleAiEmbedModel = useCallback((value: string) => {
-    setAiSettings((current) => ({ ...current, embedModel: value }));
-  }, []);
-
-  const handleAiBaseUrl = useCallback((value: string) => {
-    setAiSettings((current) => ({ ...current, baseUrl: value }));
-  }, []);
-
-  const handleAiLanguage = useCallback((language: SummaryLanguage) => {
-    setAiSettings((current) => ({ ...current, language }));
-  }, []);
-
-  const handleAiKey = useCallback((value: string) => {
-    setAiKey(value);
-    setAiNotice(null);
-  }, []);
-
-  const handleAiKeyVisible = useCallback(() => {
-    setAiKeyVisible((visible) => !visible);
-  }, []);
-
-  // Chỉ ghi key khi rời ô nhập, tránh ghi storage theo từng ký tự.
-  const handleAiKeyBlur = useCallback(() => {
-    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
-    const store = aiSettings.saveKey ? local : chrome.storage?.session;
-    if (!local || !store) return;
-    void (aiKey.trim() === ''
-      ? clearApiKey(store)
-      : saveApiKey(store, aiKey).catch(() =>
-          setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }),
-        ));
-  }, [aiKey, aiSettings.saveKey]);
-
-  const handleAiClearKey = useCallback(() => {
-    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
-    const store = aiSettings.saveKey ? local : chrome.storage?.session;
-    setAiKey('');
-    setAiNotice(null);
-    if (store) void clearApiKey(store);
-  }, [aiSettings.saveKey]);
-
-  // Đổi nơi lưu key: xoá ở store cũ rồi ghi sang store mới để không còn bản sao.
-  const handleAiSaveKey = useCallback(
-    (saveKey: boolean) => {
-      setAiSettings((current) => ({ ...current, saveKey }));
-      const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
-      const session = typeof chrome === 'undefined' ? undefined : chrome.storage?.session;
-      const previous = keyScopeFor(!saveKey) === 'local' ? local : session;
-      const next = keyScopeFor(saveKey) === 'local' ? local : session;
-      if (!previous || !next) return;
-      void clearApiKey(previous)
-        .then(() => (aiKey.trim() === '' ? undefined : saveApiKey(next, aiKey)))
-        .catch(() => setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }));
-    },
-    [aiKey],
-  );
-
-  const runAiConnectionTest = useCallback(async () => {
-    if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
-      return;
-    }
-    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
-    if (!chromeApi?.permissions?.request) {
-      setAiNotice({ tone: 'error', message: vi.aiUnsupported });
-      return;
-    }
-
-    const model = resolveModel(aiSettings.providerId, aiSettings.model);
-    setAiBusy(true);
-    setAiNotice(null);
-    try {
-      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
-      const granted = await chromeApi.permissions.request({ origins: [origin] });
-      if (!granted) {
-        setAiNotice({ tone: 'error', message: vi.aiPermissionDenied });
-        return;
-      }
-      await getProvider(aiSettings.providerId).checkConnection(
-        { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
-        model,
-      );
-      setAiNotice({ tone: 'ok', message: vi.aiTestOk });
-    } catch (error) {
-      setAiNotice({ tone: 'error', message: aiErrorMessage(error, aiSettings) });
-    } finally {
-      setAiBusy(false);
-    }
-  }, [aiKey, aiSettings]);
-
-  const handleAiTestConnection = useCallback(() => {
-    if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
-      return;
-    }
-    if (aiSettings.consentGiven) {
-      void runAiConnectionTest();
-      return;
-    }
-    pendingConsentRef.current = () => void runAiConnectionTest();
-    setAiConsentOpen(true);
-  }, [aiKey, aiSettings, runAiConnectionTest]);
-
-  const handleAiConsentAccept = useCallback(() => {
-    setAiSettings((current) => ({ ...current, consentGiven: true }));
-    setAiConsentOpen(false);
-    const next = pendingConsentRef.current;
-    pendingConsentRef.current = null;
-    next?.();
-  }, []);
-
-  const handleAiConsentCancel = useCallback(() => {
-    pendingConsentRef.current = null;
-    setAiConsentOpen(false);
-  }, []);
-
   const currentSection = useMemo(() => {
     if (!toc || toc.items.length === 0) return null;
     return (
@@ -907,18 +735,7 @@ export function App() {
     return !pages.some((page) => page.text.trim().length > 0);
   }, [currentSection, extractedPages, analysis.phase]);
 
-  const aiModel = resolveModel(aiSettings.providerId, aiSettings.model);
-  const ensureAskConsent = useCallback(
-    (proceed: () => void) => {
-      if (aiSettings.consentGiven) {
-        proceed();
-        return;
-      }
-      pendingConsentRef.current = proceed;
-      setAiConsentOpen(true);
-    },
-    [aiSettings.consentGiven],
-  );
+  const ensureAskConsent = ai.ensureConsent;
   const semantic = useSemanticIndex({
     docId,
     pages: extractedPages,
@@ -1085,13 +902,8 @@ export function App() {
       return;
     }
 
-    if (!aiSettings.consentGiven) {
-      pendingConsentRef.current = () => void doSummarizeCurrentSection();
-      setAiConsentOpen(true);
-      return;
-    }
-    void doSummarizeCurrentSection();
-  }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection]);
+    ai.ensureConsent(() => void doSummarizeCurrentSection());
+  }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection, ai.ensureConsent]);
 
   const handleCancelSummary = useCallback(() => {
     summaryAbortRef.current?.abort();
@@ -1229,13 +1041,8 @@ export function App() {
     const { sections } = estimateDialog;
     setEstimateDialog(null);
 
-    if (!aiSettings.consentGiven) {
-      pendingConsentRef.current = () => void runSummarizeAll(sections);
-      setAiConsentOpen(true);
-      return;
-    }
-    void runSummarizeAll(sections);
-  }, [estimateDialog, aiSettings.consentGiven, runSummarizeAll]);
+    ai.ensureConsent(() => void runSummarizeAll(sections));
+  }, [estimateDialog, ai.ensureConsent, runSummarizeAll]);
 
   const handleCancelSummarizeAll = useCallback(() => {
     batchAbortRef.current?.abort();
@@ -2068,25 +1875,7 @@ export function App() {
             settings={{
               theme,
               onChangeTheme: handleTheme,
-              ai: {
-                settings: aiSettings,
-                apiKey: aiKey,
-                keyVisible: aiKeyVisible,
-                supported: aiSupported,
-                busy: aiBusy,
-                notice: aiNotice,
-                onChangeProvider: handleAiProvider,
-                onChangeModel: handleAiModel,
-                onChangeEmbedModel: handleAiEmbedModel,
-                onChangeBaseUrl: handleAiBaseUrl,
-                onChangeLanguage: handleAiLanguage,
-                onChangeKey: handleAiKey,
-                onToggleKeyVisible: handleAiKeyVisible,
-                onBlurKey: handleAiKeyBlur,
-                onClearKey: handleAiClearKey,
-                onChangeSaveKey: handleAiSaveKey,
-                onTestConnection: handleAiTestConnection,
-              },
+              ai: ai.panel,
               wordsPerMinute: readingWordsPerMinute,
               onChangeWordsPerMinute: handleWordsPerMinute,
               autoOpenPdf,
@@ -2097,7 +1886,7 @@ export function App() {
               onDeleteAll: () => void handleDeleteAll(),
             }}
             summary={{
-              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              configured: ai.configured,
               onOpenSettings: () => {},
               currentSection,
               summary: currentSummaryRecord,
@@ -2147,7 +1936,7 @@ export function App() {
               ask,
               hasDocument: docId !== null,
               hasText: extractedPages.some((page) => page.text.trim() !== ''),
-              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              configured: ai.configured,
               semanticReady: semantic.state === 'ready',
               providerId: aiSettings.providerId,
               onOpenSettings: () => {},
@@ -2203,8 +1992,8 @@ export function App() {
         </div>
       )}
 
-      {aiConsentOpen && (
-        <Dialog titleId="ai-consent-title" onClose={handleAiConsentCancel}>
+      {ai.consentOpen && (
+        <Dialog titleId="ai-consent-title" onClose={ai.cancelConsent}>
           <h2 class="consent-dialog__title" id="ai-consent-title">
             {vi.aiConsentTitle}
           </h2>
@@ -2215,11 +2004,11 @@ export function App() {
             <button
               type="button"
               class="settings-button settings-button--primary"
-              onClick={handleAiConsentAccept}
+              onClick={ai.acceptConsent}
             >
               {vi.aiConsentAccept}
             </button>
-            <button type="button" class="settings-button" onClick={handleAiConsentCancel}>
+            <button type="button" class="settings-button" onClick={ai.cancelConsent}>
               {vi.aiConsentCancel}
             </button>
           </div>
