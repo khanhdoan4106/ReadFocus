@@ -4,7 +4,7 @@ Mỗi quyền trong `manifest.json` phải có lý do rõ ràng. Ở v0, ReadFoc
 
 | Quyền | Dùng ở đâu | Lý do |
 |---|---|---|
-| `storage` | `src/storage/db.ts` | Lưu metadata tài liệu, tiến độ đọc, mục lục, chỉ mục tìm kiếm, thống kê và cài đặt trong IndexedDB của máy. |
+| `storage` | `src/storage/db.ts` | Lưu metadata tài liệu, tiến độ đọc, mục lục, chỉ mục tìm kiếm, thống kê, bản tóm tắt AI và cài đặt trong IndexedDB của máy; `chrome.storage.local`/`session` giữ tuỳ chọn AI và API key (không đồng bộ). |
 | `notifications` | `src/viewer/App.tsx` | Báo khi hết giờ đọc chương hoặc hết phiên Pomodoro/giờ nghỉ, kể cả lúc tab đang ẩn. Không có nội dung nào được gửi ra ngoài. |
 | `contextMenus` | `src/background/service-worker.ts` | Thêm mục "Mở bằng ReadFocus" khi bấm chuột phải vào trang hoặc link PDF. |
 | `activeTab` | `src/background/service-worker.ts` | Đọc địa chỉ tab hiện tại khi người dùng bấm icon hoặc menu để mở đúng PDF đó. Quyền chỉ có hiệu lực sau thao tác của người dùng, không theo dõi duyệt web. |
@@ -28,7 +28,7 @@ Khi bật công tắc:
 
 ### Nhà cung cấp AI (v1)
 
-- Quyền được xin bằng `chrome.permissions.request` đúng lúc người dùng chọn provider hoặc bấm **Kiểm tra kết nối**, luôn trong một thao tác bấm.
+- Quyền được xin bằng `chrome.permissions.request` ở lần bấm **Kiểm tra kết nối**, **Tóm tắt mục này** hoặc **Tóm tắt toàn bộ** (sau hộp xác nhận gửi dữ liệu nếu là lần đầu), là lời gọi đầu tiên trong thao tác bấm đó. Chọn provider hay lưu key không xin quyền và không gửi gì.
 - Provider đám mây dùng origin cố định ở trên. `openai-compatible` dùng origin lấy từ base URL người dùng nhập (bỏ cổng và đường dẫn, chỉ giữ scheme + host), nên `http://localhost:11434` khớp `http://localhost/*`.
 - Nếu người dùng từ chối, không request nào được gửi; giao diện nói rõ cần cấp quyền để dùng AI.
 - Chỉ gửi dữ liệu khi người dùng bấm **Tóm tắt** hoặc **Kiểm tra kết nối**, và chỉ tới origin của provider đã chọn. Không analytics, không telemetry, không tải code từ xa.

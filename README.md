@@ -58,7 +58,9 @@ Key mặc định được lưu trong `chrome.storage.local` trên máy này. T�
 Dữ liệu không rời khỏi máy bạn.
 
 1. Cài Ollama và tải một model, ví dụ `ollama pull llama3.2`.
-2. Cho phép origin của extension gọi Ollama bằng biến môi trường `OLLAMA_ORIGINS` (ví dụ `chrome-extension://*`, hoặc đúng ID extension của bạn), rồi khởi động lại Ollama. Nếu thiếu bước này, trình duyệt chặn request (CORS) và ReadFocus sẽ báo không kết nối được.
+2. Cho phép extension gọi Ollama. Mặc định Ollama chỉ chấp nhận request từ `127.0.0.1` và `0.0.0.0`; với extension trình duyệt, theo [FAQ của Ollama](https://docs.ollama.com/faq) bạn phải cho phép origin của extension một cách rõ ràng bằng biến môi trường `OLLAMA_ORIGINS`, ví dụ `chrome-extension://*` (mọi extension Chrome) hoặc đúng origin `chrome-extension://<ID extension>` hiện ở `chrome://extensions`. Thiếu bước này, trình duyệt chặn request (CORS) và ReadFocus báo không kết nối được.
+   - **Windows:** thoát Ollama (bấm biểu tượng Ollama ở khay hệ thống rồi chọn Quit) → mở Cài đặt (Windows 11) hoặc Control Panel (Windows 10), tìm "environment variables" và chọn **Edit environment variables for your account** → thêm hoặc sửa biến `OLLAMA_ORIGINS` với giá trị `chrome-extension://*` → bấm OK → mở lại Ollama từ menu Start.
+   - macOS và Linux: xem mục đặt biến môi trường trong FAQ trên, rồi khởi động lại Ollama.
 3. Trong **Cài đặt → AI** chọn **OpenAI-compatible**, đặt base URL `http://localhost:11434/v1`, nhập tên model, để trống key và bấm **Kiểm tra kết nối**.
 
 LM Studio làm tương tự, với base URL `http://localhost:1234/v1`.
