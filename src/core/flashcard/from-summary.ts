@@ -1,12 +1,28 @@
 import { textHash } from '../embed/chunk';
 import type { SummaryRecord } from '../summarize/record';
+import { looksVietnamese } from '../summarize/tokens';
 import { addDays } from './leitner';
 import type { Card, CardDraft } from './types';
 
 export const BLANK = '_____';
 const MIN_BLANK_WORD = 5;
 
-/** Từ dài nhất (chỉ chữ cái) làm chỗ trống; câu không có từ đủ dài thì không tạo thẻ. */
+/** Ký tự thuộc một từ: chữ, số và dấu kết hợp. */
+const WORD_CHAR = String.raw`[\p{L}\p{N}\p{M}]`;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/** Tìm lần xuất hiện đầu tiên của cụm từ nguyên vẹn (không khớp giữa chừng một từ, không phân biệt hoa thường). */
+function findWhole(text: string, phrase: string): RegExpExecArray | null {
+  const parts = phrase.split(/\s+/u).filter((part) => part !== '');
+  if (parts.length === 0) return null;
+  const body = parts.map(escapeRegExp).join(String.raw`\s+`);
+  return new RegExp(`(?<!${WORD_CHAR})${body}(?!${WORD_CHAR})`, 'iu').exec(text);
+}
+
+/** Từ dài nhất (chỉ chữ cái) làm chỗ trống; câu không có từ đủ dài thì trả `null`. */
 export function pickBlankWord(sentence: string): string | null {
   const words = sentence.match(/[\p{L}]+/gu) ?? [];
   let best: string | null = null;
@@ -16,12 +32,39 @@ export function pickBlankWord(sentence: string): string | null {
   return best;
 }
 
-/** Thẻ điền chỗ trống từ một ý chính: mặt trước là câu đã che, mặt sau là từ cần điền và câu đầy đủ. */
-export function clozeFromSentence(sentence: string): { front: string; back: string } | null {
-  const text = sentence.replace(/\s+/g, ' ').trim();
+function blankAt(text: string, match: RegExpExecArray): { front: string; back: string } {
+  const answer = match[0];
+  const front = `${text.slice(0, match.index)}${BLANK}${text.slice(match.index + answer.length)}`;
+  return { front, back: `${answer}\n\n${text}` };
+}
+
+/**
+ * Thẻ điền chỗ trống từ một ý chính. Ưu tiên che thuật ngữ của chính tóm tắt
+ * xuất hiện nguyên cụm trong câu (chọn thuật ngữ dài nhất, chỉ che lần đầu). Không có
+ * thuật ngữ nào khớp thì: văn bản tiếng Việt bị bỏ qua (mỗi chữ chỉ là một âm
+ * tiết ngắn, che từ dài nhất thường vô nghĩa); văn bản khác che từ nguyên vẹn dài nhất.
+ */
+export function clozeFromSentence(
+  sentence: string,
+  terms: readonly string[] = [],
+): { front: string; back: string } | null {
+  const text = sentence.normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (text === '') return null;
+
+  const candidates = terms
+    .map((term) => term.normalize('NFC').replace(/\s+/g, ' ').trim())
+    .filter((term) => term !== '')
+    .sort((a, b) => b.length - a.length);
+  for (const term of candidates) {
+    const match = findWhole(text, term);
+    if (match !== null) return blankAt(text, match);
+  }
+
+  if (looksVietnamese(text)) return null;
   const word = pickBlankWord(text);
   if (word === null) return null;
-  return { front: text.replace(word, BLANK), back: `${word}\n\n${text}` };
+  const match = findWhole(text, word);
+  return match === null ? null : blankAt(text, match);
 }
 
 /** Thẻ miễn phí, không gọi API: thuật ngữ → định nghĩa, ý chính → điền chỗ trống. */
@@ -35,7 +78,10 @@ export function draftsFromSummary(record: SummaryRecord): CardDraft[] {
     }
   }
   for (const point of record.keyPoints) {
-    const cloze = clozeFromSentence(point.text);
+    const cloze = clozeFromSentence(
+      point.text,
+      record.terms.map((term) => term.term),
+    );
     if (cloze === null) continue;
     const page = point.pages.find((p) => p >= record.startPage && p <= record.endPage);
     drafts.push({ ...cloze, page: page ?? record.startPage, source: 'summary' });

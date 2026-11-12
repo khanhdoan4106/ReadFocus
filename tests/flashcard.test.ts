@@ -116,9 +116,14 @@ describe('thẻ từ cache tóm tắt', () => {
       { text: 'Phương pháp Bayes cập nhật xác suất theo bằng chứng mới.', pages: [5] },
       { text: 'Ngắn gọn ok.', pages: [4] },
       { text: 'Giả thuyết ban đầu ảnh hưởng kết quả cuối cùng.', pages: [99] },
+      {
+        text: 'Chương này nói về những điều rất quan trọng nhưng không có thuật ngữ nào.',
+        pages: [4],
+      },
     ],
     terms: [
       { term: 'Xác suất', definition: 'Mức độ chắc chắn của một sự kiện.' },
+      { term: 'Giả thuyết', definition: 'Điều được giả định là đúng khi bắt đầu.' },
       { term: ' ', definition: 'bỏ' },
     ],
     createdAt: 1,
@@ -129,19 +134,83 @@ describe('thẻ từ cache tóm tắt', () => {
     expect(pickBlankWord('một hai ba bốn')).toBeNull();
   });
 
-  it('cloze che từ ở mặt trước, mặt sau có từ và câu đầy đủ', () => {
-    const cloze = clozeFromSentence('Phương pháp Bayes cập nhật xác suất.');
-    expect(cloze?.front).toBe(`${BLANK} pháp Bayes cập nhật xác suất.`);
-    expect(cloze?.back).toBe('Phương\n\nPhương pháp Bayes cập nhật xác suất.');
+  it('cloze: ưu tiên che thuật ngữ nhiều âm tiết của tóm tắt, mặt sau có thuật ngữ và câu đầy đủ', () => {
+    const cloze = clozeFromSentence('Thói quen buổi sáng giúp tăng năng suất.', ['năng suất']);
+    expect(cloze?.front).toBe(`Thói quen buổi sáng giúp tăng ${BLANK}.`);
+    expect(cloze?.back).toBe('năng suất\n\nThói quen buổi sáng giúp tăng năng suất.');
   });
 
-  it('thuật ngữ → định nghĩa, ý chính → cloze, mỗi thẻ có trang trong mục', () => {
+  it('cloze: chọn thuật ngữ dài nhất khi nhiều thuật ngữ cùng khớp', () => {
+    const cloze = clozeFromSentence('Phương pháp Bayes cập nhật xác suất có điều kiện.', [
+      'xác suất',
+      'xác suất có điều kiện',
+      'Bayes',
+    ]);
+    expect(cloze?.front).toBe(`Phương pháp Bayes cập nhật ${BLANK}.`);
+    expect(cloze?.back.startsWith('xác suất có điều kiện\n\n')).toBe(true);
+  });
+
+  it('cloze: so khớp không phân biệt hoa thường và chuẩn hoá NFC, giữ chữ gốc ở đáp án', () => {
+    const nfd = 'Năng Suất'.normalize('NFD');
+    const cloze = clozeFromSentence('Thói quen giúp tăng năng suất làm việc.', [nfd]);
+    expect(cloze?.front).toBe(`Thói quen giúp tăng ${BLANK} làm việc.`);
+    expect(cloze?.back.startsWith('năng suất\n\n')).toBe(true);
+  });
+
+  it('cloze: câu tiếng Việt không có thuật ngữ khớp thì không tạo thẻ', () => {
+    expect(clozeFromSentence('Thói quen buổi sáng giúp tăng năng suất.', [])).toBeNull();
+    expect(
+      clozeFromSentence('Thói quen buổi sáng giúp tăng năng suất.', ['trí nhớ', 'giấc ngủ']),
+    ).toBeNull();
+  });
+
+  it('cloze: thuật ngữ xuất hiện hai lần thì chỉ che lần đầu', () => {
+    const cloze = clozeFromSentence('Năng suất tăng khi nghỉ ngơi, vì năng suất cần sức khoẻ.', [
+      'năng suất',
+    ]);
+    expect(cloze?.front).toBe(`${BLANK} tăng khi nghỉ ngơi, vì năng suất cần sức khoẻ.`);
+  });
+
+  it('cloze: thuật ngữ trùng một phần với từ khác thì không che nhầm', () => {
+    // "ai" chỉ nằm bên trong "hai": không phải một từ nguyên vẹn nên không được che.
+    expect(clozeFromSentence('Hai người cùng làm việc.', ['ai'])).toBeNull();
+    // Có cả "hai" và "ai" thì che đúng "ai", không che phần cuối của "Hai".
+    const cloze = clozeFromSentence('Hai người hỏi ai đó.', ['ai']);
+    expect(cloze?.front).toBe(`Hai người hỏi ${BLANK} đó.`);
+    expect(cloze?.back.startsWith('ai' + String.fromCharCode(10, 10))).toBe(true);
+    // Cụm nhiều từ chỉ khớp nguyên cụm: "năng suất" không khớp trong "năng suấtx".
+    expect(clozeFromSentence('Chỉ số năng suấtx tăng lên.', ['năng suất'])).toBeNull();
+  });
+
+  it('cloze: câu tiếng Anh dùng từ nguyên vẹn dài nhất khi không có thuật ngữ', () => {
+    const cloze = clozeFromSentence('Bayes updates probability with new evidence.');
+    expect(cloze?.front).toBe(`Bayes updates ${BLANK} with new evidence.`);
+    expect(cloze?.back).toBe('probability\n\nBayes updates probability with new evidence.');
+  });
+
+  it('cloze: tiếng Anh chỉ thay đúng từ nguyên vẹn, không thay chuỗi con', () => {
+    // Lần xuất hiện đầu của "analysis" dính liền "x2" nên không phải từ nguyên vẹn.
+    const cloze = clozeFromSentence('The x2analysis and analysis differ.');
+    expect(cloze?.front).toBe(`The x2analysis and ${BLANK} differ.`);
+  });
+
+  it('cloze: tiếng Anh có thuật ngữ khớp thì ưu tiên thuật ngữ', () => {
+    const cloze = clozeFromSentence('Bayes updates probability with new evidence.', [
+      'new evidence',
+    ]);
+    expect(cloze?.front).toBe(`Bayes updates probability with ${BLANK}.`);
+  });
+
+  it('thuật ngữ → định nghĩa, ý chính → cloze theo thuật ngữ, mỗi thẻ có trang trong mục', () => {
     const drafts = draftsFromSummary(summary);
-    expect(drafts).toHaveLength(3);
+    // 2 thẻ thuật ngữ + 2 thẻ cloze; câu ngắn và câu tiếng Việt không có thuật ngữ bị bỏ.
+    expect(drafts).toHaveLength(4);
     expect(drafts[0]).toMatchObject({ front: 'Xác suất', page: 3, source: 'summary' });
-    expect(drafts[1]?.page).toBe(5);
-    // Trang ngoài mục (99) thì rơi về trang đầu mục; câu quá ngắn bị bỏ.
-    expect(drafts[2]?.page).toBe(3);
+    expect(drafts[2]).toMatchObject({ page: 5 });
+    expect(drafts[2]?.front).toBe(`Phương pháp Bayes cập nhật ${BLANK} theo bằng chứng mới.`);
+    // Trang ngoài mục (99) thì rơi về trang đầu mục.
+    expect(drafts[3]).toMatchObject({ page: 3 });
+    expect(drafts[3]?.front).toBe(`${BLANK} ban đầu ảnh hưởng kết quả cuối cùng.`);
     expect(drafts.every((d) => d.page >= 3 && d.page <= 6)).toBe(true);
   });
 
