@@ -19,17 +19,7 @@ import {
 import { summarizeSection } from '../core/summarize/run';
 import { pagesInSpan, type WorkEstimate } from '../core/summarize/work';
 import type { SummaryRecord } from '../core/summarize/record';
-import { buildOcrOptions } from '../core/ocr/options';
-import {
-  buildOcrPageRecords,
-  hasTextLayer,
-  isLowConfidence,
-  pagesToRecognize,
-  unionIndexRange,
-  type PageRange,
-} from '../core/ocr/pages';
-import { runOcr, withOcrEngine } from '../core/ocr/run';
-import type { OcrPageView } from '../core/ocr/types';
+import { hasTextLayer, type PageRange } from '../core/ocr/pages';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
@@ -44,7 +34,6 @@ import { vi } from '../i18n/vi';
 import {
   clearAllData,
   clearPageTexts,
-  loadOcrPages,
   deleteDocumentData,
   loadProgress,
   loadSummariesForDoc,
@@ -55,9 +44,8 @@ import {
   type TocItem,
 } from '../storage/db';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
-import { OcrPanel, type OcrReport } from './OcrPanel';
+import { OcrPanel } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
-import { readTextLayers, renderPageForOcr } from './ocr';
 import { openPdfData, readPdfFile } from './pdf';
 import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
@@ -67,6 +55,8 @@ import { useSemanticIndex } from './semantic';
 import { useAiSettings } from './hooks/useAiSettings';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
+import { useOcr } from './hooks/useOcr';
+import { useRunScope } from './hooks/useRunScope';
 import { useSettings } from './hooks/useSettings';
 import { useShortcuts } from './hooks/useShortcuts';
 import { Sidebar } from './Sidebar';
@@ -133,10 +123,6 @@ export function App() {
   const [searchRequest, setSearchRequest] = useState(0);
 
   const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
-  // Trang đã nhận dạng bằng OCR (kèm hộp bao từ) để tô kết quả tìm kiếm.
-  const [ocrPages, setOcrPages] = useState<ReadonlyMap<number, OcrPageView>>(new Map());
-  const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
-  const [ocrReport, setOcrReport] = useState<OcrReport | null>(null);
   const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
   // Mục đang được tóm tắt riêng lẻ (khoá `start-end`); chỉ mục đó hiện trạng thái chạy.
   const [summarizingKey, setSummarizingKey] = useState<string | null>(null);
@@ -148,7 +134,6 @@ export function App() {
   );
   // Bản tóm tắt vừa tạo trong phiên này; những bản còn lại là lấy từ cache.
   const [freshSummaryIds, setFreshSummaryIds] = useState<ReadonlySet<string>>(new Set());
-  const summaryAbortRef = useRef<AbortController | null>(null);
 
   const [estimateDialog, setEstimateDialog] = useState<{
     open: boolean;
@@ -165,14 +150,10 @@ export function App() {
     done: number;
     total: number;
   } | null>(null);
-  const batchAbortRef = useRef<AbortController | null>(null);
-  const ocrAbortRef = useRef<AbortController | null>(null);
   // Văn bản OCR đã lưu, dùng thay cho lớp chữ trống khi lập chỉ mục.
   const ocrTextRef = useRef<Map<number, string>>(new Map());
   // Khoảng trang đã lập chỉ mục gần nhất, để lập lại sau OCR.
   const indexedRangeRef = useRef<PageRange | null>(null);
-  // Tăng mỗi khi mở hoặc đóng tài liệu để bỏ kết quả của lượt tóm tắt cũ.
-  const summaryGenerationRef = useRef(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -184,36 +165,6 @@ export function App() {
   const restoringRef = useRef<number | null>(null);
   // Mỗi lần mở tài liệu hoặc lập chỉ mục lại thì tăng lên để dừng lượt trích cũ.
   const analysisTokenRef = useRef(0);
-
-  /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
-  const resetBackgroundRuns = useCallback(() => {
-    summaryGenerationRef.current += 1;
-    summaryAbortRef.current?.abort();
-    batchAbortRef.current?.abort();
-    ocrAbortRef.current?.abort();
-    summaryAbortRef.current = null;
-    batchAbortRef.current = null;
-    ocrAbortRef.current = null;
-    setOcrProgress(null);
-    setOcrReport(null);
-    setSummarizingKey(null);
-    setSummaryProgress(null);
-    setSummaryError(null);
-    setBatchLoadingProgress(null);
-    setBatchOutcome(null);
-    setEstimateDialog(null);
-    setFreshSummaryIds(new Set());
-  }, []);
-
-  // Đóng viewer: huỷ request và dừng worker OCR còn đang chạy.
-  useEffect(
-    () => () => {
-      summaryAbortRef.current?.abort();
-      batchAbortRef.current?.abort();
-      ocrAbortRef.current?.abort();
-    },
-    [],
-  );
 
   useEffect(() => {
     return () => {
@@ -327,106 +278,24 @@ export function App() {
     [scrollToPage],
   );
 
-  const handleStartOcr = useCallback(
-    async (range: PageRange) => {
-      const pdfDoc = docRef.current;
-      const runDocId = docId;
-      if (!pdfDoc || !runDocId || ocrAbortRef.current) return;
+  const scope = useRunScope();
+  const ocr = useOcr({ docRef, docId, scope, ocrTextRef, indexedRangeRef, runExtraction });
+  const ocrPages = ocr.pages;
+  const ocrProgress = ocr.progress;
+  const ocrReport = ocr.report;
 
-      const getUrl = typeof chrome !== 'undefined' ? chrome.runtime?.getURL : undefined;
-      if (!getUrl) {
-        setOcrReport({
-          recognized: 0,
-          nothingToDo: false,
-          cancelled: false,
-          failedPages: [],
-          lowConfidencePages: [],
-          error: vi.ocrEngineError,
-        });
-        return;
-      }
-
-      const generation = summaryGenerationRef.current;
-      // Giữ đúng bản đồ của tài liệu đang OCR, không ghi nhầm sang tài liệu khác.
-      const ocrText = ocrTextRef.current;
-      const abort = new AbortController();
-      ocrAbortRef.current = abort;
-      const isActive = () =>
-        ocrAbortRef.current === abort && summaryGenerationRef.current === generation;
-      const report: OcrReport = {
-        recognized: 0,
-        nothingToDo: false,
-        cancelled: false,
-        failedPages: [],
-        lowConfidencePages: [],
-        error: null,
-      };
-      setOcrReport(null);
-      setOcrProgress({ done: 0, total: range.to - range.from + 1 });
-
-      try {
-        const layers = await readTextLayers(pdfDoc, range);
-        if (!isActive()) return;
-        const todo = pagesToRecognize(range, layers).filter((page) => !ocrText.has(page));
-        if (todo.length === 0) {
-          report.nothingToDo = true;
-          return;
-        }
-        setOcrProgress({ done: 0, total: todo.length });
-
-        const { createTesseractEngine } = await import('../core/ocr/tesseract-engine');
-        const options = buildOcrOptions((path) => getUrl.call(chrome.runtime, path));
-        const outcome = await withOcrEngine(
-          () => createTesseractEngine(options),
-          (engine) =>
-            runOcr({
-              engine,
-              pages: todo,
-              signal: abort.signal,
-              renderPage: (page, signal) => renderPageForOcr(pdfDoc, page, signal),
-              onProgress: (progress) => {
-                if (isActive()) setOcrProgress({ done: progress.done, total: progress.total });
-              },
-              onPage: async (page, result) => {
-                const [record] = buildOcrPageRecords(new Map([[page, result]]));
-                if (!record) return;
-                await savePageTexts(runDocId, [record]);
-                if (!isActive()) return;
-                report.recognized += 1;
-                if (isLowConfidence(record.confidence)) report.lowConfidencePages.push(page);
-                ocrText.set(page, record.text);
-                setOcrPages((current) =>
-                  new Map(current).set(page, { confidence: record.confidence, ...record.ocr }),
-                );
-              },
-            }),
-        );
-        report.failedPages = outcome.failed;
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          report.cancelled = true;
-        } else {
-          report.error = vi.ocrEngineError;
-        }
-      } finally {
-        if (isActive()) {
-          ocrAbortRef.current = null;
-          setOcrProgress(null);
-          setOcrReport(report);
-          // Trang vừa nhận dạng có chữ: lập lại phân loại, mục lục, chỉ mục và thời gian đọc.
-          if (report.recognized > 0) {
-            const next = unionIndexRange(indexedRangeRef.current, range);
-            void runExtraction(pdfDoc, next.from, next.to, runDocId);
-          }
-        }
-      }
-    },
-    [docId, runExtraction],
-  );
-
-  const handleCancelOcr = useCallback(() => {
-    ocrAbortRef.current?.abort();
-  }, []);
+  /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
+  const resetBackgroundRuns = useCallback(() => {
+    scope.stop();
+    ocr.clear();
+    setSummarizingKey(null);
+    setSummaryProgress(null);
+    setSummaryError(null);
+    setBatchLoadingProgress(null);
+    setBatchOutcome(null);
+    setEstimateDialog(null);
+    setFreshSummaryIds(new Set());
+  }, [scope.stop, ocr.clear]);
 
   const handleSearchResult = useCallback(
     (page: number, query: string, ignoreDiacritics: boolean) => {
@@ -470,17 +339,7 @@ export function App() {
       docRef.current = result.doc;
       closeRef.current = result.close;
 
-      const savedOcr = hash ? await loadOcrPages(hash) : [];
-      ocrTextRef.current = new Map(savedOcr.map((page) => [page.page, page.text]));
-      setOcrPages(
-        new Map(
-          savedOcr.flatMap((page) =>
-            page.ocr
-              ? [[page.page, { confidence: page.confidence ?? 0, ...page.ocr }] as const]
-              : [],
-          ),
-        ),
-      );
+      await ocr.load(hash);
 
       const baseViewport = (await result.doc.getPage(1)).getViewport({ scale: 1 });
       const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
@@ -692,14 +551,14 @@ export function App() {
     if (!currentSection || !docId) return;
     const section = currentSection;
     const runDocId = docId;
-    const generation = summaryGenerationRef.current;
+    const generation = scope.generationRef.current;
 
     // `permissions.request` phải là lời gọi đầu tiên: Chrome chỉ chấp nhận trong thao tác của người dùng.
     const chromeApi = typeof chrome === 'undefined' ? null : chrome;
     if (chromeApi?.permissions) {
       const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
       const granted = await chromeApi.permissions.request({ origins: [origin] });
-      if (summaryGenerationRef.current !== generation) return;
+      if (scope.generationRef.current !== generation) return;
       if (!granted) {
         setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
         return;
@@ -713,10 +572,10 @@ export function App() {
     }
 
     const abortCtrl = new AbortController();
-    summaryAbortRef.current?.abort();
-    summaryAbortRef.current = abortCtrl;
+    scope.summaryAbortRef.current?.abort();
+    scope.summaryAbortRef.current = abortCtrl;
     const isActive = () =>
-      summaryAbortRef.current === abortCtrl && summaryGenerationRef.current === generation;
+      scope.summaryAbortRef.current === abortCtrl && scope.generationRef.current === generation;
     setSummarizingKey(`${section.startPage}-${section.endPage}`);
     setSummaryProgress(null);
     setSummaryError(null);
@@ -779,8 +638,8 @@ export function App() {
         setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
       }
     } finally {
-      if (summaryAbortRef.current === abortCtrl) {
-        summaryAbortRef.current = null;
+      if (scope.summaryAbortRef.current === abortCtrl) {
+        scope.summaryAbortRef.current = null;
         setSummarizingKey(null);
         setSummaryProgress(null);
       }
@@ -799,7 +658,7 @@ export function App() {
   }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection, ai.ensureConsent]);
 
   const handleCancelSummary = useCallback(() => {
-    summaryAbortRef.current?.abort();
+    scope.summaryAbortRef.current?.abort();
   }, []);
 
   const handleRetrySummary = useCallback(() => {
@@ -834,14 +693,14 @@ export function App() {
     async (sections: TocItem[]) => {
       const runDocId = docId;
       if (!runDocId) return;
-      const generation = summaryGenerationRef.current;
+      const generation = scope.generationRef.current;
 
       // `permissions.request` phải là lời gọi đầu tiên (xem doSummarizeCurrentSection).
       const chromeApi = typeof chrome === 'undefined' ? null : chrome;
       if (chromeApi?.permissions) {
         const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
         const granted = await chromeApi.permissions.request({ origins: [origin] });
-        if (summaryGenerationRef.current !== generation) return;
+        if (scope.generationRef.current !== generation) return;
         if (!granted) {
           setBatchOutcome({
             failed: [],
@@ -852,10 +711,10 @@ export function App() {
       }
 
       const abortCtrl = new AbortController();
-      batchAbortRef.current?.abort();
-      batchAbortRef.current = abortCtrl;
+      scope.batchAbortRef.current?.abort();
+      scope.batchAbortRef.current = abortCtrl;
       const isActive = () =>
-        batchAbortRef.current === abortCtrl && summaryGenerationRef.current === generation;
+        scope.batchAbortRef.current === abortCtrl && scope.generationRef.current === generation;
       setBatchOutcome(null);
       setBatchLoadingProgress({ done: 0, total: sections.length });
       let doneCount = 0;
@@ -914,7 +773,7 @@ export function App() {
       });
 
       if (!isActive()) return;
-      batchAbortRef.current = null;
+      scope.batchAbortRef.current = null;
       setBatchLoadingProgress(null);
       setBatchOutcome({
         failed: result.failed.map((entry) => entry.item),
@@ -938,7 +797,7 @@ export function App() {
   }, [estimateDialog, ai.ensureConsent, runSummarizeAll]);
 
   const handleCancelSummarizeAll = useCallback(() => {
-    batchAbortRef.current?.abort();
+    scope.batchAbortRef.current?.abort();
   }, []);
 
   const handleRetryFailedSections = useCallback(() => {
@@ -972,8 +831,7 @@ export function App() {
     setRangeError(null);
     setSummaries([]);
     setExtractedPages([]);
-    ocrTextRef.current = new Map();
-    setOcrPages(new Map());
+    ocr.forget();
     resetBackgroundRuns();
   }, [resetBackgroundRuns]);
 
@@ -996,8 +854,7 @@ export function App() {
     setPageWords({});
     setSummaries([]);
     setExtractedPages([]);
-    ocrTextRef.current = new Map();
-    setOcrPages(new Map());
+    ocr.forget();
     resetBackgroundRuns();
     setToast(vi.deleteDocumentDone);
   }, [docId, fileName, resetBackgroundRuns]);
@@ -1347,8 +1204,8 @@ export function App() {
               running={ocrProgress}
               report={ocrReport}
               hasOcrPages={ocrPages.size > 0}
-              onStart={(range) => void handleStartOcr(range)}
-              onCancel={handleCancelOcr}
+              onStart={(range) => void ocr.start(range)}
+              onCancel={ocr.cancel}
             />
           )}
 
