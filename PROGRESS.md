@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: đã rà soát v1 (mục 1–13) trước khi merge PR #8; mọi mục đã xử lý, chờ người dùng thử tay và merge
-- Bước tiếp theo chính xác: người dùng thử tay checklist trong PR #8 rồi merge; không còn việc dở trên nhánh.
+- Nhánh hiện tại: `feat/v2-ocr` (Nhóm F, T17–T18); v0 và v1 đã merge (PR #4–#8)
+- Task đang làm: Bước 0 xong (PLAN v2, AGENTS.md); T17 chưa bắt đầu code, đang CHỜ QUYẾT ĐỊNH của người dùng về URL CDN trong tesseract.js
+- Bước tiếp theo chính xác: `tesseract.js@7.0.0` chứa sẵn chuỗi `https://cdn.jsdelivr.net/npm/...` làm mặc định trong `dist/tesseract.esm.min.js`, `dist/worker.min.js` (và `src/`), nên bước grep CDN trong CI sẽ đỏ dù đã cấu hình đường dẫn cục bộ. Theo luật v2, không tự sửa workflow hay lách grep: đợi người dùng chọn hướng, rồi làm T17. Dữ liệu ngôn ngữ nên dùng `@tesseract.js-data/{vie,eng}/4.0.0_best_int` (vie 1,4 MB, eng 3,0 MB, license MIT); core cần `tesseract-core-lstm.wasm.js`, `-simd-lstm`, `-relaxedsimd-lstm` (~3,9 MB mỗi file); extension cần thêm `content_security_policy` với `wasm-unsafe-eval`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
