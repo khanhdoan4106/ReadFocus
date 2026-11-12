@@ -85,4 +85,3 @@ describe('hasSummaryForSection & findSummaryForSection', () => {
     expect(findSummaryForSection(summaries, { startPage: 6, endPage: 10 })).toBeUndefined();
   });
 });
-

@@ -78,4 +78,3 @@ export function findSummaryForSection(
     (summary) => summary.startPage === section.startPage && summary.endPage === section.endPage,
   );
 }
-
