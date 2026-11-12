@@ -2,11 +2,12 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `refactor/v3-split-app` (nhóm I, T24–T25); v0, v1, v2 đã merge vào main (PR #4–#11)
-- Task đang làm: Bước 0 của v3 xong (PLAN có mục v3, AGENTS mục 1 đã sang v3); sắp làm T24
-- Bước tiếp theo chính xác: T24 — thêm happy-dom và @testing-library/preact (kiểm tra version, license), viết test đặc tả hành vi cho App.tsx, xác nhận pass trên code hiện tại, rồi mới tách ở T25. Đo trước khi tách: `src/viewer/App.tsx` hiện 2104 dòng.
+- Task đang làm: T24 xong (lưới an toàn); sắp làm T25 (tách `App.tsx`, mỗi miền một commit `refactor:`)
+- Bước tiếp theo chính xác: T25 — tách theo thứ tự rủi ro tăng dần: useSettings (theme, AI, tốc độ đọc) → useFocusTimer → useShortcuts → useOcr → useSummaries → useDocument/useExtraction; sau mỗi commit chạy `npx vitest run tests/app` rồi toàn bộ test; snapshot `tests/app/__snapshots__/viewer-behavior.test.tsx.snap` KHÔNG được đổi.
 
 ## Đã hoàn thành
-- [x] Bước 0 v3 — đo `App.tsx` = 2104 dòng (mục tiêu sau khi tách: dưới ~300); baseline trước khi tách: typecheck, lint, 456 test, build, package đều pass.
+- [x] Bước 0 v3 — đo `src/viewer/App.tsx` = 2286 dòng (`wc -l`; 2104 dòng không rỗng), mục tiêu sau khi tách dưới ~300; baseline: typecheck, lint, 456 test, build, package đều pass.
+- [x] T24 — Lưới an toàn: devDependencies `happy-dom` 21.0.4, `@testing-library/preact` 3.2.6, `@testing-library/dom` 10.4.2 (cùng giấy phép MIT); `tests/app/` gồm đồ giả (PDF, `chrome.*`, provider AI, engine OCR), `viewer-core` (mở file, mục lục, nhảy trang, tìm kiếm, đổi tab, phím tắt, hộp thoại Esc và trả focus), `viewer-runs` (mở file khác khi tóm tắt, hỏi đáp, OCR đang chạy thì việc cũ bị huỷ, kết quả cũ không hiện không lưu) và `viewer-behavior` (snapshot request ra ngoài, key ghi vào IndexedDB/chrome.storage, chữ hiển thị). Tất cả pass trên code trước khi tách; đã thử hoàn tác 3 chỗ huỷ việc trong App.tsx thì test đỏ. Tổng 471 test.
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
 - [x] T1 — Scaffold: Vite 8 + TS strict + Preact, crxjs v3, ESLint flat + Prettier, Vitest, manifest MV3 tối thiểu, icon tạm, đủ 6 script npm, `scripts/package.mjs` (commit c34aa8a và 108d72e)
 - [x] T2a — Viewer cơ bản: chọn file + kéo thả, pdf.js bundle worker cục bộ, render canvas + text layer, zoom theo nấc + vừa chiều rộng, điều hướng trang (nút, ô nhập, ←/→), lỗi not-pdf/quá lớn/mật khẩu/hỏng (commit 1a21c5c). Đã smoke-test trong trình duyệt: PDF 1 trang render đúng canvas 940×1217, text layer đọc được chữ, zoom 123% → 125%, file .txt báo lỗi đúng.
