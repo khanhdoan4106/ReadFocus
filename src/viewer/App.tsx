@@ -39,14 +39,13 @@ import type { OcrPageView } from '../core/ocr/types';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
-import { buildProfile, type DocKind, type DocumentProfile, type PageSample } from '../core/profile';
+import { buildProfile, type DocumentProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import {
   addReadingSample,
+  chapterEstimate,
   emptyReadingSpeed,
-  estimateItemMinutes,
   MAX_ACTIVE_GAP_MS,
-  roundedMinutes,
   sanitizeReadingSpeed,
   speedFromWordsPerMinute,
   wordsPerMinute as learnedWordsPerMinute,
@@ -106,7 +105,7 @@ import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { OcrPanel, type OcrReport } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { readTextLayers, renderPageForOcr } from './ocr';
-import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { openPdfData, readPdfFile } from './pdf';
 import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
 import { useAsk } from './ask';
@@ -115,10 +114,9 @@ import { useSemanticIndex } from './semantic';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
 
-type Status = 'empty' | 'opening' | 'ready' | 'error';
-type ErrorReason =
-  'not-pdf' | 'too-large' | 'password' | 'invalid' | 'unknown' | 'render' | 'fetch' | 'file-url';
+import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
 
+type Status = 'empty' | 'opening' | 'ready' | 'error';
 type Analysis =
   | { phase: 'idle' }
   | { phase: 'extracting'; done: number; total: number }
@@ -132,30 +130,6 @@ type IndexRange = {
 
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
 
-function profileLabel(kind: DocKind): string {
-  switch (kind) {
-    case 'book':
-      return vi.profileBook;
-    case 'paper':
-      return vi.profilePaper;
-    case 'slides':
-      return vi.profileSlides;
-    case 'unknown':
-      return vi.profileUnknown;
-  }
-}
-
-function timerModeLabel(mode: FocusTimer['mode']): string {
-  switch (mode) {
-    case 'chapter':
-      return vi.timerModeChapter;
-    case 'focus':
-      return vi.timerModeFocus;
-    case 'break':
-      return vi.timerModeBreak;
-  }
-}
-
 const IDLE_TIMER: FocusTimer = {
   mode: 'chapter',
   status: 'idle',
@@ -164,40 +138,12 @@ const IDLE_TIMER: FocusTimer = {
   startedAt: null,
 };
 
-/** Ước tính số phút của mục đang đọc; 0 khi chưa có mục lục hoặc chưa học được tốc độ. */
-function chapterEstimate(toc: TocResult | null, page: number, wordsPerMinute: number): number {
-  if (toc === null || wordsPerMinute <= 0) return 0;
-  const item = toc.items.find((entry) => page >= entry.startPage && page <= entry.endPage);
-  if (item === undefined) return 0;
-  return Math.max(roundedMinutes(estimateItemMinutes(item, wordsPerMinute)), 1);
-}
-
 async function hashData(data: ArrayBuffer): Promise<string | null> {
   try {
     return await sha256Hex(data);
   } catch {
     // Không băm được vẫn phải cho đọc, chỉ là không lưu/khôi phục tiến độ.
     return null;
-  }
-}
-
-function errorMessage(reason: ErrorReason): string {
-  switch (reason) {
-    case 'not-pdf':
-      return vi.errorNotPdf;
-    case 'too-large':
-      return vi.errorTooLarge(Math.round(MAX_FILE_BYTES / (1024 * 1024)));
-    case 'password':
-      return vi.errorPassword;
-    case 'invalid':
-    case 'render':
-      return vi.errorInvalid;
-    case 'fetch':
-      return vi.errorFetch;
-    case 'file-url':
-      return vi.errorFileUrl;
-    case 'unknown':
-      return vi.errorGeneric;
   }
 }
 

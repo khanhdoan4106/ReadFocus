@@ -1,3 +1,5 @@
+import type { TocResult } from './toc';
+
 export const DEFAULT_WORDS_PER_MINUTE = 200;
 
 /** Khoảng nghỉ dài hơn mức này không được tính vào thời gian đọc. */
@@ -156,4 +158,16 @@ export function estimateRemainingTime(
     sectionMinutes: sectionWords / wordsPerMinute_,
     totalMinutes: (sectionWords + afterWords) / wordsPerMinute_,
   };
+}
+
+/** Ước tính số phút của mục đang đọc; 0 khi chưa có mục lục hoặc chưa học được tốc độ. */
+export function chapterEstimate(
+  toc: TocResult | null,
+  page: number,
+  wordsPerMinute: number,
+): number {
+  if (toc === null || wordsPerMinute <= 0) return 0;
+  const item = toc.items.find((entry) => page >= entry.startPage && page <= entry.endPage);
+  if (item === undefined) return 0;
+  return Math.max(roundedMinutes(estimateItemMinutes(item, wordsPerMinute)), 1);
 }
