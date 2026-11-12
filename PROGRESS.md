@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v1-summary-ui` (Nhóm E, T14–T16)
-- Task đang làm: T15b xong (giao diện tab Tóm tắt), chuẩn bị làm T16 (hoàn thiện tài liệu và rà soát)
-- Bước tiếp theo chính xác: T16 — hoàn thiện: rà lỗi và câu chữ toàn bộ phần AI, cập nhật README (phần AI, lấy key các nhà cung cấp, Ollama OLLAMA_ORIGINS), docs/PRIVACY.md, CHANGELOG [Unreleased].
+- Task đang làm: T16 xong (tài liệu AI); nhóm E đã đủ T14–T16, chờ mở PR vào `main`
+- Bước tiếp theo chính xác: push `feat/v1-summary-ui`, mở PR vào `main` theo `.github/pull_request_template.md`, `gh pr checks --watch` cho tới khi xanh, rồi dừng (không merge).
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -35,6 +35,7 @@
 - [x] T14b — Giao diện Cài đặt → AI: `SettingsPanel.tsx` thêm khối Tóm tắt bằng AI (provider, model, base URL chỉ hiện với OpenAI-compatible, ô key password có Hiện/Ẩn/Xoá key, công tắc "Lưu key trên máy này", chọn ngôn ngữ tóm tắt, nút Kiểm tra kết nối, thông báo lỗi/thành công); `App.tsx` nạp/lưu `AiSettings` + key theo scope, xin quyền host đúng origin rồi gọi `checkConnection`, hộp xác nhận gửi dữ liệu lần đầu; `settings.ts` thêm `PROVIDERS`, `providerRequiresKey`, `aiConfigProblem` (4 test, tổng 259); câu chữ mới trong `vi.ts` (commit 7980e2d). Kiểm tra trong preview: tab Cài đặt hiện đủ khối AI, đúng câu tiếng Việt, không lỗi console; preview không có `chrome.storage` nên khối AI bị khoá kèm gợi ý như mong đợi.
 - [x] T15a — Core tóm tắt + lưu cache: `src/core/summarize/record.ts` (kiểu `SummaryRecord`, `sanitizeSummaryRecord`), `src/core/summarize/run.ts` (`summarizeSection` map-reduce 2 tầng cho mục dài), `src/core/summarize/work.ts` (`estimateSectionWork`, `estimateSpansWork`, `mapWithConcurrency`), IndexedDB version 2 nâng cấp store `summaries` với index `by-doc`, migration giữ nguyên toàn bộ dữ liệu v1 (`documents`, `progress`, `settings`), `deleteDocumentData`/`clearAllData` xoá cả summaries. Thêm `tests/summarize-run.test.ts`, `tests/summarize-work.test.ts`, `tests/db-v2.test.ts` (17 test mới, tổng 276 test).
 - [x] T15b — Giao diện tab Tóm tắt: `SummaryPanel.tsx` (tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng request + token và xác nhận, chạy song song tối đa 2 request, thanh tiến độ, huỷ, tạo lại, sao chép clipboard text thuần, xử lý bản scan/mục không chữ, các lỗi chuẩn hoá và nút thử lại khi `truncated`); `Sidebar.tsx` thêm tab Tóm tắt và dấu `✦` cho các mục mục lục đã có tóm tắt; `format.ts` định dạng clipboard và lọc mục; CSS giao diện; câu chữ tiếng Việt tự nhiên trong `vi.ts` (4 test mới trong `tests/summarize-format.test.ts`, tổng 280 test).
+- [x] T16 — Hoàn thiện: README (phần AI, cách lấy key từng nhà cung cấp, hướng dẫn Ollama với `OLLAMA_ORIGINS`), `docs/PRIVACY.md` (gửi gì, cho ai, khi nào, key lưu ở đâu, cách xoá), CHANGELOG `[Unreleased]`; sửa format Prettier ở `format.ts` và test đi kèm.
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.
