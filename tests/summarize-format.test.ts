@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  filterSummarizableSections,
-  findSummaryForSection,
-  formatSummaryClipboard,
-  hasSummaryForSection,
-  SUMMARY_MAX_PAGE,
-} from '../src/core/summarize/format';
+import { formatSummaryClipboard } from '../src/core/summarize/format';
 import type { SummaryRecord } from '../src/core/summarize/record';
-import type { TocItem } from '../src/storage/db';
 
 const sampleRecord: SummaryRecord = {
   id: 'key-1',
@@ -51,37 +44,5 @@ describe('formatSummaryClipboard', () => {
     expect(text).toBe('Đây là tóm tắt nội dung chương 1.');
     expect(text).not.toContain('Ý chính:');
     expect(text).not.toContain('Thuật ngữ:');
-  });
-});
-
-describe('filterSummarizableSections', () => {
-  const items: TocItem[] = [
-    { title: 'Phần 1', startPage: 1, endPage: 40, level: 1, wordCount: 5000 },
-    { title: 'Phần 2', startPage: 41, endPage: 90, level: 1, wordCount: 6000 },
-    { title: 'Phần 3', startPage: 91, endPage: 120, level: 1, wordCount: 4000 },
-    { title: 'Phần 4', startPage: 121, endPage: 150, level: 1, wordCount: 3000 },
-  ];
-
-  it('chỉ lấy các mục có startPage <= 100 và kẹp endPage tối đa 100', () => {
-    const filtered = filterSummarizableSections(items);
-    expect(filtered).toHaveLength(3);
-    expect(filtered[0]?.title).toBe('Phần 1');
-    expect(filtered[0]?.endPage).toBe(40);
-    expect(filtered[1]?.title).toBe('Phần 2');
-    expect(filtered[1]?.endPage).toBe(90);
-    expect(filtered[2]?.title).toBe('Phần 3');
-    expect(filtered[2]?.endPage).toBe(SUMMARY_MAX_PAGE);
-  });
-});
-
-describe('hasSummaryForSection & findSummaryForSection', () => {
-  const summaries = [sampleRecord];
-
-  it('kiểm tra và tìm bản tóm tắt khớp khoảng trang', () => {
-    expect(hasSummaryForSection(summaries, { startPage: 1, endPage: 5 })).toBe(true);
-    expect(hasSummaryForSection(summaries, { startPage: 6, endPage: 10 })).toBe(false);
-
-    expect(findSummaryForSection(summaries, { startPage: 1, endPage: 5 })).toBe(sampleRecord);
-    expect(findSummaryForSection(summaries, { startPage: 6, endPage: 10 })).toBeUndefined();
   });
 });
