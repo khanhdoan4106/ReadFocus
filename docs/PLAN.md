@@ -275,7 +275,7 @@ Nhóm F, nhánh `feat/v2-ocr`:
 
 Nhóm G, nhánh `feat/v2-ask`:
 
-- [ ] **T19** Embedding: chia đoạn, hai nguồn (trên máy và API), tải và xoá model có xác nhận, lưu vector, cosine và hybrid có test.
+- [x] **T19** Embedding: chia đoạn, nguồn API (OpenAI, Gemini, OpenAI-compatible), lưu vector, cosine và hybrid có test. Nguồn trên máy (`@huggingface/transformers`, tải/xoá model) hoãn sang PR riêng vì thư viện còn chuỗi CDN mặc định (người dùng quyết định 12/11/2026).
 - [ ] **T20** Tìm kiếm theo ý nghĩa trong tab Tìm kiếm.
 - [ ] **T21** Hỏi đáp: lấy ngữ cảnh, prompt, kiểm tra trích dẫn, tab Hỏi đáp, lịch sử.
 
