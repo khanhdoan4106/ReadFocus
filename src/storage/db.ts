@@ -215,13 +215,20 @@ export async function loadProgress(
   }
 }
 
-/** Xoá văn bản đã trích của một tài liệu trước khi lập chỉ mục lại. */
-export async function clearPageTexts(docId: string): Promise<void> {
+/**
+ * Xoá văn bản đã trích của một tài liệu trước khi lập chỉ mục lại. Trang OCR
+ * được giữ lại (trừ khi `keepOcr` là false) vì nhận dạng lại tốn thời gian và
+ * trang scan không có lớp chữ để trích lại.
+ */
+export async function clearPageTexts(docId: string, keepOcr = true): Promise<void> {
   try {
     const db = await getDb();
-    const keys = await db.getAllKeysFromIndex('pages', 'by-doc', docId);
+    const pages = await db.getAllFromIndex('pages', 'by-doc', docId);
     const tx = db.transaction('pages', 'readwrite');
-    for (const key of keys) void tx.store.delete(key);
+    for (const page of pages) {
+      if (keepOcr && page.source === 'ocr') continue;
+      void tx.store.delete([page.docId, page.page]);
+    }
     await tx.done;
   } catch {
     // Lập chỉ mục lại vẫn ghi đè được các trang cũ; lỗi xoá không chặn việc đọc.

@@ -29,6 +29,17 @@ import {
 import { summarizeSection } from '../core/summarize/run';
 import { pagesInSpan, type WorkEstimate } from '../core/summarize/work';
 import type { SummaryRecord } from '../core/summarize/record';
+import { buildOcrOptions } from '../core/ocr/options';
+import {
+  buildOcrPageRecords,
+  hasTextLayer,
+  isLowConfidence,
+  pagesToRecognize,
+  unionIndexRange,
+  type PageRange,
+} from '../core/ocr/pages';
+import { runOcr, withOcrEngine } from '../core/ocr/run';
+import type { OcrPageView } from '../core/ocr/types';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
@@ -73,6 +84,7 @@ import {
   addDailyReading,
   clearAllData,
   clearPageTexts,
+  loadOcrPages,
   deleteDocumentData,
   loadDayStats,
   loadProgress,
@@ -95,7 +107,9 @@ import {
   saveApiKey,
 } from '../storage/ai';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
+import { OcrPanel, type OcrReport } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
+import { readTextLayers, renderPageForOcr } from './ocr';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { Dialog } from './Dialog';
 import { Sidebar } from './Sidebar';
@@ -247,6 +261,10 @@ export function App() {
   const [searchRequest, setSearchRequest] = useState(0);
 
   const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
+  // Trang đã nhận dạng bằng OCR (kèm hộp bao từ) để tô kết quả tìm kiếm.
+  const [ocrPages, setOcrPages] = useState<ReadonlyMap<number, OcrPageView>>(new Map());
+  const [ocrProgress, setOcrProgress] = useState<{ done: number; total: number } | null>(null);
+  const [ocrReport, setOcrReport] = useState<OcrReport | null>(null);
   const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
   // Mục đang được tóm tắt riêng lẻ (khoá `start-end`); chỉ mục đó hiện trạng thái chạy.
   const [summarizingKey, setSummarizingKey] = useState<string | null>(null);
@@ -276,6 +294,11 @@ export function App() {
     total: number;
   } | null>(null);
   const batchAbortRef = useRef<AbortController | null>(null);
+  const ocrAbortRef = useRef<AbortController | null>(null);
+  // Văn bản OCR đã lưu, dùng thay cho lớp chữ trống khi lập chỉ mục.
+  const ocrTextRef = useRef<Map<number, string>>(new Map());
+  // Khoảng trang đã lập chỉ mục gần nhất, để lập lại sau OCR.
+  const indexedRangeRef = useRef<PageRange | null>(null);
   // Tăng mỗi khi mở hoặc đóng tài liệu để bỏ kết quả của lượt tóm tắt cũ.
   const summaryGenerationRef = useRef(0);
   const autoOpenSupported =
@@ -309,12 +332,16 @@ export function App() {
   const pendingConsentRef = useRef<(() => void) | null>(null);
 
   /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
-  const resetSummaryRuns = useCallback(() => {
+  const resetBackgroundRuns = useCallback(() => {
     summaryGenerationRef.current += 1;
     summaryAbortRef.current?.abort();
     batchAbortRef.current?.abort();
+    ocrAbortRef.current?.abort();
     summaryAbortRef.current = null;
     batchAbortRef.current = null;
+    ocrAbortRef.current = null;
+    setOcrProgress(null);
+    setOcrReport(null);
     setSummarizingKey(null);
     setSummaryProgress(null);
     setSummaryError(null);
@@ -324,11 +351,12 @@ export function App() {
     setFreshSummaryIds(new Set());
   }, []);
 
-  // Đóng viewer: huỷ request còn đang chờ.
+  // Đóng viewer: huỷ request và dừng worker OCR còn đang chạy.
   useEffect(
     () => () => {
       summaryAbortRef.current?.abort();
       batchAbortRef.current?.abort();
+      ocrAbortRef.current?.abort();
     },
     [],
   );
@@ -368,6 +396,7 @@ export function App() {
       setAnalysis({ phase: 'extracting', done: 0, total });
 
       if (id) void clearPageTexts(id);
+      indexedRangeRef.current = { from, to };
 
       const pending: { page: number; text: string }[] = [];
       const flush = () => {
@@ -385,7 +414,11 @@ export function App() {
           from,
           to,
           shouldStop: () => analysisTokenRef.current !== token,
-          onPage: (page) => {
+          onPage: (extracted) => {
+            // Trang scan đã OCR: dùng chữ OCR (đã lưu riêng, không ghi đè bản ghi OCR).
+            const ocrText = ocrTextRef.current.get(extracted.page);
+            const useOcr = ocrText !== undefined && !hasTextLayer(extracted);
+            const page = useOcr ? { ...extracted, text: ocrText, lines: [] } : extracted;
             samples.push(page);
             tocPages.push({
               page: page.page,
@@ -394,7 +427,7 @@ export function App() {
               width: page.width,
               height: page.height,
             });
-            pending.push({ page: page.page, text: page.text });
+            if (!useOcr) pending.push({ page: page.page, text: page.text });
             if (pending.length >= 10) flush();
             if (analysisTokenRef.current === token) {
               setAnalysis({ phase: 'extracting', done: samples.length, total });
@@ -445,6 +478,107 @@ export function App() {
     [scrollToPage],
   );
 
+  const handleStartOcr = useCallback(
+    async (range: PageRange) => {
+      const pdfDoc = docRef.current;
+      const runDocId = docId;
+      if (!pdfDoc || !runDocId || ocrAbortRef.current) return;
+
+      const getUrl = typeof chrome !== 'undefined' ? chrome.runtime?.getURL : undefined;
+      if (!getUrl) {
+        setOcrReport({
+          recognized: 0,
+          nothingToDo: false,
+          cancelled: false,
+          failedPages: [],
+          lowConfidencePages: [],
+          error: vi.ocrEngineError,
+        });
+        return;
+      }
+
+      const generation = summaryGenerationRef.current;
+      const abort = new AbortController();
+      ocrAbortRef.current = abort;
+      const isActive = () =>
+        ocrAbortRef.current === abort && summaryGenerationRef.current === generation;
+      const report: OcrReport = {
+        recognized: 0,
+        nothingToDo: false,
+        cancelled: false,
+        failedPages: [],
+        lowConfidencePages: [],
+        error: null,
+      };
+      setOcrReport(null);
+      setOcrProgress({ done: 0, total: range.to - range.from + 1 });
+
+      try {
+        const layers = await readTextLayers(pdfDoc, range);
+        if (!isActive()) return;
+        const todo = pagesToRecognize(range, layers).filter(
+          (page) => !ocrTextRef.current.has(page),
+        );
+        if (todo.length === 0) {
+          report.nothingToDo = true;
+          return;
+        }
+        setOcrProgress({ done: 0, total: todo.length });
+
+        const { createTesseractEngine } = await import('../core/ocr/tesseract-engine');
+        const options = buildOcrOptions((path) => getUrl.call(chrome.runtime, path));
+        const outcome = await withOcrEngine(
+          () => createTesseractEngine(options),
+          (engine) =>
+            runOcr({
+              engine,
+              pages: todo,
+              signal: abort.signal,
+              renderPage: (page, signal) => renderPageForOcr(pdfDoc, page, signal),
+              onProgress: (progress) => {
+                if (isActive()) setOcrProgress({ done: progress.done, total: progress.total });
+              },
+              onPage: async (page, result) => {
+                const [record] = buildOcrPageRecords(new Map([[page, result]]));
+                if (!record) return;
+                await savePageTexts(runDocId, [record]);
+                if (!isActive()) return;
+                report.recognized += 1;
+                if (isLowConfidence(record.confidence)) report.lowConfidencePages.push(page);
+                ocrTextRef.current.set(page, record.text);
+                setOcrPages((current) =>
+                  new Map(current).set(page, { confidence: record.confidence, ...record.ocr }),
+                );
+              },
+            }),
+        );
+        report.failedPages = outcome.failed;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          report.cancelled = true;
+        } else {
+          report.error = vi.ocrEngineError;
+        }
+      } finally {
+        if (isActive()) {
+          ocrAbortRef.current = null;
+          setOcrProgress(null);
+          setOcrReport(report);
+          // Trang vừa nhận dạng có chữ: lập lại phân loại, mục lục, chỉ mục và thời gian đọc.
+          if (report.recognized > 0) {
+            const next = unionIndexRange(indexedRangeRef.current, range);
+            void runExtraction(pdfDoc, next.from, next.to, runDocId);
+          }
+        }
+      }
+    },
+    [docId, runExtraction],
+  );
+
+  const handleCancelOcr = useCallback(() => {
+    ocrAbortRef.current?.abort();
+  }, []);
+
   const handleSearchResult = useCallback(
     (page: number, query: string, ignoreDiacritics: boolean) => {
       goToPage(page);
@@ -475,6 +609,18 @@ export function App() {
       await closeRef.current?.();
       docRef.current = result.doc;
       closeRef.current = result.close;
+
+      const savedOcr = hash ? await loadOcrPages(hash) : [];
+      ocrTextRef.current = new Map(savedOcr.map((page) => [page.page, page.text]));
+      setOcrPages(
+        new Map(
+          savedOcr.flatMap((page) =>
+            page.ocr
+              ? [[page.page, { confidence: page.confidence ?? 0, ...page.ocr }] as const]
+              : [],
+          ),
+        ),
+      );
 
       const baseViewport = (await result.doc.getPage(1)).getViewport({ scale: 1 });
       const availableWidth = (contentRef.current?.clientWidth ?? 0) - 48;
@@ -515,7 +661,7 @@ export function App() {
         setSummaries([]);
       }
       setExtractedPages([]);
-      resetSummaryRuns();
+      resetBackgroundRuns();
 
       analysisTokenRef.current += 1;
       const token = analysisTokenRef.current;
@@ -1314,8 +1460,10 @@ export function App() {
     setRangeError(null);
     setSummaries([]);
     setExtractedPages([]);
-    resetSummaryRuns();
-  }, [resetSummaryRuns]);
+    ocrTextRef.current = new Map();
+    setOcrPages(new Map());
+    resetBackgroundRuns();
+  }, [resetBackgroundRuns]);
 
   const handleDeleteDocument = useCallback(async () => {
     if (docId === null) return;
@@ -1336,9 +1484,11 @@ export function App() {
     setPageWords({});
     setSummaries([]);
     setExtractedPages([]);
-    resetSummaryRuns();
+    ocrTextRef.current = new Map();
+    setOcrPages(new Map());
+    resetBackgroundRuns();
     setToast(vi.deleteDocumentDone);
-  }, [docId, fileName, resetSummaryRuns]);
+  }, [docId, fileName, resetBackgroundRuns]);
 
   const handleDeleteAll = useCallback(async () => {
     if (!window.confirm(vi.deleteAllConfirm)) return;
@@ -1626,13 +1776,22 @@ export function App() {
   };
 
   const totalPages = doc?.numPages ?? 0;
+  // Có trang chưa có lớp chữ (bản scan) hoặc đã từng OCR thì cho nhận dạng chữ.
+  const showOcrPanel =
+    status === 'ready' &&
+    analysis.phase === 'done' &&
+    (analysis.profile.isScanned ||
+      ocrPages.size > 0 ||
+      extractedPages.some((page) => page.text.trim() === ''));
   const fallbackSize = pageSizes[1] ?? FALLBACK_PAGE_SIZE;
   const showNotice =
     status === 'ready' &&
     (indexRange !== null ||
       analysis.phase === 'extracting' ||
       analysis.phase === 'error' ||
-      (analysis.phase === 'done' && analysis.profile.isScanned));
+      (analysis.phase === 'done' && analysis.profile.isScanned) ||
+      showOcrPanel ||
+      ocrProgress !== null);
 
   return (
     <div
@@ -1833,6 +1992,18 @@ export function App() {
             <p class="notice__text notice__text--warning">{vi.scannedWarning}</p>
           )}
 
+          {(showOcrPanel || ocrProgress !== null) && (
+            <OcrPanel
+              currentPage={pageNumber}
+              pageCount={totalPages}
+              running={ocrProgress}
+              report={ocrReport}
+              hasOcrPages={ocrPages.size > 0}
+              onStart={(range) => void handleStartOcr(range)}
+              onCancel={handleCancelOcr}
+            />
+          )}
+
           {analysis.phase === 'error' && (
             <p class="notice__text notice__text--warning" role="alert">
               {vi.extractFailed}
@@ -1874,6 +2045,7 @@ export function App() {
               sizes={pageSizes}
               fallbackSize={fallbackSize}
               highlight={highlight}
+              ocrPages={ocrPages}
               scrollerRef={contentRef}
               onMeasured={handleMeasured}
               onCurrentPageChange={handleCurrentPageChange}

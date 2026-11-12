@@ -76,6 +76,7 @@ LM Studio làm tương tự, với base URL `http://localhost:1234/v1`.
 | `npm test` | chạy unit test một lần |
 | `npm run package` | nén `dist/` thành `release/readfocus-v<version>.zip` |
 | `npm run fixtures` | tạo lại các PDF mẫu trong `tests/fixtures/` |
+| `npm run fixtures:scan` | tạo lại `scanned-vi.pdf` (bản scan tiếng Việt không có lớp chữ, để thử OCR) |
 
 Các PDF mẫu (`book.pdf`, `paper.pdf`, `slides.pdf`, `scanned.pdf`, `vietnamese.pdf`) do script tự sinh, không chứa nội dung có bản quyền.
 

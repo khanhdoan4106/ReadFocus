@@ -3,6 +3,7 @@ import { openDB } from 'idb';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   _resetDbForTest,
+  clearPageTexts,
   clearAllData,
   deleteDocumentData,
   loadOcrPages,
@@ -166,6 +167,23 @@ describe('IndexedDB v3', () => {
       text: 'Có lớp chữ',
     });
     db.close();
+  });
+
+  it('clearPageTexts giữ trang OCR và chỉ xoá trang trích từ lớp chữ PDF', async () => {
+    await savePageTexts('doc-1', [
+      { page: 1, text: 'có lớp chữ' },
+      { page: 2, text: 'chữ OCR', source: 'ocr', confidence: 80 },
+    ]);
+
+    await clearPageTexts('doc-1');
+    expect((await loadOcrPages('doc-1')).map((page) => page.page)).toEqual([2]);
+
+    const db = await openDB(DB_NAME);
+    expect(await db.getAllFromIndex('pages', 'by-doc', 'doc-1')).toHaveLength(1);
+    db.close();
+
+    await clearPageTexts('doc-1', false);
+    expect(await loadOcrPages('doc-1')).toEqual([]);
   });
 
   async function seedV3Records(): Promise<void> {

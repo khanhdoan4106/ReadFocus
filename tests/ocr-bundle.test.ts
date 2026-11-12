@@ -74,3 +74,14 @@ describe('dist/ sau khi build', () => {
     }
   });
 });
+
+describe('fixture scanned-vi.pdf', () => {
+  it('chỉ chứa ảnh, không có font nên không có lớp chữ', () => {
+    const pdf = readFileSync(join(root, 'tests', 'fixtures', 'scanned-vi.pdf')).toString('latin1');
+
+    expect(pdf.startsWith('%PDF-')).toBe(true);
+    expect(pdf).toContain('/Subtype /Image');
+    expect(pdf).not.toContain('/Font');
+    expect(pdf.match(/\/Type \/Page /g)).toHaveLength(3);
+  });
+});

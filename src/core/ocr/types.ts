@@ -19,6 +19,14 @@ export type OcrPageResult = {
   words: OcrWord[];
 };
 
+/** Dữ liệu OCR của một trang đã lưu, đủ để tô chữ và hiện nhãn. */
+export type OcrPageView = {
+  confidence: number;
+  width: number;
+  height: number;
+  words: OcrWord[];
+};
+
 export type OcrImage = Blob | HTMLCanvasElement | OffscreenCanvas;
 
 export type OcrInput = {
