@@ -498,6 +498,8 @@ export function App() {
       }
 
       const generation = summaryGenerationRef.current;
+      // Giữ đúng bản đồ của tài liệu đang OCR, không ghi nhầm sang tài liệu khác.
+      const ocrText = ocrTextRef.current;
       const abort = new AbortController();
       ocrAbortRef.current = abort;
       const isActive = () =>
@@ -516,9 +518,7 @@ export function App() {
       try {
         const layers = await readTextLayers(pdfDoc, range);
         if (!isActive()) return;
-        const todo = pagesToRecognize(range, layers).filter(
-          (page) => !ocrTextRef.current.has(page),
-        );
+        const todo = pagesToRecognize(range, layers).filter((page) => !ocrText.has(page));
         if (todo.length === 0) {
           report.nothingToDo = true;
           return;
@@ -545,7 +545,7 @@ export function App() {
                 if (!isActive()) return;
                 report.recognized += 1;
                 if (isLowConfidence(record.confidence)) report.lowConfidencePages.push(page);
-                ocrTextRef.current.set(page, record.text);
+                ocrText.set(page, record.text);
                 setOcrPages((current) =>
                   new Map(current).set(page, { confidence: record.confidence, ...record.ocr }),
                 );
@@ -606,6 +606,9 @@ export function App() {
         return;
       }
 
+      // Dừng OCR/tóm tắt của tài liệu cũ trước mọi bước await tiếp theo, để kết quả về
+      // muộn không lẫn vào tài liệu mới.
+      resetBackgroundRuns();
       await closeRef.current?.();
       docRef.current = result.doc;
       closeRef.current = result.close;
