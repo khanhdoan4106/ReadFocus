@@ -6,7 +6,7 @@
 
 ReadFocus là extension Chrome (Manifest V3), mã nguồn mở (MIT), giúp đọc tài liệu PDF như sách, paper hay slide bài giảng nhanh và tập trung hơn. Extension có các phần: mục lục tự động, tìm kiếm, ước tính thời gian đọc, hẹn giờ theo chương, focus mode. Từ v1 có thêm tóm tắt bằng AI, người dùng tự nhập API key của mình.
 
-- v0 đã xong. Giai đoạn hiện tại là **v1: tóm tắt bằng AI, người dùng tự nhập API key**. Dữ liệu chỉ rời máy khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối (xem mục 4).
+- v0 và v1 (tóm tắt AI, người dùng tự nhập key) đã xong. Giai đoạn hiện tại là **v2: OCR, tìm kiếm theo ý nghĩa, hỏi đáp có trích dẫn, flashcard**. Dữ liệu chỉ rời máy khi người dùng chủ động dùng tính năng AI qua key của họ hoặc đồng ý tải model (xem mục 4).
 - Kế hoạch chi tiết nằm ở `docs/PLAN.md`. Tiến trình nằm ở `PROGRESS.md`.
 
 ## 2. Quy trình mỗi phiên (bắt buộc)
@@ -67,8 +67,9 @@ Phiên có thể bị cắt bất cứ lúc nào. Vì vậy:
 - TypeScript `strict`. Không dùng `any`, trừ khi có comment giải thích lý do.
 - **Không tải code từ xa**, vì MV3 cấm remote code. Mọi thư viện cài qua npm và bundle vào extension, kể cả worker của `pdfjs-dist`.
 - **Chỉ gửi dữ liệu ra mạng khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối**, và chỉ tới đúng nhà cung cấp AI người dùng đã chọn. Không analytics, không telemetry, không CDN, không gọi API ngầm. API key không bao giờ được ghi vào log, thông báo lỗi, test hay commit.
+- **Tải model AI chạy trên máy chỉ khi người dùng đồng ý**, tải một lần rồi lưu cache, chỉ từ nguồn đã ghi trong PLAN. Thư viện và file wasm phải bundle cục bộ, không tải từ CDN. OCR chạy hoàn toàn trên máy.
 - Quyền trong manifest giữ ở mức tối thiểu. Mỗi quyền phải ghi lý do trong `docs/PERMISSIONS.md`.
-- Logic thuần đặt trong `src/core/`, tách khỏi UI, và **phải có unit test Vitest**. Logic thuần gồm: trích mục lục, nhận diện loại tài liệu, đếm từ, ước tính thời gian, chuẩn hóa tiếng Việt, tìm kiếm, gọi và chuẩn hóa lỗi nhà cung cấp AI (`src/core/llm/`), tóm tắt, chia đoạn, cache và lập kế hoạch tóm tắt (`src/core/summarize/`).
+- Logic thuần đặt trong `src/core/`, tách khỏi UI, và **phải có unit test Vitest**. Logic thuần gồm: trích mục lục, nhận diện loại tài liệu, đếm từ, ước tính thời gian, chuẩn hóa tiếng Việt, tìm kiếm, gọi và chuẩn hóa lỗi nhà cung cấp AI (`src/core/llm/`), tóm tắt, chia đoạn, cache và lập kế hoạch tóm tắt (`src/core/summarize/`), OCR (`src/core/ocr/`), embedding và tìm kiếm ngữ nghĩa (`src/core/embed/`), hỏi đáp (`src/core/ask/`), flashcard (`src/core/flashcard/`).
 - Chỉ thêm dependency khi thật sự cần, và ghi lý do vào `PROGRESS.md`.
 - Chỉ sửa những gì thuộc task đang làm. Không refactor lớn ngoài kế hoạch.
 - Lỗi phải được báo rõ ràng cho người dùng, không để crash: PDF hỏng, PDF có mật khẩu, PDF không có lớp chữ (bản scan), file quá lớn.

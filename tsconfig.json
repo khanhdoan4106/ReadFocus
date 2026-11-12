@@ -15,9 +15,10 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "noEmit": true,
     "types": ["chrome", "vite/client", "node"]
   },
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "tests", "vite-plugins", "vite.config.ts", "vitest.config.ts"]
 }

@@ -44,7 +44,33 @@ export const vi = {
   extracting: (done: number, total: number) => `Đang trích văn bản… ${done}/${total} trang`,
   extractFailed: 'Không trích được văn bản của tài liệu này.',
   scannedWarning:
-    'Tài liệu này là bản scan, không có lớp chữ. Bản v0 chưa hỗ trợ OCR; bạn vẫn xem PDF và dùng chế độ tập trung bình thường.',
+    'Tài liệu này là bản scan, chưa có lớp chữ nên chưa có mục lục, tìm kiếm hay tóm tắt. Hãy nhận dạng chữ (OCR) bên dưới; bạn vẫn xem PDF và dùng chế độ tập trung bình thường.',
+  ocrHint:
+    'Nhận dạng chữ chạy ngay trên máy bạn, không gửi gì ra ngoài. Chữ nhận dạng có thể sai, nhất là với trang mờ hoặc chữ nhỏ.',
+  ocrStart: 'Nhận dạng chữ (OCR)',
+  ocrCancel: 'Huỷ',
+  ocrRunning: (done: number, total: number) => `Đang nhận dạng… ${done}/${total} trang`,
+  ocrRangeInvalid:
+    'Khoảng trang không hợp lệ. Nhập số trang bắt đầu nhỏ hơn hoặc bằng số trang kết thúc.',
+  ocrRangeOutOfBounds: (pageCount: number) =>
+    `Khoảng trang phải nằm trong 1–${pageCount}. Sửa lại rồi thử lại.`,
+  ocrRangeTooLong: (max: number) =>
+    `Mỗi lần chỉ nhận dạng tối đa ${max} trang. Chọn khoảng ngắn hơn rồi chạy tiếp phần còn lại sau.`,
+  ocrNothingToDo: 'Các trang này đã có chữ, không cần nhận dạng.',
+  ocrCancelled: 'Đã huỷ. Các trang nhận dạng xong trước đó vẫn được giữ lại.',
+  ocrDone: (count: number) => `Đã nhận dạng ${count} trang. Mục lục và tìm kiếm đã được cập nhật.`,
+  ocrFailedPages: (pages: string) =>
+    `Không nhận dạng được trang ${pages}. Chạy lại với khoảng trang nhỏ hơn.`,
+  ocrLowConfidence: (pages: string) =>
+    `Độ tin cậy thấp ở trang ${pages}: chữ có thể sai nhiều. Hãy đối chiếu với trang gốc.`,
+  ocrReviewNote:
+    'Chữ trên các trang đã nhận dạng là kết quả OCR nên có thể sai; những trang đó có nhãn “OCR” ở góc.',
+  ocrEngineError:
+    'Không chạy được bộ nhận dạng chữ. Tải lại tab ReadFocus rồi thử lại; nếu vẫn lỗi, bấm Tải lại extension ở chrome://extensions.',
+  ocrPageBadge: 'OCR',
+  ocrPageBadgeTitle: 'Chữ trên trang này do OCR nhận dạng, có thể sai.',
+  ocrPageBadgeLowTitle:
+    'Chữ trên trang này do OCR nhận dạng với độ tin cậy thấp, có thể sai nhiều.',
   longDocWarning: (limit: number) =>
     `Tài liệu dài hơn ${limit} trang. Chọn khoảng trang cần lập chỉ mục — việc xem PDF không bị giới hạn.`,
   indexFrom: 'Từ trang',

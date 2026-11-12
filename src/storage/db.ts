@@ -7,11 +7,15 @@ import {
   sanitizeDayStats,
   type DayStats,
 } from '../core/stats';
+import type { OcrPageRecord } from '../core/ocr/pages';
 import { sanitizeSummaryRecord, type SummaryRecord } from '../core/summarize/record';
 
 const DB_NAME = 'readfocus';
-/** Version 2 thêm store `summaries` cho cache tóm tắt AI. */
-const DB_VERSION = 2;
+/**
+ * Version 2 thêm store `summaries` (cache tóm tắt AI). Version 3 thêm `embeddings`,
+ * `qa` và `flashcards` cho v2; store `pages` nhận thêm trường tuỳ chọn của OCR.
+ */
+const DB_VERSION = 3;
 
 export type DocumentMeta = {
   id: string;
@@ -26,7 +30,25 @@ export type PageText = {
   docId: string;
   page: number;
   text: string;
+  /** Mặc định (không có trường) là lớp chữ của PDF. */
+  source?: 'pdf' | 'ocr';
+  /** Độ tin cậy trung bình 0–100, chỉ có với trang OCR. */
+  confidence?: number;
+  /** Hộp bao từng từ, chỉ có với trang OCR; dùng để tô kết quả tìm kiếm. */
+  ocr?: OcrPageRecord['ocr'];
 };
+
+/**
+ * Bản ghi của các store v2 (`embeddings`, `qa`, `flashcards`). Mỗi store có
+ * khoá `id` và index `by-doc`; các trường riêng do từng tính năng định nghĩa.
+ */
+export type DocScopedRecord = { id: string; docId: string } & Record<string, unknown>;
+export type EmbeddingRecord = DocScopedRecord;
+export type QaRecord = DocScopedRecord;
+export type FlashcardRecord = DocScopedRecord;
+
+/** Các store có index `by-doc`, bị xoá cùng tài liệu. */
+const DOC_SCOPED_STORES = ['summaries', 'embeddings', 'qa', 'flashcards'] as const;
 
 export type TocItem = {
   title: string;
@@ -94,6 +116,21 @@ interface ReadFocusDB extends DBSchema {
     value: SummaryRecord;
     indexes: { 'by-doc': string };
   };
+  embeddings: {
+    key: string;
+    value: EmbeddingRecord;
+    indexes: { 'by-doc': string };
+  };
+  qa: {
+    key: string;
+    value: QaRecord;
+    indexes: { 'by-doc': string };
+  };
+  flashcards: {
+    key: string;
+    value: FlashcardRecord;
+    indexes: { 'by-doc': string };
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<ReadFocusDB>> | null = null;
@@ -122,6 +159,11 @@ function getDb(): Promise<IDBPDatabase<ReadFocusDB>> {
       if (oldVersion < 2) {
         const summaries = db.createObjectStore('summaries', { keyPath: 'id' });
         summaries.createIndex('by-doc', 'docId');
+      }
+      if (oldVersion < 3) {
+        for (const name of ['embeddings', 'qa', 'flashcards'] as const) {
+          db.createObjectStore(name, { keyPath: 'id' }).createIndex('by-doc', 'docId');
+        }
       }
     },
   });
@@ -173,13 +215,20 @@ export async function loadProgress(
   }
 }
 
-/** Xoá văn bản đã trích của một tài liệu trước khi lập chỉ mục lại. */
-export async function clearPageTexts(docId: string): Promise<void> {
+/**
+ * Xoá văn bản đã trích của một tài liệu trước khi lập chỉ mục lại. Trang OCR
+ * được giữ lại (trừ khi `keepOcr` là false) vì nhận dạng lại tốn thời gian và
+ * trang scan không có lớp chữ để trích lại.
+ */
+export async function clearPageTexts(docId: string, keepOcr = true): Promise<void> {
   try {
     const db = await getDb();
-    const keys = await db.getAllKeysFromIndex('pages', 'by-doc', docId);
+    const pages = await db.getAllFromIndex('pages', 'by-doc', docId);
     const tx = db.transaction('pages', 'readwrite');
-    for (const key of keys) void tx.store.delete(key);
+    for (const page of pages) {
+      if (keepOcr && page.source === 'ocr') continue;
+      void tx.store.delete([page.docId, page.page]);
+    }
     await tx.done;
   } catch {
     // Lập chỉ mục lại vẫn ghi đè được các trang cũ; lỗi xoá không chặn việc đọc.
@@ -188,7 +237,7 @@ export async function clearPageTexts(docId: string): Promise<void> {
 
 export async function savePageTexts(
   docId: string,
-  pages: readonly { page: number; text: string }[],
+  pages: readonly Omit<PageText, 'docId'>[],
 ): Promise<void> {
   if (pages.length === 0) return;
 
@@ -196,11 +245,22 @@ export async function savePageTexts(
     const db = await getDb();
     const tx = db.transaction('pages', 'readwrite');
     for (const page of pages) {
-      void tx.store.put({ docId, page: page.page, text: page.text });
+      void tx.store.put({ ...page, docId });
     }
     await tx.done;
   } catch {
     // Không lưu được văn bản thì vẫn cho người dùng đọc tiếp.
+  }
+}
+
+/** Trang OCR đã lưu của một tài liệu (kèm hộp bao từ), theo thứ tự trang. */
+export async function loadOcrPages(docId: string): Promise<PageText[]> {
+  try {
+    const db = await getDb();
+    const pages = await db.getAllFromIndex('pages', 'by-doc', docId);
+    return pages.filter((page) => page.source === 'ocr').sort((a, b) => a.page - b.page);
+  } catch {
+    return [];
   }
 }
 
@@ -304,14 +364,14 @@ export async function loadSummariesForDoc(docId: string): Promise<SummaryRecord[
 }
 
 /**
- * Xoá dữ liệu của một tài liệu: metadata, văn bản từng trang, mục lục, chỉ mục
- * tìm kiếm, tiến độ và tóm tắt AI đã lưu. Thống kê ngày và cài đặt được giữ nguyên.
+ * Xoá dữ liệu của một tài liệu: metadata, văn bản từng trang (kể cả OCR), mục
+ * lục, chỉ mục tìm kiếm, tiến độ, tóm tắt AI, embedding, hỏi đáp và flashcard. Thống kê ngày và cài đặt được giữ nguyên.
  */
 export async function deleteDocumentData(docId: string): Promise<boolean> {
   try {
     const db = await getDb();
     const tx = db.transaction(
-      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'summaries'],
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', ...DOC_SCOPED_STORES],
       'readwrite',
     );
     await Promise.all([
@@ -325,13 +385,15 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
       await cursor.delete();
       cursor = await cursor.continue();
     }
-    let summaryCursor = await tx
-      .objectStore('summaries')
-      .index('by-doc')
-      .openCursor(IDBKeyRange.only(docId));
-    while (summaryCursor) {
-      await summaryCursor.delete();
-      summaryCursor = await summaryCursor.continue();
+    for (const name of DOC_SCOPED_STORES) {
+      let docCursor = await tx
+        .objectStore(name)
+        .index('by-doc')
+        .openCursor(IDBKeyRange.only(docId));
+      while (docCursor) {
+        await docCursor.delete();
+        docCursor = await docCursor.continue();
+      }
     }
     await tx.done;
     return true;
@@ -342,14 +404,14 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
 
 /**
  * Xoá toàn bộ dữ liệu đọc đã lưu trên máy: tài liệu, văn bản, mục lục, chỉ mục
- * tìm kiếm, tiến độ, thống kê và tóm tắt AI. Cài đặt giao diện/tốc độ đọc và
+ * tìm kiếm, tiến độ, thống kê, tóm tắt AI, embedding, hỏi đáp và flashcard. Cài đặt giao diện/tốc độ đọc và
  * API key được giữ nguyên.
  */
 export async function clearAllData(): Promise<boolean> {
   try {
     const db = await getDb();
     const tx = db.transaction(
-      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'stats', 'summaries'],
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'stats', ...DOC_SCOPED_STORES],
       'readwrite',
     );
     await Promise.all([
@@ -359,7 +421,7 @@ export async function clearAllData(): Promise<boolean> {
       tx.objectStore('searchIndex').clear(),
       tx.objectStore('progress').clear(),
       tx.objectStore('stats').clear(),
-      tx.objectStore('summaries').clear(),
+      ...DOC_SCOPED_STORES.map((name) => tx.objectStore(name).clear()),
     ]);
     await tx.done;
     return true;

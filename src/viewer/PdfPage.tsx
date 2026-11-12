@@ -1,6 +1,10 @@
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { ocrHighlightRects } from '../core/ocr/highlight';
+import { isLowConfidence } from '../core/ocr/pages';
+import type { OcrPageView } from '../core/ocr/types';
 import { matchesQuery } from '../core/search';
+import { vi } from '../i18n/vi';
 import type { PageSize } from './PageList';
 
 export type TextHighlight = {
@@ -13,6 +17,8 @@ type PdfPageProps = {
   pageNumber: number;
   scale: number;
   highlight?: TextHighlight | null;
+  /** Trang có chữ do OCR nhận dạng: tô kết quả tìm kiếm bằng lớp phủ riêng và hiện nhãn. */
+  ocr?: OcrPageView | null;
   onMeasured: (page: number, size: PageSize) => void;
   onRenderError: () => void;
 };
@@ -31,6 +37,7 @@ export function PdfPage({
   pageNumber,
   scale,
   highlight,
+  ocr,
   onMeasured,
   onRenderError,
 }: PdfPageProps) {
@@ -119,10 +126,43 @@ export function PdfPage({
     return () => observer.disconnect();
   }, [highlight, doc, pageNumber, scale]);
 
+  // Toạ độ theo phần trăm của trang nên lớp phủ đúng với mọi mức zoom.
+  const ocrRects = useMemo(
+    () =>
+      ocr && highlight
+        ? ocrHighlightRects(ocr.words, highlight.query, highlight.ignoreDiacritics, ocr)
+        : [],
+    [ocr, highlight],
+  );
+
   return (
     <div class="pdf-page" ref={pageRef}>
       <canvas ref={canvasRef} />
       <div class="textLayer" ref={textRef} />
+      {ocr && (
+        <>
+          <div class="ocr-layer" aria-hidden="true">
+            {ocrRects.map((rect, index) => (
+              <div
+                key={index}
+                class="ocr-match"
+                style={{
+                  left: `${rect.left}%`,
+                  top: `${rect.top}%`,
+                  width: `${rect.width}%`,
+                  height: `${rect.height}%`,
+                }}
+              />
+            ))}
+          </div>
+          <span
+            class={`ocr-badge${isLowConfidence(ocr.confidence) ? ' ocr-badge--low' : ''}`}
+            title={isLowConfidence(ocr.confidence) ? vi.ocrPageBadgeLowTitle : vi.ocrPageBadgeTitle}
+          >
+            {vi.ocrPageBadge}
+          </span>
+        </>
+      )}
     </div>
   );
 }

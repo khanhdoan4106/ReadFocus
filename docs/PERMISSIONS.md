@@ -35,6 +35,10 @@ Khi bật công tắc:
 
 `web_accessible_resources` cho `viewer.html` với `matches: ["<all_urls>"]` là cần thiết để rule chuyển hướng được phép mở trang viewer của extension.
 
+## Chính sách bảo mật nội dung (CSP)
+
+`content_security_policy.extension_pages` là `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`. `'wasm-unsafe-eval'` chỉ cho phép biên dịch WebAssembly của chính extension (core OCR của tesseract.js); không cho `eval`, không cho script từ nguồn ngoài. Toàn bộ thư viện OCR, file wasm và dữ liệu ngôn ngữ nằm trong gói (`ocr/`), OCR không gửi gì ra mạng và không cần quyền host.
+
 ## Quyền cố ý không dùng
 
 - Không dùng `host_permissions` cố định cho `*://*/*`, `<all_urls>`, `tabs` hay `file://`: chỉ quyền host tuỳ chọn ở trên, do người dùng chủ động cấp.

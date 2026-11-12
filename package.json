@@ -15,12 +15,16 @@
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
     "fixtures": "node scripts/make-fixtures.mjs",
+    "fixtures:scan": "node scripts/make-scan-fixture.mjs",
     "package": "node scripts/package.mjs"
   },
   "devDependencies": {
     "@crxjs/vite-plugin": "^3.0.0",
     "@eslint/js": "^10.0.1",
+    "@napi-rs/canvas": "1.1.0",
     "@preact/preset-vite": "^2.10.6",
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/vie": "1.0.0",
     "@types/chrome": "^0.3.7",
     "@types/node": "^22.20.5",
     "eslint": "^10.14.0",
@@ -38,6 +42,7 @@
     "idb": "^8.0.4",
     "minisearch": "^7.2.0",
     "pdfjs-dist": "^6.5.438",
-    "preact": "^11.2.0"
+    "preact": "^11.2.0",
+    "tesseract.js": "7.0.0"
   }
 }
