@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v2-ocr` (Nhóm F, T17–T18); v0 và v1 đã merge (PR #4–#8)
-- Task đang làm: T17 xong (OCR core, DB v3); chuẩn bị T18 (OCR UI)
-- Bước tiếp theo chính xác: T18 — nút "Nhận dạng chữ (OCR)" khi phát hiện bản scan, chọn khoảng trang bằng `defaultOcrRange`/`validateOcrRange`, render trang ra canvas ~2x, chạy `withOcrEngine` + `runOcr` với `createTesseractEngine(buildOcrOptions(chrome.runtime.getURL))`, lưu từng trang bằng `savePageTexts` (`buildOcrPageRecords`), chạy lại profile/mục lục/chỉ mục/thời gian đọc, lớp phủ tô chữ bằng `boxToPageRect`, cảnh báo độ tin cậy, fixture scan tiếng Việt. Lưu ý: `clearPageTexts` ở lượt lập chỉ mục đang xoá cả trang OCR, cần giữ trang OCR khi lập chỉ mục lại.
+- Task đang làm: T17, T18 xong (nhóm F); đang tự rà soát và mở PR `feat/v2-ocr` → `main`
+- Bước tiếp theo chính xác: push `feat/v2-ocr`, mở PR theo `.github/pull_request_template.md` kèm checklist thử tay OCR, `gh pr checks --watch` đến khi xanh, đăng bảng tự rà soát (11 mục) thành comment, rồi DỪNG chờ người dùng merge. Sau khi merge: tạo `feat/v2-ask` từ `main` mới nhất và làm T19.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
@@ -37,6 +37,7 @@
 - [x] T15b — Giao diện tab Tóm tắt: `SummaryPanel.tsx` (tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng request + token và xác nhận, chạy song song tối đa 2 request, thanh tiến độ, huỷ, tạo lại, sao chép clipboard text thuần, xử lý bản scan/mục không chữ, các lỗi chuẩn hoá và nút thử lại khi `truncated`); `Sidebar.tsx` thêm tab Tóm tắt và dấu `✦` cho các mục mục lục đã có tóm tắt; `format.ts` định dạng clipboard và lọc mục; CSS giao diện; câu chữ tiếng Việt tự nhiên trong `vi.ts` (4 test mới trong `tests/summarize-format.test.ts`, tổng 280 test).
 - [x] T16 — Hoàn thiện: README (phần AI, cách lấy key từng nhà cung cấp, hướng dẫn Ollama với `OLLAMA_ORIGINS`), `docs/PRIVACY.md` (gửi gì, cho ai, khi nào, key lưu ở đâu, cách xoá), CHANGELOG `[Unreleased]`; sửa format Prettier ở `format.ts` và test đi kèm.
 - [x] T17 — OCR core: `src/core/ocr/` (types, options, pages, result, geometry, run, tesseract-engine), plugin `vite-plugins/ocr-assets.ts` gói worker/core/ngôn ngữ vào `dist/ocr/` và bỏ URL CDN mặc định, CSP `wasm-unsafe-eval`, IndexedDB v3 (embeddings, qa, flashcards, `pages` nhận `source`/`confidence`/`ocr`) kèm migration từ v1 và v2, xoá theo tài liệu và xoá toàn bộ. Test: `tests/ocr.test.ts`, `tests/db-v3.test.ts`, `tests/ocr-bundle.test.ts`.
+- [x] T18 — OCR UI: `OcrPanel` (chọn khoảng trang mặc định ± 2 trang, tối đa 100, tiến độ, huỷ, báo cáo trang lỗi và trang độ tin cậy thấp), `src/viewer/ocr.ts` (render ~2x, đọc lớp chữ), chạy `withOcrEngine` + `runOcr` với `createTesseractEngine` nạp động, lưu từng trang vào `pages` (giữ khi lập chỉ mục lại), lập lại profile/mục lục/chỉ mục/thời gian đọc bằng `runExtraction` với chữ OCR thay cho lớp chữ trống, lớp phủ tô kết quả tìm kiếm theo phần trăm trang (`highlight.ts`), nhãn "OCR" trên trang (đỏ khi độ tin cậy < 60), fixture `tests/fixtures/scanned-vi.pdf` (`npm run fixtures:scan`).
 - [x] Rà soát v1 trước merge PR #8: sửa batch gọi API ngầm sau lỗi (`runSummaryBatch`), cache chỉ khớp provider/model/prompt/ngôn ngữ/tiêu đề, model rỗng dùng mặc định, ước lượng chỉ tính mục chưa cache và đã lập chỉ mục, tóm tắt gắn đúng tài liệu/mục và bị huỷ khi đổi tài liệu hoặc đóng viewer, `Dialog` (focus trap, Esc, trả focus, chặn phím tắt), câu chữ lỗi, AGENTS.md, hướng dẫn OLLAMA_ORIGINS.
 
 ## Dở dang / ghi chú cho phiên sau
@@ -138,6 +139,11 @@
 - **Hộp bao từ lưu cùng trang OCR** (`pages.ocr = { width, height, words }`) để mở lại file vẫn tô được kết quả tìm kiếm; `boxToPageRect` quy đổi theo tỉ lệ ảnh OCR / trang đang hiển thị nên đúng với mọi mức zoom.
 - **Huỷ OCR dừng worker ngay** (`terminate`) vì tesseract không huỷ được từng lần nhận dạng; kết quả các trang đã xong được gửi qua `onPage` trước đó. Trang lỗi riêng thì bỏ qua, lỗi liên tiếp 3 lần thì dừng cả lượt.
 - **DB v3 tạo sẵn ba store `embeddings`, `qa`, `flashcards`** (khoá `id`, index `by-doc`) ở T17 vì T18 cần `source` và để một lần migration; kiểu bản ghi chi tiết do T19, T21, T22 định nghĩa. `deleteDocumentData`/`clearAllData` dùng chung danh sách `DOC_SCOPED_STORES` nên store mới được xoá đủ.
+- **OCR chạy trong worker của chính tesseract.js, không bọc thêm worker thứ hai**: tesseract.js đã tạo Web Worker riêng cho nhận dạng nên UI không bị chặn; ta chỉ cần dừng nó (`terminate`) khi huỷ, đổi tài liệu, đóng viewer hoặc xong việc (`withOcrEngine`). Thư viện nạp bằng `import()` nên chỉ tải khi người dùng bấm OCR.
+- **Lập chỉ mục lại sau OCR bằng `runExtraction` có sẵn**: trang scan đã OCR được thay chữ OCR cho lớp chữ trống ngay trong `onPage`, nên profile, mục lục, chỉ mục tìm kiếm, từ mỗi trang và `extractedPages` (dùng cho tóm tắt) đều cập nhật mà không viết lại pipeline. Khoảng lập lại là hợp của khoảng đã lập chỉ mục và khoảng vừa OCR nếu ≤ 100 trang, nếu không thì lấy khoảng vừa OCR (`unionIndexRange`). `clearPageTexts` giữ trang OCR để lập chỉ mục lại không xoá kết quả OCR.
+- **Lớp phủ tô chữ dùng toạ độ phần trăm** (`left/top/width/height` theo % trang) nên đúng với mọi mức zoom mà không cần tính lại khi đổi scale; hộp bao lấy từ `pages.ocr.words`. Lớp phủ nằm trong `.pdf-page`, `aria-hidden`, không dùng text layer của pdf.js.
+- **Trang đã có lớp chữ thì không OCR** (`pagesToRecognize` đọc lớp chữ thật bằng `readTextLayers`), trang đã OCR trước đó cũng bỏ qua khi chạy lại khoảng cũ; không có nút "OCR lại" ở T18 (tuỳ chọn `force` đã có trong hàm thuần).
+- **Đã thử tesseract.js bằng Node trên fixture** với đúng bộ dữ liệu `best_int` vie + eng: nhận dạng đúng gần hết chữ có dấu, độ tin cậy 95 (nhầm "dấu" thành "dầu" ở một chỗ, đúng như cảnh báo "có thể sai"). Chưa thử được đường chạy thật trong Chrome (worker, importScripts core, CSP) — cần thử tay.
 
 ## Cần người dùng thử thủ công / trả lời
 - Load unpacked `dist/` trong `chrome://extensions`, xác nhận: extension hiện tên ReadFocus, icon hiển thị rõ ở 16/48/128, bấm icon trên toolbar mở tab `viewer.html`.
@@ -166,6 +172,7 @@
   - Xoá dữ liệu tài liệu thì các bản tóm tắt bị xoá.
 - Review PR nhóm A trên GitHub (đã merge qua PR #4).
 - Kiểm tra T17 sau khi load unpacked (chưa có UI, chỉ kiểm tra gói): mở `chrome://extensions`, bấm Reload extension và xác nhận không có lỗi CSP; mở `dist/ocr/` thấy `worker.min.js`, `core/` ba file `*-lstm.wasm.js`, `lang/vie|eng.traineddata.gz`. OCR thật được thử tay ở T18.
+- Kiểm tra T18 sau khi load unpacked (cần thử trong Chrome vì OCR thật chưa chạy được trong test): mở `tests/fixtures/scanned-vi.pdf` → hiện cảnh báo bản scan và khung "Nhận dạng chữ (OCR)" với khoảng trang mặc định; bấm nút, xem tiến độ từng trang, mở DevTools tab Network thấy không có request ra ngoài, và Task Manager của Chrome thấy worker dừng khi xong; sau khi xong mục lục có "Chương 1/2/3", tìm "giới thiệu" nhảy đúng trang và tô vàng đúng chỗ (thử zoom đổi), "chuong" khi bật "Tìm không dấu"; mỗi trang có nhãn "OCR"; bấm Huỷ giữa chừng (trang đã xong vẫn giữ), đổi sang file khác khi đang chạy (OCR dừng, không lẫn kết quả); đóng và mở lại cùng file thấy chữ OCR còn nguyên (mục lục, tìm kiếm, nhãn OCR); tóm tắt AI một mục dùng được chữ OCR; xoá dữ liệu tài liệu thì mất chữ OCR; thử dark mode cho khung OCR và nhãn; thử cả PDF có lớp chữ (không hiện khung OCR) và PDF lẫn trang scan.
 
 ## Dependency đã thêm (và lý do)
 - `preact` — UI nhẹ theo stack đã chốt.
@@ -181,3 +188,4 @@
 
 - `tesseract.js` (7.0.0, Apache-2.0) — OCR chạy trên máy; kéo theo `tesseract.js-core` 7.0.0 (Apache-2.0), `wasm-feature-detect`, `idb-keyval`, `zlibjs`, `bmp-js`. Zip tăng từ ~0,58 MB lên ~9,6 MB (core ba biến thể 11,7 MB chưa nén, dữ liệu vie + eng 4,4 MB đã gz).
 - `@tesseract.js-data/vie`, `@tesseract.js-data/eng` (1.0.0, MIT; dữ liệu huấn luyện Tesseract Apache-2.0) — devDependency, chỉ để chép `4.0.0_best_int/*.traineddata.gz` vào `dist/ocr/lang/` lúc build.
+- `@napi-rs/canvas` (1.1.0, MIT) — devDependency, chỉ để `scripts/make-scan-fixture.mjs` vẽ chữ ra ảnh khi tạo fixture (cũng là optionalDependency của pdfjs-dist); không vào bundle.
