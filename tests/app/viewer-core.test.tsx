@@ -210,4 +210,27 @@ describe('viewer: phím tắt và hộp thoại', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(document.activeElement).toBe(test);
   });
+
+  it('hẹn giờ: bắt đầu phiên tập trung hiện nút hẹn giờ trên thanh công cụ; Space tạm dừng và chạy tiếp; Dừng thì ẩn', async () => {
+    await openReady();
+    fireEvent.click(tab(t.focusTab));
+    expect(screen.queryByText(t.timerModeFocus, { selector: '.toolbar__timer-mode' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: t.pomodoroStart }));
+    const mode = await screen.findByText(t.timerModeFocus, { selector: '.toolbar__timer-mode' });
+    expect(mode).toBeTruthy();
+    const toggle = mode.closest('button') as HTMLElement;
+    expect(toggle.getAttribute('aria-label')).toBe(t.timerToggleAria(t.timerModeFocus, '25:00'));
+    expect(toggle.className).not.toContain('toolbar__timer--paused');
+
+    fireEvent.keyDown(document.body, { key: ' ' });
+    await waitFor(() => expect(toggle.className).toContain('toolbar__timer--paused'));
+    fireEvent.keyDown(document.body, { key: ' ' });
+    await waitFor(() => expect(toggle.className).not.toContain('toolbar__timer--paused'));
+
+    fireEvent.click(screen.getByRole('button', { name: t.timerStop }));
+    await waitFor(() =>
+      expect(screen.queryByText(t.timerModeFocus, { selector: '.toolbar__timer-mode' })).toBeNull(),
+    );
+  });
 });
