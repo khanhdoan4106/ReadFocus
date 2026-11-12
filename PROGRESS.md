@@ -2,8 +2,8 @@
 
 ## Trạng thái
 - Nhánh hiện tại: `feat/v2-ocr` (Nhóm F, T17–T18); v0 và v1 đã merge (PR #4–#8)
-- Task đang làm: T17, T18 xong (nhóm F); đang tự rà soát và mở PR `feat/v2-ocr` → `main`
-- Bước tiếp theo chính xác: push `feat/v2-ocr`, mở PR theo `.github/pull_request_template.md` kèm checklist thử tay OCR, `gh pr checks --watch` đến khi xanh, đăng bảng tự rà soát (11 mục) thành comment, rồi DỪNG chờ người dùng merge. Sau khi merge: tạo `feat/v2-ask` từ `main` mới nhất và làm T19.
+- Task đang làm: nhóm F (T17–T18) xong, PR #9 CI xanh, đã đăng bảng tự rà soát; DỪNG chờ người dùng thử tay và merge
+- Bước tiếp theo chính xác: sau khi PR #9 được merge, tạo `feat/v2-ask` từ `main` mới nhất và làm T19 (embedding: chia đoạn, nguồn trên máy và API, tải/xoá model, vector, cosine, hybrid). Việc cần tra khi bắt đầu: tên và kích thước model e5 đa ngôn ngữ trên Hugging Face, host permission cho huggingface.co, tên model embedding của OpenAI/Gemini, license và kích thước `@huggingface/transformers`.
 
 ## Đã hoàn thành
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
