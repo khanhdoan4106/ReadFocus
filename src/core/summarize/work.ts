@@ -52,7 +52,8 @@ export function estimateSpansWork(
 
 /**
  * Chạy tối đa `limit` việc song song, giữ thứ tự kết quả. Dừng nhận việc mới
- * khi signal bị huỷ; lỗi của một việc làm hỏng cả lượt để UI báo đúng lỗi.
+ * khi signal bị huỷ hoặc khi một việc đã lỗi: không worker nào được lấy thêm
+ * mục sau thời điểm đó, nên lượt lỗi không còn gọi API ngầm.
  */
 export async function mapWithConcurrency<T, R>(
   items: readonly T[],
@@ -64,17 +65,24 @@ export async function mapWithConcurrency<T, R>(
 
   const results = new Array<R>(items.length);
   let next = 0;
+  let failed = false;
   const width = Math.max(1, Math.min(Math.floor(limit) || 1, items.length));
 
   const run = async (): Promise<void> => {
     for (;;) {
+      if (failed) return;
       signal?.throwIfAborted();
       const index = next;
       next += 1;
       if (index >= items.length) return;
       const item = items[index];
       if (item === undefined) return;
-      results[index] = await worker(item, index);
+      try {
+        results[index] = await worker(item, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   };
 

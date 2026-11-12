@@ -108,3 +108,21 @@ describe('mapWithConcurrency', () => {
     expect(executed).toEqual([1, 2]);
   });
 });
+
+describe('mapWithConcurrency khi một việc lỗi', () => {
+  it('không worker nào nhận thêm mục sau khi có việc lỗi', async () => {
+    const started: number[] = [];
+
+    const promise = mapWithConcurrency([1, 2, 3, 4, 5, 6], 2, async (item) => {
+      started.push(item);
+      if (item === 2) throw new Error('boom');
+      await new Promise((r) => setTimeout(r, 20));
+      return item;
+    });
+
+    await expect(promise).rejects.toThrow('boom');
+    // Chờ đủ lâu để worker còn lại (đang chạy mục 1) có cơ hội lấy mục mới.
+    await new Promise((r) => setTimeout(r, 80));
+    expect(started).toEqual([1, 2]);
+  });
+});
