@@ -281,7 +281,7 @@ Nhóm G, nhánh `feat/v2-ask`:
 
 Nhóm H, nhánh `feat/v2-flashcards`:
 
-- [ ] **T22** Flashcard: tạo từ cache, tạo thêm bằng AI, Leitner, xuất CSV.
+- [x] **T22** Flashcard: tạo từ cache, tạo thêm bằng AI, Leitner, xuất CSV.
 - [ ] **T23** Hoàn thiện v2: PRIVACY, PERMISSIONS, README, CHANGELOG, rà câu chữ toàn bộ phần mới, kiểm tra dark mode và bàn phím.
 
 Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
