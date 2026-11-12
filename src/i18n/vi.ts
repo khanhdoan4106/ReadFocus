@@ -1,4 +1,4 @@
-import type { LLMErrorKind } from '../core/llm/types';
+import type { LLMErrorKind, ProviderId } from '../core/llm/types';
 
 export const vi = {
   appName: 'ReadFocus',
@@ -92,6 +92,93 @@ export const vi = {
   themeLight: 'Sáng',
   themeDark: 'Tối',
 
+  aiTitle: 'Tóm tắt bằng AI',
+  aiHint:
+    'AI là tuỳ chọn. ReadFocus chỉ gửi nội dung khi bạn bấm Kiểm tra kết nối hoặc Tóm tắt, và gửi thẳng tới nhà cung cấp bạn chọn — không qua máy chủ trung gian.',
+  aiProviderLabel: 'Nhà cung cấp',
+  aiProviders: {
+    openai: 'OpenAI',
+    gemini: 'Google Gemini',
+    anthropic: 'Anthropic Claude',
+    'openai-compatible': 'OpenAI-compatible (Ollama, LM Studio)',
+  } satisfies Record<ProviderId, string>,
+  aiModelLabel: 'Model',
+  aiModelHint: 'Gõ đúng tên model mà nhà cung cấp hỗ trợ.',
+  aiBaseUrlLabel: 'Địa chỉ API',
+  aiBaseUrlHint:
+    'Ví dụ http://localhost:11434/v1 cho Ollama hoặc http://localhost:1234/v1 cho LM Studio.',
+  aiKeyLabel: 'API key',
+  aiKeyPlaceholder: 'Dán key vào đây',
+  aiShowKey: 'Hiện key',
+  aiHideKey: 'Ẩn key',
+  aiClearKey: 'Xoá key',
+  aiKeyHint: 'Key được lưu không mã hoá trên máy này, không đồng bộ lên tài khoản.',
+  aiKeySaveFailed: 'Không lưu được key. Kiểm tra quyền lưu trữ của extension rồi thử lại.',
+  aiSaveKey: 'Lưu key trên máy này',
+  aiSaveKeyHint: 'Tắt để chỉ giữ key tới khi đóng trình duyệt.',
+  aiLanguageLabel: 'Ngôn ngữ tóm tắt',
+  aiLanguageVi: 'Tiếng Việt',
+  aiLanguageDocument: 'Theo ngôn ngữ tài liệu',
+  aiTestConnection: 'Kiểm tra kết nối',
+  aiTesting: 'Đang kiểm tra kết nối…',
+  aiTestOk: 'Kết nối thành công.',
+  aiMissingKey: 'Nhập API key trước.',
+  aiPermissionDenied:
+    'Chưa cấp quyền truy cập tới nhà cung cấp AI nên chưa gọi được. Thử lại và bấm Cho phép.',
+  aiUnsupported: 'Phần AI chỉ hoạt động khi ReadFocus được cài trong Chrome.',
+  aiCorsHint:
+    'Nếu dùng Ollama hoặc LM Studio, kiểm tra dịch vụ đang chạy và đã cho phép origin của extension (biến môi trường OLLAMA_ORIGINS) chưa.',
+  aiConsentTitle: 'Gửi nội dung tới nhà cung cấp?',
+  aiConsentBody: (provider: string) =>
+    `Khi tóm tắt hoặc kiểm tra kết nối, phần nội dung bạn chọn sẽ được gửi tới ${provider} và xử lý theo chính sách riêng của họ. ReadFocus không có máy chủ trung gian và không gửi dữ liệu nào khác.`,
+  aiConsentAccept: 'Đồng ý và tiếp tục',
+  aiConsentCancel: 'Để sau',
+
+  summaryTab: 'Tóm tắt',
+  summaryBadgeTitle: 'Mục này đã có tóm tắt',
+  summaryNotConfiguredTitle: 'Chưa cấu hình AI',
+  summaryNotConfiguredHint:
+    'Để dùng tính năng tóm tắt, hãy mở tab Cài đặt → AI và thiết lập nhà cung cấp cùng API key.',
+  summaryOpenSettings: 'Mở Cài đặt → AI',
+  summaryNoDoc: 'Chưa mở tài liệu nào để tóm tắt.',
+  summaryNoToc:
+    'Chưa có mục lục. Đợi ReadFocus lập chỉ mục xong, hoặc lập chỉ mục các trang cần tóm tắt.',
+  summaryCurrentSectionTitle: (title: string) => `Mục: ${title}`,
+  summarySectionRange: (start: number, end: number) =>
+    start === end ? `Trang ${start}` : `Trang ${start}–${end}`,
+  summarizeCurrentSection: 'Tóm tắt mục này',
+  summarizeAllSections: 'Tóm tắt toàn bộ',
+  summarizeAllConfirmTitle: 'Tóm tắt toàn bộ tài liệu?',
+  summarizeAllConfirmBody: (
+    sections: number,
+    alreadyDone: number,
+    requests: number,
+    tokens: number,
+  ) =>
+    `Sẽ tóm tắt ${sections} mục đã lập chỉ mục${alreadyDone > 0 ? ` (bỏ qua ${alreadyDone} mục đã có tóm tắt)` : ''}. Ước lượng: ${requests} request, tối thiểu khoảng ${tokens.toLocaleString('vi-VN')} token đầu vào. Nội dung các mục này sẽ được gửi tới nhà cung cấp bạn đã chọn. Tiếp tục?`,
+  summarizeAllNoText:
+    'Chưa có mục nào đủ văn bản để tóm tắt. Hãy lập chỉ mục các trang cần tóm tắt; bản scan không có chữ nên không tóm tắt được.',
+  summarizeAllNothingToDo: 'Mọi mục đã lập chỉ mục đều đã có tóm tắt.',
+  summarizeAllFailed: (count: number) =>
+    `${count} mục chưa tóm tắt được (câu trả lời bị cắt hoặc không đọc được). Thử lại, hoặc đổi model trong Cài đặt → AI.`,
+  summarizeAllRetryFailed: 'Thử lại các mục lỗi',
+  summarizeAllConfirmAccept: 'Bắt đầu tóm tắt',
+  summarizeAllConfirmCancel: 'Huỷ bỏ',
+  summarizeAllProgress: (done: number, total: number) => `Đang tóm tắt… ${done}/${total} mục`,
+  summarizeSectionProgress: (done: number, total: number) => `Đang tóm tắt… bước ${done}/${total}`,
+  summarizeRegenerate: 'Tạo lại',
+  summarizeCopy: 'Sao chép',
+  summarizeCopied: 'Đã sao chép vào bộ nhớ tạm',
+  summarizeCancel: 'Huỷ',
+  summarizeCancelling: 'Đang huỷ…',
+  summarizeFromCache: 'Lấy từ cache',
+  summarizeNoText: 'Mục này không có văn bản (có thể là bản scan) nên không tóm tắt được.',
+  summaryKeyPointsTitle: 'Ý chính',
+  summaryTermsTitle: 'Thuật ngữ',
+  summaryPageRef: (page: number) => `Trang ${page}`,
+  summaryModelInfo: (provider: string, model: string) => `${provider} · ${model}`,
+  summaryRetry: 'Thử lại',
+
   readingSpeedTitle: 'Tốc độ đọc',
   readingSpeedLabel: 'Từ mỗi phút',
   readingSpeedHint:
@@ -171,13 +258,16 @@ export const vi = {
     'rate-limit': 'Nhà cung cấp đang giới hạn tốc độ. Đợi một lát rồi thử lại.',
     quota:
       'Tài khoản đã hết hạn mức. Kiểm tra số dư hoặc hạn mức trong trang quản lý của nhà cung cấp.',
-    'context-too-long': 'Phần này quá dài so với giới hạn của model. Thử tóm tắt mục ngắn hơn.',
+    'context-too-long':
+      'Phần này quá dài so với giới hạn của model. Chọn model có giới hạn đầu vào lớn hơn trong Cài đặt → AI.',
     network: 'Không kết nối được tới nhà cung cấp. Kiểm tra mạng rồi thử lại.',
     cancelled: 'Đã huỷ.',
-    'bad-response': 'Nhà cung cấp trả về dữ liệu không đọc được. Thử lại giúp mình nhé.',
+    'bad-response':
+      'Nhà cung cấp trả về dữ liệu không đọc được. Thử lại; nếu vẫn lỗi, chọn model khác trong Cài đặt → AI.',
     truncated:
       'Câu trả lời bị cắt vì vượt giới hạn đầu ra. Thử lại hoặc chọn model khác trong Cài đặt → AI.',
-    unknown: 'Có lỗi khi gọi nhà cung cấp. Thử lại sau.',
+    unknown:
+      'Có lỗi khi gọi nhà cung cấp. Thử lại; nếu vẫn lỗi, kiểm tra địa chỉ API và model trong Cài đặt → AI.',
   } satisfies Record<LLMErrorKind, string>,
 } as const;
 

@@ -1,6 +1,34 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
+import { isLLMError } from '../core/llm/errors';
+import { getProvider } from '../core/llm';
+import { DEFAULT_MODELS, resolveModel } from '../core/llm/models';
+import {
+  isLocalBaseUrl,
+  providerDefaultBaseUrl,
+  providerOriginPattern,
+} from '../core/llm/permissions';
+import {
+  aiConfigProblem,
+  defaultAiSettings,
+  type AiSettings,
+  type SummaryLanguage,
+} from '../core/llm/settings';
+import type { LLMErrorKind, ProviderId } from '../core/llm/types';
+import type { TextPage } from '../core/summarize/chunk';
+import { PROMPT_VERSION } from '../core/summarize/prompt';
+import { summaryCacheKey } from '../core/summarize/cache-key';
+import { runSummaryBatch } from '../core/summarize/batch';
+import {
+  findCachedSummary,
+  planSummarizeAll,
+  sectionLanguage,
+  type SummaryConfig,
+} from '../core/summarize/plan';
+import { summarizeSection } from '../core/summarize/run';
+import { pagesInSpan, type WorkEstimate } from '../core/summarize/work';
+import type { SummaryRecord } from '../core/summarize/record';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
@@ -50,14 +78,26 @@ import {
   loadProgress,
   loadRecentStats,
   loadSetting,
+  loadSummariesForDoc,
   recordDocumentOpen,
   savePageTexts,
   saveProgress,
   saveSetting,
+  saveSummary,
+  type TocItem,
 } from '../storage/db';
+import {
+  clearApiKey,
+  keyScopeFor,
+  loadAiSettings,
+  loadApiKey,
+  saveAiSettings,
+  saveApiKey,
+} from '../storage/ai';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { PageList, type PageSize } from './PageList';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { Dialog } from './Dialog';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
 
@@ -147,6 +187,20 @@ function errorMessage(reason: ErrorReason): string {
   }
 }
 
+/** Câu lỗi AI; thêm gợi ý CORS khi dùng server local (Ollama, LM Studio). */
+function aiErrorMessage(error: unknown, settings: AiSettings): string {
+  if (!isLLMError(error)) return vi.aiErrorMessages.unknown;
+  const base = vi.aiErrorMessages[error.kind];
+  if (error.kind !== 'network' && error.kind !== 'unknown') return base;
+
+  const baseUrl =
+    settings.baseUrl.trim() === '' ? providerDefaultBaseUrl(settings.providerId) : settings.baseUrl;
+  if (settings.providerId === 'openai-compatible' && isLocalBaseUrl(baseUrl)) {
+    return `${base} ${vi.aiCorsHint}`;
+  }
+  return base;
+}
+
 export function App() {
   const [status, setStatus] = useState<Status>('empty');
   const [error, setError] = useState<ErrorReason>('unknown');
@@ -183,12 +237,55 @@ export function App() {
   const [recentStats, setRecentStats] = useState<DayStats[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
+  const [aiSettings, setAiSettings] = useState<AiSettings>(defaultAiSettings);
+  const [aiKey, setAiKey] = useState('');
+  const [aiKeyVisible, setAiKeyVisible] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiNotice, setAiNotice] = useState<{ tone: 'ok' | 'error'; message: string } | null>(null);
+  const [aiConsentOpen, setAiConsentOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>('system');
   const [searchRequest, setSearchRequest] = useState(0);
+
+  const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
+  const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
+  // Mục đang được tóm tắt riêng lẻ (khoá `start-end`); chỉ mục đó hiện trạng thái chạy.
+  const [summarizingKey, setSummarizingKey] = useState<string | null>(null);
+  const [summaryProgress, setSummaryProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [summaryError, setSummaryError] = useState<{ kind: LLMErrorKind; message: string } | null>(
+    null,
+  );
+  // Bản tóm tắt vừa tạo trong phiên này; những bản còn lại là lấy từ cache.
+  const [freshSummaryIds, setFreshSummaryIds] = useState<ReadonlySet<string>>(new Set());
+  const summaryAbortRef = useRef<AbortController | null>(null);
+
+  const [estimateDialog, setEstimateDialog] = useState<{
+    open: boolean;
+    estimate: WorkEstimate | null;
+    sectionsCount: number;
+    cachedCount: number;
+    sections: TocItem[];
+  } | null>(null);
+  const [batchOutcome, setBatchOutcome] = useState<{
+    failed: TocItem[];
+    error: { kind: LLMErrorKind; message: string } | null;
+  } | null>(null);
+  const [batchLoadingProgress, setBatchLoadingProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const batchAbortRef = useRef<AbortController | null>(null);
+  // Tăng mỗi khi mở hoặc đóng tài liệu để bỏ kết quả của lượt tóm tắt cũ.
+  const summaryGenerationRef = useRef(0);
   const autoOpenSupported =
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
     chrome.storage?.sync !== undefined;
+  const aiSupported =
+    typeof chrome !== 'undefined' &&
+    chrome.permissions !== undefined &&
+    chrome.storage?.local !== undefined;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLElement>(null);
@@ -208,6 +305,33 @@ export function App() {
   });
   const speedReadyRef = useRef(false);
   const settingsReadyRef = useRef(false);
+  const aiReadyRef = useRef(false);
+  const pendingConsentRef = useRef<(() => void) | null>(null);
+
+  /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
+  const resetSummaryRuns = useCallback(() => {
+    summaryGenerationRef.current += 1;
+    summaryAbortRef.current?.abort();
+    batchAbortRef.current?.abort();
+    summaryAbortRef.current = null;
+    batchAbortRef.current = null;
+    setSummarizingKey(null);
+    setSummaryProgress(null);
+    setSummaryError(null);
+    setBatchLoadingProgress(null);
+    setBatchOutcome(null);
+    setEstimateDialog(null);
+    setFreshSummaryIds(new Set());
+  }, []);
+
+  // Đóng viewer: huỷ request còn đang chờ.
+  useEffect(
+    () => () => {
+      summaryAbortRef.current?.abort();
+      batchAbortRef.current?.abort();
+    },
+    [],
+  );
   const lastActivityRef = useRef(Date.now());
   // Số phút/trang đã đọc chờ ghi vào thống kê ngày.
   const statsPendingRef = useRef({ minutes: 0, pages: 0 });
@@ -296,6 +420,7 @@ export function App() {
         setPageWords(
           Object.fromEntries(tocPages.map((page) => [page.page, countWords(page.text)])),
         );
+        setExtractedPages(tocPages.map((page) => ({ page: page.page, text: page.text })));
       } catch {
         flush();
         if (analysisTokenRef.current === token) setAnalysis({ phase: 'error' });
@@ -383,7 +508,14 @@ export function App() {
           size: file.size,
           pageCount: result.doc.numPages,
         });
+        void loadSummariesForDoc(hash).then((records) => {
+          setSummaries(records);
+        });
+      } else {
+        setSummaries([]);
       }
+      setExtractedPages([]);
+      resetSummaryRuns();
 
       analysisTokenRef.current += 1;
       const token = analysisTokenRef.current;
@@ -515,6 +647,474 @@ export function App() {
   const handleWordsPerMinute = useCallback((value: number) => {
     setSpeed(speedFromWordsPerMinute(value));
   }, []);
+
+  // Nạp tuỳ chọn AI và key đã lưu. Key không bao giờ đi qua log hay thông báo.
+  useEffect(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    if (!local) return;
+    void loadAiSettings(local)
+      .then(async (settings) => {
+        setAiSettings(settings);
+        const store = settings.saveKey ? local : chrome.storage?.session;
+        if (store) setAiKey(await loadApiKey(store));
+        aiReadyRef.current = true;
+      })
+      .catch(() => {
+        aiReadyRef.current = true;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!aiReadyRef.current) return;
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    if (!local) return;
+    void saveAiSettings(local, aiSettings);
+  }, [aiSettings]);
+
+  const handleAiProvider = useCallback((providerId: ProviderId) => {
+    setAiSettings((current) => ({
+      ...current,
+      providerId,
+      model: DEFAULT_MODELS[providerId],
+    }));
+    setAiNotice(null);
+  }, []);
+
+  const handleAiModel = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, model: value }));
+  }, []);
+
+  const handleAiBaseUrl = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, baseUrl: value }));
+  }, []);
+
+  const handleAiLanguage = useCallback((language: SummaryLanguage) => {
+    setAiSettings((current) => ({ ...current, language }));
+  }, []);
+
+  const handleAiKey = useCallback((value: string) => {
+    setAiKey(value);
+    setAiNotice(null);
+  }, []);
+
+  const handleAiKeyVisible = useCallback(() => {
+    setAiKeyVisible((visible) => !visible);
+  }, []);
+
+  // Chỉ ghi key khi rời ô nhập, tránh ghi storage theo từng ký tự.
+  const handleAiKeyBlur = useCallback(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    const store = aiSettings.saveKey ? local : chrome.storage?.session;
+    if (!local || !store) return;
+    void (aiKey.trim() === ''
+      ? clearApiKey(store)
+      : saveApiKey(store, aiKey).catch(() =>
+          setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }),
+        ));
+  }, [aiKey, aiSettings.saveKey]);
+
+  const handleAiClearKey = useCallback(() => {
+    const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+    const store = aiSettings.saveKey ? local : chrome.storage?.session;
+    setAiKey('');
+    setAiNotice(null);
+    if (store) void clearApiKey(store);
+  }, [aiSettings.saveKey]);
+
+  // Đổi nơi lưu key: xoá ở store cũ rồi ghi sang store mới để không còn bản sao.
+  const handleAiSaveKey = useCallback(
+    (saveKey: boolean) => {
+      setAiSettings((current) => ({ ...current, saveKey }));
+      const local = typeof chrome === 'undefined' ? undefined : chrome.storage?.local;
+      const session = typeof chrome === 'undefined' ? undefined : chrome.storage?.session;
+      const previous = keyScopeFor(!saveKey) === 'local' ? local : session;
+      const next = keyScopeFor(saveKey) === 'local' ? local : session;
+      if (!previous || !next) return;
+      void clearApiKey(previous)
+        .then(() => (aiKey.trim() === '' ? undefined : saveApiKey(next, aiKey)))
+        .catch(() => setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }));
+    },
+    [aiKey],
+  );
+
+  const runAiConnectionTest = useCallback(async () => {
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (!chromeApi?.permissions?.request) {
+      setAiNotice({ tone: 'error', message: vi.aiUnsupported });
+      return;
+    }
+
+    const model = resolveModel(aiSettings.providerId, aiSettings.model);
+    setAiBusy(true);
+    setAiNotice(null);
+    try {
+      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+      const granted = await chromeApi.permissions.request({ origins: [origin] });
+      if (!granted) {
+        setAiNotice({ tone: 'error', message: vi.aiPermissionDenied });
+        return;
+      }
+      await getProvider(aiSettings.providerId).checkConnection(
+        { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+        model,
+      );
+      setAiNotice({ tone: 'ok', message: vi.aiTestOk });
+    } catch (error) {
+      setAiNotice({ tone: 'error', message: aiErrorMessage(error, aiSettings) });
+    } finally {
+      setAiBusy(false);
+    }
+  }, [aiKey, aiSettings]);
+
+  const handleAiTestConnection = useCallback(() => {
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    if (aiSettings.consentGiven) {
+      void runAiConnectionTest();
+      return;
+    }
+    pendingConsentRef.current = () => void runAiConnectionTest();
+    setAiConsentOpen(true);
+  }, [aiKey, aiSettings, runAiConnectionTest]);
+
+  const handleAiConsentAccept = useCallback(() => {
+    setAiSettings((current) => ({ ...current, consentGiven: true }));
+    setAiConsentOpen(false);
+    const next = pendingConsentRef.current;
+    pendingConsentRef.current = null;
+    next?.();
+  }, []);
+
+  const handleAiConsentCancel = useCallback(() => {
+    pendingConsentRef.current = null;
+    setAiConsentOpen(false);
+  }, []);
+
+  const currentSection = useMemo(() => {
+    if (!toc || toc.items.length === 0) return null;
+    return (
+      toc.items.find((item) => pageNumber >= item.startPage && pageNumber <= item.endPage) ?? null
+    );
+  }, [toc, pageNumber]);
+
+  const currentSectionNoText = useMemo(() => {
+    if (!currentSection) return false;
+    const pages = pagesInSpan(extractedPages, currentSection);
+    if (pages.length === 0) {
+      return analysis.phase === 'done';
+    }
+    return !pages.some((page) => page.text.trim().length > 0);
+  }, [currentSection, extractedPages, analysis.phase]);
+
+  const aiModel = resolveModel(aiSettings.providerId, aiSettings.model);
+  const summaryConfig = useMemo<SummaryConfig>(
+    () => ({ providerId: aiSettings.providerId, model: aiModel, language: aiSettings.language }),
+    [aiSettings.providerId, aiModel, aiSettings.language],
+  );
+
+  // Chỉ bản tóm tắt khớp cấu hình hiện tại mới được tính là đã có (dấu ✦ và cache).
+  const summarizedSpans = useMemo(() => {
+    const spans = new Set<string>();
+    for (const item of toc?.items ?? []) {
+      if (findCachedSummary(summaries, item, summaryConfig, extractedPages)) {
+        spans.add(`${item.startPage}-${item.endPage}`);
+      }
+    }
+    return spans;
+  }, [toc, summaries, summaryConfig, extractedPages]);
+
+  const currentSummaryRecord = useMemo(
+    () =>
+      currentSection
+        ? (findCachedSummary(summaries, currentSection, summaryConfig, extractedPages) ?? null)
+        : null,
+    [currentSection, summaries, summaryConfig, extractedPages],
+  );
+  const isFromCache =
+    currentSummaryRecord !== null && !freshSummaryIds.has(currentSummaryRecord.id);
+  const currentSectionKey = currentSection
+    ? `${currentSection.startPage}-${currentSection.endPage}`
+    : null;
+  const summaryLoading = currentSectionKey !== null && summarizingKey === currentSectionKey;
+
+  // Lỗi của một mục không theo sang mục khác.
+  useEffect(() => {
+    setSummaryError(null);
+  }, [currentSectionKey, docId]);
+
+  const doSummarizeCurrentSection = useCallback(async () => {
+    if (!currentSection || !docId) return;
+    const section = currentSection;
+    const runDocId = docId;
+    const generation = summaryGenerationRef.current;
+
+    // `permissions.request` phải là lời gọi đầu tiên: Chrome chỉ chấp nhận trong thao tác của người dùng.
+    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+    if (chromeApi?.permissions) {
+      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+      const granted = await chromeApi.permissions.request({ origins: [origin] });
+      if (summaryGenerationRef.current !== generation) return;
+      if (!granted) {
+        setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
+        return;
+      }
+    }
+
+    const pages = pagesInSpan(extractedPages, section);
+    if (pages.length === 0 || !pages.some((page) => page.text.trim().length > 0)) {
+      setSummaryError({ kind: 'bad-response', message: vi.summarizeNoText });
+      return;
+    }
+
+    const abortCtrl = new AbortController();
+    summaryAbortRef.current?.abort();
+    summaryAbortRef.current = abortCtrl;
+    const isActive = () =>
+      summaryAbortRef.current === abortCtrl && summaryGenerationRef.current === generation;
+    setSummarizingKey(`${section.startPage}-${section.endPage}`);
+    setSummaryProgress(null);
+    setSummaryError(null);
+
+    try {
+      const provider = getProvider(aiSettings.providerId);
+      const result = await summarizeSection({
+        provider,
+        config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+        model: aiModel,
+        kind: analysis.phase === 'done' ? analysis.profile.kind : 'unknown',
+        title: section.title,
+        pages,
+        language: aiSettings.language,
+        signal: abortCtrl.signal,
+        onProgress: (done, total) => {
+          if (isActive()) setSummaryProgress({ done, total });
+        },
+      });
+
+      const language = sectionLanguage(aiSettings.language, pages);
+      const record: SummaryRecord = {
+        id: await summaryCacheKey({
+          docId: runDocId,
+          startPage: section.startPage,
+          endPage: section.endPage,
+          title: section.title,
+          providerId: aiSettings.providerId,
+          model: aiModel,
+          promptVersion: PROMPT_VERSION,
+          language: language,
+        }),
+        docId: runDocId,
+        startPage: section.startPage,
+        endPage: section.endPage,
+        title: section.title,
+        providerId: aiSettings.providerId,
+        model: aiModel,
+        promptVersion: PROMPT_VERSION,
+        language,
+        summary: result.summary,
+        keyPoints: result.keyPoints,
+        terms: result.terms,
+        createdAt: Date.now(),
+      };
+
+      if (!isActive()) return;
+      await saveSummary(record);
+      if (!isActive()) return;
+      // Bản mới hiện cho đúng mục đã yêu cầu; nếu người dùng đã sang mục khác thì chỉ vào danh sách.
+      setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
+      setFreshSummaryIds((current) => new Set(current).add(record.id));
+    } catch (error) {
+      if (!isActive()) return;
+      if (abortCtrl.signal.aborted) {
+        setSummaryError({ kind: 'cancelled', message: vi.aiErrorMessages.cancelled });
+      } else if (isLLMError(error)) {
+        setSummaryError({ kind: error.kind, message: aiErrorMessage(error, aiSettings) });
+      } else {
+        setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
+      }
+    } finally {
+      if (summaryAbortRef.current === abortCtrl) {
+        summaryAbortRef.current = null;
+        setSummarizingKey(null);
+        setSummaryProgress(null);
+      }
+    }
+  }, [currentSection, docId, aiSettings, aiKey, aiModel, extractedPages, analysis]);
+
+  const handleSummarizeCurrentSection = useCallback(() => {
+    if (!currentSection || !docId) return;
+
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+
+    if (!aiSettings.consentGiven) {
+      pendingConsentRef.current = () => void doSummarizeCurrentSection();
+      setAiConsentOpen(true);
+      return;
+    }
+    void doSummarizeCurrentSection();
+  }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection]);
+
+  const handleCancelSummary = useCallback(() => {
+    summaryAbortRef.current?.abort();
+  }, []);
+
+  const handleRetrySummary = useCallback(() => {
+    handleSummarizeCurrentSection();
+  }, [handleSummarizeCurrentSection]);
+
+  const handleSummarizeAllClick = useCallback(() => {
+    if (!toc || !docId) return;
+    if (aiConfigProblem(aiSettings, aiKey) !== null) {
+      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      return;
+    }
+    setBatchOutcome(null);
+    const plan = planSummarizeAll(toc.items, extractedPages, summaries, summaryConfig);
+    if (plan.todo.length === 0) {
+      setSummaryError({
+        kind: 'bad-response',
+        message: plan.cachedCount > 0 ? vi.summarizeAllNothingToDo : vi.summarizeAllNoText,
+      });
+      return;
+    }
+    setEstimateDialog({
+      open: true,
+      estimate: plan.estimate,
+      sectionsCount: plan.todo.length,
+      cachedCount: plan.cachedCount,
+      sections: plan.todo,
+    });
+  }, [toc, docId, aiSettings, aiKey, extractedPages, summaries, summaryConfig]);
+
+  const runSummarizeAll = useCallback(
+    async (sections: TocItem[]) => {
+      const runDocId = docId;
+      if (!runDocId) return;
+      const generation = summaryGenerationRef.current;
+
+      // `permissions.request` phải là lời gọi đầu tiên (xem doSummarizeCurrentSection).
+      const chromeApi = typeof chrome === 'undefined' ? null : chrome;
+      if (chromeApi?.permissions) {
+        const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
+        const granted = await chromeApi.permissions.request({ origins: [origin] });
+        if (summaryGenerationRef.current !== generation) return;
+        if (!granted) {
+          setBatchOutcome({
+            failed: [],
+            error: { kind: 'network', message: vi.aiPermissionDenied },
+          });
+          return;
+        }
+      }
+
+      const abortCtrl = new AbortController();
+      batchAbortRef.current?.abort();
+      batchAbortRef.current = abortCtrl;
+      const isActive = () =>
+        batchAbortRef.current === abortCtrl && summaryGenerationRef.current === generation;
+      setBatchOutcome(null);
+      setBatchLoadingProgress({ done: 0, total: sections.length });
+      let doneCount = 0;
+      const provider = getProvider(aiSettings.providerId);
+      const kind = analysis.phase === 'done' ? analysis.profile.kind : 'unknown';
+
+      const result = await runSummaryBatch({
+        items: sections,
+        concurrency: 2,
+        signal: abortCtrl.signal,
+        worker: async (section, signal) => {
+          const pages = pagesInSpan(extractedPages, section);
+          const language = sectionLanguage(aiSettings.language, pages);
+          const summary = await summarizeSection({
+            provider,
+            config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
+            model: aiModel,
+            kind,
+            title: section.title,
+            pages,
+            language: aiSettings.language,
+            signal,
+          });
+          const record: SummaryRecord = {
+            id: await summaryCacheKey({
+              docId: runDocId,
+              startPage: section.startPage,
+              endPage: section.endPage,
+              title: section.title,
+              providerId: aiSettings.providerId,
+              model: aiModel,
+              promptVersion: PROMPT_VERSION,
+              language: language,
+            }),
+            docId: runDocId,
+            startPage: section.startPage,
+            endPage: section.endPage,
+            title: section.title,
+            providerId: aiSettings.providerId,
+            model: aiModel,
+            promptVersion: PROMPT_VERSION,
+            language,
+            summary: summary.summary,
+            keyPoints: summary.keyPoints,
+            terms: summary.terms,
+            createdAt: Date.now(),
+          };
+          signal.throwIfAborted();
+          await saveSummary(record);
+          if (!isActive()) return;
+          doneCount += 1;
+          setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
+          setFreshSummaryIds((current) => new Set(current).add(record.id));
+          setBatchLoadingProgress({ done: doneCount, total: sections.length });
+        },
+      });
+
+      if (!isActive()) return;
+      batchAbortRef.current = null;
+      setBatchLoadingProgress(null);
+      setBatchOutcome({
+        failed: result.failed.map((entry) => entry.item),
+        error:
+          result.fatal === undefined
+            ? null
+            : isLLMError(result.fatal)
+              ? { kind: result.fatal.kind, message: aiErrorMessage(result.fatal, aiSettings) }
+              : { kind: 'unknown', message: vi.aiErrorMessages.unknown },
+      });
+    },
+    [docId, aiSettings, aiKey, aiModel, analysis, extractedPages],
+  );
+
+  const handleConfirmSummarizeAll = useCallback(() => {
+    if (!estimateDialog) return;
+    const { sections } = estimateDialog;
+    setEstimateDialog(null);
+
+    if (!aiSettings.consentGiven) {
+      pendingConsentRef.current = () => void runSummarizeAll(sections);
+      setAiConsentOpen(true);
+      return;
+    }
+    void runSummarizeAll(sections);
+  }, [estimateDialog, aiSettings.consentGiven, runSummarizeAll]);
+
+  const handleCancelSummarizeAll = useCallback(() => {
+    batchAbortRef.current?.abort();
+  }, []);
+
+  const handleRetryFailedSections = useCallback(() => {
+    if (!batchOutcome || batchOutcome.failed.length === 0) return;
+    void runSummarizeAll(batchOutcome.failed);
+  }, [batchOutcome, runSummarizeAll]);
 
   const markActive = useCallback(() => {
     lastActivityRef.current = Date.now();
@@ -712,7 +1312,10 @@ export function App() {
     setHighlight(null);
     setIndexRange(null);
     setRangeError(null);
-  }, []);
+    setSummaries([]);
+    setExtractedPages([]);
+    resetSummaryRuns();
+  }, [resetSummaryRuns]);
 
   const handleDeleteDocument = useCallback(async () => {
     if (docId === null) return;
@@ -731,8 +1334,11 @@ export function App() {
     setSearchIndex(null);
     setAnalysis({ phase: 'idle' });
     setPageWords({});
+    setSummaries([]);
+    setExtractedPages([]);
+    resetSummaryRuns();
     setToast(vi.deleteDocumentDone);
-  }, [docId, fileName]);
+  }, [docId, fileName, resetSummaryRuns]);
 
   const handleDeleteAll = useCallback(async () => {
     if (!window.confirm(vi.deleteAllConfirm)) return;
@@ -918,6 +1524,9 @@ export function App() {
       if (docRef.current === null || status !== 'ready') return;
       const target = event.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (target?.isContentEditable) return;
+      // Hộp thoại đang mở: phím tắt của viewer không được chạy phía sau nó.
+      if (document.querySelector('[aria-modal="true"]')) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
 
       if (focusMode) {
@@ -1303,6 +1912,24 @@ export function App() {
             settings={{
               theme,
               onChangeTheme: handleTheme,
+              ai: {
+                settings: aiSettings,
+                apiKey: aiKey,
+                keyVisible: aiKeyVisible,
+                supported: aiSupported,
+                busy: aiBusy,
+                notice: aiNotice,
+                onChangeProvider: handleAiProvider,
+                onChangeModel: handleAiModel,
+                onChangeBaseUrl: handleAiBaseUrl,
+                onChangeLanguage: handleAiLanguage,
+                onChangeKey: handleAiKey,
+                onToggleKeyVisible: handleAiKeyVisible,
+                onBlurKey: handleAiKeyBlur,
+                onClearKey: handleAiClearKey,
+                onChangeSaveKey: handleAiSaveKey,
+                onTestConnection: handleAiTestConnection,
+              },
               wordsPerMinute: readingWordsPerMinute,
               onChangeWordsPerMinute: handleWordsPerMinute,
               autoOpenPdf,
@@ -1312,6 +1939,40 @@ export function App() {
               onDeleteDocument: () => void handleDeleteDocument(),
               onDeleteAll: () => void handleDeleteAll(),
             }}
+            summary={{
+              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              onOpenSettings: () => {},
+              currentSection,
+              summary: currentSummaryRecord,
+              isCached: isFromCache,
+              loading: summaryLoading,
+              busyElsewhere: summarizingKey !== null && !summaryLoading,
+              loadingProgress: summaryProgress,
+              error: summaryError,
+              noText: currentSectionNoText,
+              onSummarize: handleSummarizeCurrentSection,
+              onRegenerate: handleSummarizeCurrentSection,
+              onCancel: handleCancelSummary,
+              onRetry: handleRetrySummary,
+              onSelectPage: goToPage,
+              canSummarizeAll: status === 'ready' && toc !== null && toc.items.length > 0,
+              summarizeAllProgress: batchLoadingProgress,
+              onSummarizeAllClick: handleSummarizeAllClick,
+              onCancelSummarizeAll: handleCancelSummarizeAll,
+              summarizeAllOutcome: batchOutcome,
+              onRetryFailed: handleRetryFailedSections,
+              estimateDialog: estimateDialog
+                ? {
+                    open: estimateDialog.open,
+                    estimate: estimateDialog.estimate,
+                    sectionsCount: estimateDialog.sectionsCount,
+                    cachedCount: estimateDialog.cachedCount,
+                    onConfirm: handleConfirmSummarizeAll,
+                    onCancel: () => setEstimateDialog(null),
+                  }
+                : null,
+            }}
+            summarizedSpans={summarizedSpans}
             searchRequest={searchRequest}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
@@ -1359,6 +2020,29 @@ export function App() {
             ×
           </button>
         </div>
+      )}
+
+      {aiConsentOpen && (
+        <Dialog titleId="ai-consent-title" onClose={handleAiConsentCancel}>
+          <h2 class="consent-dialog__title" id="ai-consent-title">
+            {vi.aiConsentTitle}
+          </h2>
+          <p class="consent-dialog__body">
+            {vi.aiConsentBody(vi.aiProviders[aiSettings.providerId])}
+          </p>
+          <div class="consent-dialog__actions">
+            <button
+              type="button"
+              class="settings-button settings-button--primary"
+              onClick={handleAiConsentAccept}
+            >
+              {vi.aiConsentAccept}
+            </button>
+            <button type="button" class="settings-button" onClick={handleAiConsentCancel}>
+              {vi.aiConsentCancel}
+            </button>
+          </div>
+        </Dialog>
       )}
 
       {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}

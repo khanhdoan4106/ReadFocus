@@ -32,3 +32,9 @@ export const DEFAULT_MODELS: Record<ProviderId, string> = {
  * cho một mục sách/paper mà vẫn tiết kiệm chi phí.
  */
 export const DEFAULT_MAX_OUTPUT_TOKENS = 8192;
+
+/** Model rỗng (người dùng xoá ô nhập) thì dùng model mặc định của provider. */
+export function resolveModel(providerId: ProviderId, model: string): string {
+  const trimmed = model.trim();
+  return trimmed === '' ? DEFAULT_MODELS[providerId] : trimmed;
+}

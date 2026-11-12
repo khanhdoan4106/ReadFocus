@@ -6,8 +6,9 @@ import { vi } from '../i18n/vi';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
 import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
+import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
-type SidebarTab = 'toc' | 'search' | 'focus' | 'settings';
+type SidebarTab = 'toc' | 'summary' | 'search' | 'focus' | 'settings';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -17,6 +18,8 @@ type SidebarProps = {
   wordsPerMinute: number;
   focus: FocusPanelProps;
   settings: SettingsPanelProps;
+  summary: SummaryPanelProps;
+  summarizedSpans: ReadonlySet<string>;
   searchRequest: number;
   onSelectPage: (page: number) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
@@ -30,6 +33,8 @@ export function Sidebar({
   wordsPerMinute,
   focus,
   settings,
+  summary,
+  summarizedSpans,
   searchRequest,
   onSelectPage,
   onSelectResult,
@@ -54,6 +59,15 @@ export function Sidebar({
           onClick={() => setTab('toc')}
         >
           {vi.tocTitle}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'summary'}
+          class={`sidebar__tab${tab === 'summary' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('summary')}
+        >
+          {vi.summaryTab}
         </button>
         <button
           type="button"
@@ -109,6 +123,7 @@ export function Sidebar({
                   const active = currentPage >= item.startPage && currentPage <= item.endPage;
                   const label = item.title || vi.tocPageRange(item.startPage, item.endPage);
                   const itemMinutes = roundedMinutes(estimateItemMinutes(item, wordsPerMinute));
+                  const hasSummary = summarizedSpans.has(`${item.startPage}-${item.endPage}`);
 
                   return (
                     <li key={`${item.startPage}-${item.level}-${index_}`}>
@@ -121,6 +136,15 @@ export function Sidebar({
                         onClick={() => onSelectPage(item.startPage)}
                       >
                         <span class="toc__title">{label}</span>
+                        {hasSummary && (
+                          <span
+                            class="toc__summary-badge"
+                            title={vi.summaryBadgeTitle}
+                            aria-label={vi.summaryBadgeTitle}
+                          >
+                            ✦
+                          </span>
+                        )}
                         {itemMinutes > 0 && (
                           <span class="toc__time">{vi.readingMinutes(itemMinutes)}</span>
                         )}
@@ -132,6 +156,10 @@ export function Sidebar({
               </ol>
             </>
           )}
+        </div>
+      ) : tab === 'summary' ? (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.summaryTab}>
+          <SummaryPanel {...summary} onOpenSettings={() => setTab('settings')} />
         </div>
       ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>

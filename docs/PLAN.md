@@ -186,11 +186,13 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 
 **Nhóm D** (T12–T13) trên `feat/v1-ai-core`, **Nhóm E** (T14–T16) trên `feat/v1-summary-ui`. Xong mỗi nhóm thì push, mở PR vào `main`, chạy `gh pr checks --watch` và sửa cho tới khi CI xanh. **Không merge, không tạo tag.**
 
-- [ ] **T12** Core: interface `LLMProvider`, chuẩn hoá lỗi, ước lượng token, chia đoạn, prompt theo loại tài liệu, parser JSON, cache key. Có test.
-- [ ] **T13** Bốn provider bằng `fetch`: OpenAI, Gemini, Anthropic, OpenAI-compatible; retry 429, abort, stream nếu gọn. Có test với fetch mock và fixture.
-- [ ] **T14** Cài đặt AI: lưu key (local/session), xin quyền host theo provider, kiểm tra kết nối, hộp xác nhận lần đầu; cập nhật `docs/PERMISSIONS.md` và test manifest.
-- [ ] **T15** Tab Tóm tắt: tóm tắt mục đang đọc, map-reduce cho mục dài, IndexedDB v2 + store `summaries` + migration, trích dẫn trang bấm được, tóm tắt toàn bộ có ước lượng và xác nhận, huỷ, đánh dấu trong mục lục.
-- [ ] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
+- [x] **T12** Core: interface `LLMProvider`, chuẩn hoá lỗi, ước lượng token, chia đoạn, prompt theo loại tài liệu, parser JSON, cache key. Có test.
+- [x] **T13** Bốn provider bằng `fetch`: OpenAI, Gemini, Anthropic, OpenAI-compatible; retry 429, abort, stream nếu gọn. Có test với fetch mock và fixture.
+- [x] **T14a** Nền Cài đặt AI: schema tuỳ chọn AI + chuẩn hoá, helper quyền host theo provider/base URL, lưu key `local`/`session` tách khỏi tuỳ chọn, `optional_host_permissions` trong manifest, cập nhật `docs/PERMISSIONS.md` và test manifest. Có test.
+- [x] **T14b** Giao diện Cài đặt AI: chọn provider/model/base URL/ngôn ngữ, ô key password + hiện/ẩn + Xoá key, tuỳ chọn "Không lưu key", Kiểm tra kết nối, hộp xác nhận lần đầu; câu chữ trong `src/i18n/vi.ts`.
+- [x] **T15a** Core tóm tắt + lưu cache: map-reduce hai tầng cho mục dài (`src/core/summarize/run.ts`), ước lượng số request/token đầu vào và chạy song song có giới hạn (`work.ts`), IndexedDB **version 2** thêm store `summaries` (index `by-doc`) + migration giữ dữ liệu version 1, `deleteDocumentData`/`clearAllData` xoá cả summaries. Có test, gồm test migration.
+- [x] **T15b** Giao diện tab Tóm tắt: tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng + xác nhận, tối đa 2 request song song, huỷ được, trích dẫn trang bấm được, đánh dấu mục đã tóm tắt trong tab Mục lục, lỗi `truncated` có câu riêng và nút thử lại; kết quả chỉ hiển thị dạng text.
+- [x] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
 
 ## Để sau (không làm ở v1)
 

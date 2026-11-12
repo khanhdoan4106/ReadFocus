@@ -2,7 +2,7 @@
 
 Extension Chrome giúp đọc PDF dễ chịu hơn: tự lập mục lục, tìm kiếm trong tài liệu, ước tính thời gian đọc, hẹn giờ theo chương và chế độ tập trung. Phù hợp với sách, bài báo khoa học và slide bài giảng.
 
-> 🚧 Đang phát triển bản v0. Kế hoạch chi tiết ở [`docs/PLAN.md`](docs/PLAN.md).
+> 🚧 Đang phát triển (v0 đã xong, đang làm v1: tóm tắt bằng AI). Kế hoạch chi tiết ở [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Tính năng
 
@@ -12,6 +12,7 @@ Extension Chrome giúp đọc PDF dễ chịu hơn: tự lập mục lục, tìm
 - **Ước tính thời gian đọc**: thời gian còn lại của mục đang đọc và của cả tài liệu; tốc độ đọc tự điều chỉnh theo nhịp đọc thực tế, có thể chỉnh tay trong Cài đặt.
 - **Tập trung**: hẹn giờ theo chương hoặc Pomodoro 25/5, focus mode làm mờ trang và giữ một dải sáng quanh dòng đang đọc, thống kê phút và số trang theo ngày.
 - **Nhận diện tài liệu**: phân loại sách, bài báo, slide; cảnh báo bản scan không có lớp chữ.
+- **Tóm tắt bằng AI (tuỳ chọn)**: tóm tắt từng mục hoặc cả tài liệu (tối đa 100 trang), có ý chính kèm số trang bấm được và thuật ngữ. Dùng key của chính bạn; mặc định tắt.
 - **Cài đặt**: giao diện sáng/tối/theo hệ thống, tốc độ đọc, tự mở PDF trên web, xoá dữ liệu đã lưu.
 
 ## Cài đặt
@@ -32,6 +33,37 @@ Bấm icon ReadFocus trên toolbar để mở viewer. Để mở PDF trên máy 
 - Chuột phải vào trang hoặc link PDF rồi chọn **Mở bằng ReadFocus**.
 - Hoặc bấm icon ReadFocus khi đang ở tab PDF.
 - Muốn mọi link `.pdf` tự mở bằng ReadFocus, bật **Tự mở PDF bằng ReadFocus** trong tab Cài đặt. Tính năng này mặc định tắt và chỉ xin quyền truy cập trang web khi bạn bật.
+
+## Tóm tắt bằng AI
+
+Tính năng này **tuỳ chọn** và mặc định tắt; mọi tính năng khác vẫn chạy khi không cấu hình AI. ReadFocus không có máy chủ riêng: bạn tự nhập API key và extension gọi thẳng tới nhà cung cấp bạn chọn.
+
+1. Mở tab **Cài đặt → AI**, chọn nhà cung cấp, nhập key và tên model (có sẵn model mặc định).
+2. Bấm **Kiểm tra kết nối**. Lần đầu, ReadFocus hỏi xác nhận việc gửi dữ liệu và Chrome xin quyền truy cập đúng địa chỉ API của nhà cung cấp.
+3. Mở tab **Tóm tắt**, bấm **Tóm tắt mục này** hoặc **Tóm tắt toàn bộ** (hiện ước lượng số request và token trước, bạn xác nhận mới chạy).
+
+Kết quả được lưu trên máy nên mở lại file sẽ thấy ngay (nhãn “Lấy từ cache”). Lấy key ở đâu:
+
+| Nhà cung cấp | Lấy key tại |
+|---|---|
+| OpenAI | <https://platform.openai.com/api-keys> |
+| Google Gemini | <https://aistudio.google.com/apikey> |
+| Anthropic | <https://console.anthropic.com/settings/keys> |
+| OpenAI-compatible | Không cần key nếu chạy cục bộ (Ollama, LM Studio); với dịch vụ khác, dùng key do dịch vụ cấp |
+
+Key mặc định được lưu trong `chrome.storage.local` trên máy này. Tắt **Lưu key trên máy này** để chỉ giữ key đến khi đóng trình duyệt; bấm **Xoá key** để xoá hẳn. Chi tiết ở [`docs/PRIVACY.md`](docs/PRIVACY.md).
+
+### Dùng Ollama (hoặc LM Studio) chạy cục bộ
+
+Dữ liệu không rời khỏi máy bạn.
+
+1. Cài Ollama và tải một model, ví dụ `ollama pull llama3.2`.
+2. Cho phép extension gọi Ollama. Mặc định Ollama chỉ chấp nhận request từ `127.0.0.1` và `0.0.0.0`; với extension trình duyệt, theo [FAQ của Ollama](https://docs.ollama.com/faq) bạn phải cho phép origin của extension một cách rõ ràng bằng biến môi trường `OLLAMA_ORIGINS`, ví dụ `chrome-extension://*` (mọi extension Chrome) hoặc đúng origin `chrome-extension://<ID extension>` hiện ở `chrome://extensions`. Thiếu bước này, trình duyệt chặn request (CORS) và ReadFocus báo không kết nối được.
+   - **Windows:** thoát Ollama (bấm biểu tượng Ollama ở khay hệ thống rồi chọn Quit) → mở Cài đặt (Windows 11) hoặc Control Panel (Windows 10), tìm "environment variables" và chọn **Edit environment variables for your account** → thêm hoặc sửa biến `OLLAMA_ORIGINS` với giá trị `chrome-extension://*` → bấm OK → mở lại Ollama từ menu Start.
+   - macOS và Linux: xem mục đặt biến môi trường trong FAQ trên, rồi khởi động lại Ollama.
+3. Trong **Cài đặt → AI** chọn **OpenAI-compatible**, đặt base URL `http://localhost:11434/v1`, nhập tên model, để trống key và bấm **Kiểm tra kết nối**.
+
+LM Studio làm tương tự, với base URL `http://localhost:1234/v1`.
 
 ## Phát triển
 
@@ -55,11 +87,12 @@ Quy trình nhánh, commit và PR: [`docs/WORKFLOW.md`](docs/WORKFLOW.md). Danh s
 - Chỉ lập chỉ mục tối đa 100 trang mỗi lần. Tài liệu dài hơn vẫn xem bình thường; viewer sẽ hỏi khoảng trang cần lập chỉ mục.
 - PDF có mật khẩu chưa mở được.
 - PDF trên web khác origin có thể bị CORS chặn; khi đó hãy tải file về máy rồi mở bằng nút **Mở PDF**.
-- Chưa dùng AI và chưa có bản tiếng Anh.
+- Tóm tắt AI chỉ chạy tối đa 100 trang mỗi lần “Tóm tắt toàn bộ”; chất lượng và chi phí phụ thuộc vào nhà cung cấp bạn chọn. PDF scan không tóm tắt được vì không có văn bản.
+- Chưa có bản tiếng Anh.
 
 ## Quyền riêng tư
 
-Mọi dữ liệu được xử lý và lưu ngay trên máy. Không có analytics, telemetry hay thư viện tải từ CDN. Chi tiết ở [`docs/PRIVACY.md`](docs/PRIVACY.md).
+Mọi dữ liệu được xử lý và lưu ngay trên máy. Không có analytics, telemetry hay thư viện tải từ CDN. Chỉ khi bạn bật AI và chủ động tóm tắt, văn bản của mục được chọn mới được gửi tới nhà cung cấp bạn đã chọn. Chi tiết ở [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
 ## Giấy phép
 
