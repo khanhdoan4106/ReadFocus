@@ -1,11 +1,12 @@
 # PROGRESS
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v2-flashcards` (Nhóm H, T22–T23); v0, v1, nhóm F (PR #9) và nhóm G (PR #10) đã merge
-- Task đang làm: nhóm H (T22–T23) xong; đang tự rà soát và mở PR `feat/v2-flashcards` → `main`
-- Bước tiếp theo chính xác: push `feat/v2-flashcards`, mở PR theo `.github/pull_request_template.md` kèm checklist thử tay, `gh pr checks --watch` đến khi xanh, đăng bảng tự rà soát (11 mục) thành comment, rồi DỪNG chờ người dùng merge. Sau đó v2 chỉ còn việc người dùng thử tay; hạng mục tiếp theo cần quyết định: embedding chạy trên máy (xem PLAN, mục "Để sau").
+- Nhánh hiện tại: `refactor/v3-split-app` (nhóm I, T24–T25); v0, v1, v2 đã merge vào main (PR #4–#11)
+- Task đang làm: Bước 0 của v3 xong (PLAN có mục v3, AGENTS mục 1 đã sang v3); sắp làm T24
+- Bước tiếp theo chính xác: T24 — thêm happy-dom và @testing-library/preact (kiểm tra version, license), viết test đặc tả hành vi cho App.tsx, xác nhận pass trên code hiện tại, rồi mới tách ở T25. Đo trước khi tách: `src/viewer/App.tsx` hiện 2104 dòng.
 
 ## Đã hoàn thành
+- [x] Bước 0 v3 — đo `App.tsx` = 2104 dòng (mục tiêu sau khi tách: dưới ~300); baseline trước khi tách: typecheck, lint, 456 test, build, package đều pass.
 - [x] Khung repo: AGENTS.md, docs/, workflow GitHub Actions (do người dùng tạo sẵn)
 - [x] T1 — Scaffold: Vite 8 + TS strict + Preact, crxjs v3, ESLint flat + Prettier, Vitest, manifest MV3 tối thiểu, icon tạm, đủ 6 script npm, `scripts/package.mjs` (commit c34aa8a và 108d72e)
 - [x] T2a — Viewer cơ bản: chọn file + kéo thả, pdf.js bundle worker cục bộ, render canvas + text layer, zoom theo nấc + vừa chiều rộng, điều hướng trang (nút, ô nhập, ←/→), lỗi not-pdf/quá lớn/mật khẩu/hỏng (commit 1a21c5c). Đã smoke-test trong trình duyệt: PDF 1 trang render đúng canvas 940×1217, text layer đọc được chữ, zoom 123% → 125%, file .txt báo lỗi đúng.
