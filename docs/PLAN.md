@@ -192,7 +192,7 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 - [x] **T14b** Giao diện Cài đặt AI: chọn provider/model/base URL/ngôn ngữ, ô key password + hiện/ẩn + Xoá key, tuỳ chọn "Không lưu key", Kiểm tra kết nối, hộp xác nhận lần đầu; câu chữ trong `src/i18n/vi.ts`.
 - [x] **T15a** Core tóm tắt + lưu cache: map-reduce hai tầng cho mục dài (`src/core/summarize/run.ts`), ước lượng số request/token đầu vào và chạy song song có giới hạn (`work.ts`), IndexedDB **version 2** thêm store `summaries` (index `by-doc`) + migration giữ dữ liệu version 1, `deleteDocumentData`/`clearAllData` xoá cả summaries. Có test, gồm test migration.
 - [x] **T15b** Giao diện tab Tóm tắt: tóm tắt mục đang đọc, tóm tắt toàn bộ có ước lượng + xác nhận, tối đa 2 request song song, huỷ được, trích dẫn trang bấm được, đánh dấu mục đã tóm tắt trong tab Mục lục, lỗi `truncated` có câu riêng và nút thử lại; kết quả chỉ hiển thị dạng text.
-- [ ] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
+- [x] **T16** Hoàn thiện: rà lỗi và câu chữ, cập nhật README (phần AI, cách lấy key), `docs/PRIVACY.md` (dữ liệu nào gửi đi, gửi cho ai, khi nào, key lưu ở đâu), CHANGELOG mục `[Unreleased]`.
 
 ## Để sau (không làm ở v1)
 

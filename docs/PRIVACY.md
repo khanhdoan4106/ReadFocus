@@ -1,6 +1,6 @@
 # Quyền riêng tư
 
-ReadFocus xử lý PDF và mọi dữ liệu đọc ngay trên máy. Bản v0 không gửi dữ liệu ra ngoài, không có analytics, telemetry, quảng cáo hay thư viện tải từ CDN.
+ReadFocus xử lý PDF và mọi dữ liệu đọc ngay trên máy. Mặc định không gửi dữ liệu ra ngoài. Không có analytics, telemetry, quảng cáo hay thư viện tải từ CDN. Ngoại lệ duy nhất là tóm tắt bằng AI: tuỳ chọn và chỉ chạy khi bạn chủ động (xem phần *Tóm tắt bằng AI*).
 
 ## Dữ liệu được lưu
 
@@ -11,7 +11,8 @@ Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension 
 - mục lục và chỉ mục tìm kiếm;
 - trang đang đọc và thời gian đã đọc;
 - thống kê số phút, số trang theo ngày;
-- cài đặt như giao diện, tốc độ đọc, Pomodoro và chiều cao dải sáng.
+- cài đặt như giao diện, tốc độ đọc, Pomodoro và chiều cao dải sáng;
+- bản tóm tắt AI đã tạo (cache, kèm nhà cung cấp và model đã dùng), nếu bạn từng tóm tắt.
 
 Ngoài ra:
 
@@ -40,6 +41,7 @@ Danh sách đầy đủ và lý do từng quyền nằm ở [`PERMISSIONS.md`](P
 - `contextMenus`, `activeTab`: thêm mục **Mở bằng ReadFocus** và đọc địa chỉ tab khi bạn bấm icon.
 - `declarativeNetRequestWithHostAccess`: thêm/gỡ rule chuyển hướng PDF khi bạn bật tính năng tự mở.
 - Quyền host `*://*/*` là quyền tuỳ chọn, chỉ được xin khi bạn bật tự mở PDF.
+- Quyền host tới địa chỉ API của nhà cung cấp AI cũng là tuỳ chọn, chỉ được xin khi bạn dùng tính năng AI.
 
 ## Xoá dữ liệu
 
@@ -50,6 +52,28 @@ Trong tab **Cài đặt** của viewer:
 
 Gỡ extension khỏi Chrome cũng xoá IndexedDB và `localStorage` của ReadFocus.
 
-## Bản v1
+## Tóm tắt bằng AI
 
-Khi thêm tính năng AI, ReadFocus sẽ chỉ dùng API key do bạn tự nhập và chỉ gửi nội dung khi bạn chủ động yêu cầu tóm tắt. Kế hoạch này chưa được triển khai trong v0.
+Tính năng này tắt cho tới khi bạn tự cấu hình trong **Cài đặt → AI**.
+
+**Gửi gì.** Khi bạn bấm **Tóm tắt mục này** hoặc **Tóm tắt toàn bộ**: văn bản đã trích của mục (hoặc các mục) được chọn, kèm tiêu đề mục, loại tài liệu và hướng dẫn tóm tắt. Không gửi file PDF gốc, ảnh trang, tên file, lịch sử đọc hay thống kê. **Kiểm tra kết nối** chỉ gửi một câu hỏi ngắn cố định, không có nội dung tài liệu.
+
+**Gửi cho ai.** Chỉ nhà cung cấp bạn chọn, qua kết nối thẳng từ trình duyệt của bạn, không qua máy chủ của ReadFocus:
+
+- OpenAI (`api.openai.com`), Google Gemini (`generativelanguage.googleapis.com`) hoặc Anthropic (`api.anthropic.com`);
+- hoặc địa chỉ OpenAI-compatible bạn nhập. Với Ollama/LM Studio chạy trên máy, dữ liệu không rời khỏi máy; nếu bạn trỏ tới dịch vụ khác thì dữ liệu đi tới dịch vụ đó.
+
+Cách nhà cung cấp lưu hoặc dùng dữ liệu tuỳ theo điều khoản và cài đặt tài khoản của họ; ReadFocus không kiểm soát được phần đó. Hãy cân nhắc trước khi gửi tài liệu nhạy cảm.
+
+**Khi nào.** Lần đầu bạn bấm **Kiểm tra kết nối**, ReadFocus hiện hộp xác nhận việc gửi dữ liệu; chỉ khi bạn đồng ý mới có request được gửi. Chrome cũng xin quyền truy cập đúng địa chỉ API của nhà cung cấp tại thời điểm đó; quyền này là tuỳ chọn và không được xin lúc cài. Sau đó, request chỉ được gửi khi bạn bấm một nút tóm tắt hoặc kiểm tra kết nối. **Tóm tắt toàn bộ** luôn hiện ước lượng số request và token rồi hỏi xác nhận.
+
+**Key lưu ở đâu.** Chỉ trên máy bạn, trong `chrome.storage.local` (mặc định). Nếu tắt **Lưu key trên máy này**, key nằm trong `chrome.storage.session` và mất khi đóng trình duyệt. Key không được đồng bộ qua tài khoản Chrome và chỉ được gửi tới nhà cung cấp bạn chọn (trong header của request). Lưu ý: `chrome.storage.local` không được mã hoá; người dùng khác của máy hoặc phần mềm đọc được hồ sơ Chrome của bạn có thể đọc được key.
+
+**Kết quả.** Bản tóm tắt được lưu trong IndexedDB (store `summaries`) để lần sau không phải gọi lại. Kết quả chỉ hiển thị dạng văn bản thuần; ReadFocus không render HTML và không tự mở link trong đó.
+
+**Cách xoá.**
+
+- **Xoá key** (Cài đặt → AI): xoá key, giữ nhà cung cấp và model.
+- **Xoá dữ liệu của …** hoặc **Xoá toàn bộ dữ liệu đọc**: xoá luôn các bản tóm tắt của tài liệu tương ứng.
+- Gỡ extension xoá toàn bộ dữ liệu của ReadFocus, gồm key và tóm tắt.
+- Thu hồi quyền truy cập nhà cung cấp: `chrome://extensions` → ReadFocus → Chi tiết → Quyền truy cập trang web. Nếu key có thể đã lộ, hãy thu hồi nó ở trang quản lý của nhà cung cấp.
