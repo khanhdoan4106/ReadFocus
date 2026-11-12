@@ -58,3 +58,9 @@ export function hybridRetrieve(input: RetrieveInput): RetrievedChunk[] {
     },
   );
 }
+
+/** Xem trước một đoạn: vài chục từ đầu, thêm dấu ba chấm khi bị cắt. Chỉ là text thuần. */
+export function chunkPreview(text: string, maxWords = 28): string {
+  const words = text.split(/\s+/u).filter((word) => word !== '');
+  return words.length <= maxWords ? words.join(' ') : `${words.slice(0, maxWords).join(' ')}…`;
+}

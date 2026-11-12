@@ -424,6 +424,28 @@ body {
   width: 100%;
 }
 
+.search__form {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.search__form .search__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.search__semantic {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.search__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .search__toggle {
   display: flex;
   align-items: center;

@@ -4,11 +4,7 @@ import { sha256Hex } from '../core/hash';
 import { isLLMError } from '../core/llm/errors';
 import { getProvider } from '../core/llm';
 import { DEFAULT_MODELS, resolveModel } from '../core/llm/models';
-import {
-  isLocalBaseUrl,
-  providerDefaultBaseUrl,
-  providerOriginPattern,
-} from '../core/llm/permissions';
+import { providerOriginPattern } from '../core/llm/permissions';
 import {
   aiConfigProblem,
   defaultAiSettings,
@@ -111,7 +107,9 @@ import { OcrPanel, type OcrReport } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { readTextLayers, renderPageForOcr } from './ocr';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
+import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
+import { useSemanticIndex } from './semantic';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
 
@@ -199,20 +197,6 @@ function errorMessage(reason: ErrorReason): string {
     case 'unknown':
       return vi.errorGeneric;
   }
-}
-
-/** Câu lỗi AI; thêm gợi ý CORS khi dùng server local (Ollama, LM Studio). */
-function aiErrorMessage(error: unknown, settings: AiSettings): string {
-  if (!isLLMError(error)) return vi.aiErrorMessages.unknown;
-  const base = vi.aiErrorMessages[error.kind];
-  if (error.kind !== 'network' && error.kind !== 'unknown') return base;
-
-  const baseUrl =
-    settings.baseUrl.trim() === '' ? providerDefaultBaseUrl(settings.providerId) : settings.baseUrl;
-  if (settings.providerId === 'openai-compatible' && isLocalBaseUrl(baseUrl)) {
-    return `${base} ${vi.aiCorsHint}`;
-  }
-  return base;
 }
 
 export function App() {
@@ -825,12 +809,17 @@ export function App() {
       ...current,
       providerId,
       model: DEFAULT_MODELS[providerId],
+      embedModel: '',
     }));
     setAiNotice(null);
   }, []);
 
   const handleAiModel = useCallback((value: string) => {
     setAiSettings((current) => ({ ...current, model: value }));
+  }, []);
+
+  const handleAiEmbedModel = useCallback((value: string) => {
+    setAiSettings((current) => ({ ...current, embedModel: value }));
   }, []);
 
   const handleAiBaseUrl = useCallback((value: string) => {
@@ -962,6 +951,12 @@ export function App() {
   }, [currentSection, extractedPages, analysis.phase]);
 
   const aiModel = resolveModel(aiSettings.providerId, aiSettings.model);
+  const semantic = useSemanticIndex({
+    docId,
+    pages: extractedPages,
+    settings: aiSettings,
+    apiKey: aiKey,
+  });
   const summaryConfig = useMemo<SummaryConfig>(
     () => ({ providerId: aiSettings.providerId, model: aiModel, language: aiSettings.language }),
     [aiSettings.providerId, aiModel, aiSettings.language],
@@ -2096,6 +2091,7 @@ export function App() {
                 notice: aiNotice,
                 onChangeProvider: handleAiProvider,
                 onChangeModel: handleAiModel,
+                onChangeEmbedModel: handleAiEmbedModel,
                 onChangeBaseUrl: handleAiBaseUrl,
                 onChangeLanguage: handleAiLanguage,
                 onChangeKey: handleAiKey,
@@ -2147,6 +2143,7 @@ export function App() {
                   }
                 : null,
             }}
+            semantic={semantic}
             summarizedSpans={summarizedSpans}
             searchRequest={searchRequest}
             onSelectPage={goToPage}

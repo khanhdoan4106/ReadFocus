@@ -9,7 +9,7 @@ import {
 import { chunkPages, textHash } from '../src/core/embed/chunk';
 import { fuseRankings } from '../src/core/embed/hybrid';
 import { embedKey, embedPrefix, embedSupported } from '../src/core/embed/models';
-import { chunkForHit, hybridRetrieve } from '../src/core/embed/retrieve';
+import { chunkForHit, chunkPreview, hybridRetrieve } from '../src/core/embed/retrieve';
 import { chunksToEmbed, embeddingId, runEmbedding } from '../src/core/embed/run';
 import type { Chunk, EmbeddingRecord } from '../src/core/embed/types';
 import { cosine, normalizeVector, rankBySimilarity } from '../src/core/embed/vector';
@@ -396,5 +396,12 @@ describe('hybridRetrieve', () => {
     ];
     expect(chunkForHit(many, { page: 1, text: 'delta epsilon' })?.id).toBe('1:1');
     expect(chunkForHit(many, { page: 5, text: 'x' })).toBeNull();
+  });
+});
+
+describe('chunkPreview', () => {
+  it('giữ nguyên đoạn ngắn và cắt đoạn dài theo từ', () => {
+    expect(chunkPreview('a  b\nc')).toBe('a b c');
+    expect(chunkPreview('a b c d', 2)).toBe('a b…');
   });
 });

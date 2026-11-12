@@ -5,6 +5,7 @@ import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
+import type { SemanticApi } from './semantic';
 import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
@@ -19,6 +20,7 @@ type SidebarProps = {
   focus: FocusPanelProps;
   settings: SettingsPanelProps;
   summary: SummaryPanelProps;
+  semantic: SemanticApi;
   summarizedSpans: ReadonlySet<string>;
   searchRequest: number;
   onSelectPage: (page: number) => void;
@@ -34,6 +36,7 @@ export function Sidebar({
   focus,
   settings,
   summary,
+  semantic,
   summarizedSpans,
   searchRequest,
   onSelectPage,
@@ -163,7 +166,12 @@ export function Sidebar({
         </div>
       ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
-          <SearchPanel index={index} focusRequest={searchRequest} onSelectResult={onSelectResult} />
+          <SearchPanel
+            index={index}
+            semantic={semantic}
+            focusRequest={searchRequest}
+            onSelectResult={onSelectResult}
+          />
         </div>
       ) : tab === 'focus' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>

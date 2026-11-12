@@ -97,6 +97,30 @@ export const vi = {
   searchNotReady: 'Đang chuẩn bị chỉ mục tìm kiếm…',
   searchNoResults: (query: string) => `Không tìm thấy “${query}”.`,
   searchResultCount: (count: number) => `${count} kết quả`,
+  searchSubmit: 'Tìm',
+  semanticToggle: 'Theo ý nghĩa',
+  semanticToggleHint: (provider: string) =>
+    `Mỗi lần tìm sẽ gửi câu bạn gõ tới ${provider} để so khớp theo ý nghĩa.`,
+  semanticUnsupported:
+    'Nhà cung cấp hiện tại không có API embeddings. Chọn OpenAI, Gemini hoặc OpenAI-compatible trong Cài đặt → AI.',
+  semanticMissingKey: 'Nhập API key trong Cài đặt → AI để tìm theo ý nghĩa.',
+  semanticEmpty:
+    'Chưa có chữ nào để tạo chỉ mục. Đợi ReadFocus lập chỉ mục xong hoặc nhận dạng chữ (OCR) trước.',
+  semanticNoIndex: 'Tài liệu này chưa có chỉ mục theo ý nghĩa nên đang tìm theo từ khoá.',
+  semanticPartialIndex: (pending: number) =>
+    `Chỉ mục theo ý nghĩa còn thiếu ${pending} đoạn (do tài liệu có thêm chữ). Tạo lại để tìm đủ.`,
+  semanticBuild: 'Tạo chỉ mục theo ý nghĩa',
+  semanticBuildMore: 'Bổ sung chỉ mục',
+  semanticBuilding: (done: number, total: number) => `Đang tạo chỉ mục: ${done}/${total} đoạn`,
+  semanticCancel: 'Huỷ',
+  semanticReady: 'Chỉ mục theo ý nghĩa đã sẵn sàng. Nhập câu cần tìm rồi bấm Tìm.',
+  semanticSearching: 'Đang tìm…',
+  semanticHybridNote: 'Kết quả kết hợp tìm theo từ khoá và theo ý nghĩa, xếp theo mức liên quan.',
+  semanticConfirmTitle: 'Tạo chỉ mục theo ý nghĩa?',
+  semanticConfirmBody: (chunks: number, requests: number, provider: string, model: string) =>
+    `ReadFocus sẽ gửi ${chunks} đoạn văn của tài liệu (khoảng ${requests} request) tới ${provider} (model ${model}) để tạo vector. Vector được lưu trên máy này và xoá cùng dữ liệu tài liệu. Việc này có thể tốn phí theo bảng giá của nhà cung cấp.`,
+  semanticConfirmAccept: 'Gửi và tạo chỉ mục',
+  semanticConfirmCancel: 'Để sau',
 
   contextMenuOpen: 'Mở bằng ReadFocus',
 
@@ -130,6 +154,10 @@ export const vi = {
   } satisfies Record<ProviderId, string>,
   aiModelLabel: 'Model',
   aiModelHint: 'Gõ đúng tên model mà nhà cung cấp hỗ trợ.',
+  aiEmbedModelLabel: 'Model embedding (tìm theo ý nghĩa)',
+  aiEmbedModelHint:
+    'Để trống để dùng model mặc định. Đổi model thì chỉ mục theo ý nghĩa cũ không dùng nữa và cần tạo lại.',
+  aiEmbedUnsupported: 'Anthropic không có embeddings nên không dùng được tìm theo ý nghĩa.',
   aiBaseUrlLabel: 'Địa chỉ API',
   aiBaseUrlHint:
     'Ví dụ http://localhost:11434/v1 cho Ollama hoặc http://localhost:1234/v1 cho LM Studio.',
