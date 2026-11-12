@@ -89,7 +89,7 @@ describe('IndexedDB v2 & summaries store', () => {
     await saveSummary(sampleRecord1);
 
     // 3. Đảm bảo dữ liệu v1 cũ vẫn còn
-    const v2Db = await openDB('readfocus', 2);
+    const v2Db = await openDB('readfocus');
     const oldDoc = await v2Db.get('documents', 'doc-old');
     expect(oldDoc).toEqual({
       id: 'doc-old',
