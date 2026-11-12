@@ -27,6 +27,24 @@ export function defaultOcrRange(
   return { from, to };
 }
 
+/**
+ * Khoảng cần lập chỉ mục lại sau OCR: hợp của khoảng đã lập chỉ mục và khoảng
+ * vừa OCR. Nếu hợp vượt giới hạn thì lấy khoảng vừa OCR (người dùng đang quan
+ * tâm chỗ đó).
+ */
+export function unionIndexRange(
+  indexed: PageRange | null,
+  recognized: PageRange,
+  maxPages = OCR_MAX_PAGES,
+): PageRange {
+  if (!indexed) return recognized;
+  const union = {
+    from: Math.min(indexed.from, recognized.from),
+    to: Math.max(indexed.to, recognized.to),
+  };
+  return union.to - union.from + 1 <= maxPages ? union : recognized;
+}
+
 export type OcrRangeError = 'invalid' | 'out-of-bounds' | 'too-long';
 
 export type OcrRangeResult = { ok: true; range: PageRange } | { ok: false; error: OcrRangeError };

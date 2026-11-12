@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { boxToPageRect } from '../src/core/ocr/geometry';
+import { ocrHighlightRects } from '../src/core/ocr/highlight';
 import { buildOcrOptions } from '../src/core/ocr/options';
 import {
   averageConfidence,
@@ -8,6 +9,7 @@ import {
   hasTextLayer,
   isLowConfidence,
   pagesToRecognize,
+  unionIndexRange,
   validateOcrRange,
 } from '../src/core/ocr/pages';
 import { toOcrPageResult } from '../src/core/ocr/result';
@@ -394,5 +396,52 @@ describe('withOcrEngine', () => {
       async () => 'xong',
     );
     expect(engine.terminated).toBe(2);
+  });
+});
+
+describe('unionIndexRange', () => {
+  it('hợp với khoảng đã lập chỉ mục khi vẫn trong giới hạn', () => {
+    expect(unionIndexRange({ from: 1, to: 40 }, { from: 30, to: 60 })).toEqual({ from: 1, to: 60 });
+  });
+
+  it('chưa có chỉ mục thì lấy khoảng vừa OCR', () => {
+    expect(unionIndexRange(null, { from: 5, to: 8 })).toEqual({ from: 5, to: 8 });
+  });
+
+  it('hợp vượt giới hạn thì chỉ lấy khoảng vừa OCR', () => {
+    expect(unionIndexRange({ from: 1, to: 100 }, { from: 150, to: 160 })).toEqual({
+      from: 150,
+      to: 160,
+    });
+  });
+});
+
+describe('ocrHighlightRects', () => {
+  const box = (x0: number) => ({ x0, y0: 100, x1: x0 + 100, y1: 140 });
+  const words = [
+    { text: 'Chương', confidence: 90, box: box(0) },
+    { text: 'một', confidence: 90, box: box(200) },
+    { text: 'giới', confidence: 90, box: box(400) },
+    { text: 'thiệu', confidence: 90, box: box(600) },
+    { text: 'Chương', confidence: 90, box: box(800) },
+  ];
+  const image = { width: 1000, height: 1000 };
+
+  it('tô mọi từ khớp một từ khoá, tính theo phần trăm của trang', () => {
+    expect(ocrHighlightRects(words, 'chương', false, image)).toEqual([
+      { left: 0, top: 10, width: 10, height: 4 },
+      { left: 80, top: 10, width: 10, height: 4 },
+    ]);
+  });
+
+  it('tôn trọng tuỳ chọn bỏ dấu', () => {
+    expect(ocrHighlightRects(words, 'chuong', false, image)).toEqual([]);
+    expect(ocrHighlightRects(words, 'chuong', true, image)).toHaveLength(2);
+  });
+
+  it('cụm nhiều từ chỉ khớp khi các từ liền nhau đúng thứ tự', () => {
+    expect(ocrHighlightRects(words, 'chương một', false, image)).toHaveLength(2);
+    expect(ocrHighlightRects(words, 'một chương', false, image)).toEqual([]);
+    expect(ocrHighlightRects(words, '', false, image)).toEqual([]);
   });
 });
