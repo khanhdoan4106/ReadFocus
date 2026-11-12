@@ -143,6 +143,19 @@ export function matchesQuery(text: string, query: string, ignoreDiacritics: bool
 }
 
 /**
+ * Đoạn chữ (span của text layer) có nằm trong câu trích dẫn không. Một trích dẫn
+ * thường trải qua nhiều span nên so ngược lại với `matchesQuery`; span quá ngắn
+ * bị bỏ để không tô nhầm các mẩu như "a", "của".
+ */
+export function spanInQuote(text: string, quote: string, ignoreDiacritics: boolean): boolean {
+  const span = comparable(text, ignoreDiacritics).trim();
+  if (span.length < SPAN_IN_QUOTE_MIN_CHARS) return false;
+  return comparable(quote, ignoreDiacritics).includes(span);
+}
+
+const SPAN_IN_QUOTE_MIN_CHARS = 4;
+
+/**
  * Cắt một cửa sổ từ quanh chỗ khớp đầu tiên. Giữ nguyên dấu trong snippet và
  * đánh dấu chỗ bị cắt bằng dấu ba chấm.
  */

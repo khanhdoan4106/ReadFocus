@@ -7,6 +7,7 @@ import {
   sanitizeDayStats,
   type DayStats,
 } from '../core/stats';
+import type { QaRecord } from '../core/ask/types';
 import type { EmbeddingRecord } from '../core/embed/types';
 import type { OcrPageRecord } from '../core/ocr/pages';
 import { sanitizeSummaryRecord, type SummaryRecord } from '../core/summarize/record';
@@ -45,7 +46,7 @@ export type PageText = {
  */
 export type DocScopedRecord = { id: string; docId: string } & Record<string, unknown>;
 export type { EmbeddingRecord };
-export type QaRecord = DocScopedRecord;
+export type { QaRecord };
 export type FlashcardRecord = DocScopedRecord;
 
 /** Các store có index `by-doc`, bị xoá cùng tài liệu. */
@@ -401,6 +402,49 @@ export async function deleteEmbeddingsForDoc(docId: string): Promise<void> {
     await tx.done;
   } catch {
     // Bỏ qua: vector thừa không ảnh hưởng kết quả vì được lọc theo khoá nguồn.
+  }
+}
+
+export async function saveQa(record: QaRecord): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.put('qa', record);
+  } catch {
+    // Không lưu được lịch sử thì vẫn hiện câu trả lời.
+  }
+}
+
+/** Lịch sử hỏi đáp của một tài liệu, mới nhất trước. */
+export async function loadQa(docId: string): Promise<QaRecord[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('qa', 'by-doc', docId);
+    return records
+      .filter((record) => typeof record.question === 'string' && typeof record.answer === 'string')
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteQa(id: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.delete('qa', id);
+  } catch {
+    // Bỏ qua: mục còn lại sẽ hiện lần sau.
+  }
+}
+
+export async function clearQaForDoc(docId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const keys = await db.getAllKeysFromIndex('qa', 'by-doc', docId);
+    const tx = db.transaction('qa', 'readwrite');
+    for (const key of keys) void tx.store.delete(key);
+    await tx.done;
+  } catch {
+    // Bỏ qua.
   }
 }
 

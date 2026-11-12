@@ -184,9 +184,42 @@ export const vi = {
     'Nếu dùng Ollama hoặc LM Studio, kiểm tra dịch vụ đang chạy và đã cho phép origin của extension (biến môi trường OLLAMA_ORIGINS) chưa.',
   aiConsentTitle: 'Gửi nội dung tới nhà cung cấp?',
   aiConsentBody: (provider: string) =>
-    `Khi tóm tắt hoặc kiểm tra kết nối, phần nội dung bạn chọn sẽ được gửi tới ${provider} và xử lý theo chính sách riêng của họ. ReadFocus không có máy chủ trung gian và không gửi dữ liệu nào khác.`,
+    `Khi tóm tắt, hỏi đáp hoặc kiểm tra kết nối, phần nội dung bạn chọn sẽ được gửi tới ${provider} và xử lý theo chính sách riêng của họ. ReadFocus không có máy chủ trung gian và không gửi dữ liệu nào khác.`,
   aiConsentAccept: 'Đồng ý và tiếp tục',
   aiConsentCancel: 'Để sau',
+
+  askTab: 'Hỏi đáp',
+  askPlaceholder: 'Hỏi về nội dung tài liệu này',
+  askSubmit: 'Hỏi',
+  askCancel: 'Huỷ',
+  askAsking: 'Đang tìm câu trả lời…',
+  askNoDoc: 'Chưa mở tài liệu nào để hỏi.',
+  askNotConfiguredHint:
+    'Để hỏi đáp, hãy mở tab Cài đặt → AI và thiết lập nhà cung cấp cùng API key.',
+  askNoText:
+    'Chưa có chữ nào của tài liệu để tìm câu trả lời. Đợi ReadFocus lập chỉ mục xong hoặc nhận dạng chữ (OCR) trước.',
+  askScopeNote: (semantic: boolean) =>
+    semantic
+      ? 'Tìm đoạn liên quan theo ý nghĩa và từ khoá trong các trang đã lập chỉ mục.'
+      : 'Tìm đoạn liên quan theo từ khoá trong các trang đã lập chỉ mục. Tạo chỉ mục theo ý nghĩa ở tab Tìm kiếm để kết quả tốt hơn.',
+  askSendNote: (provider: string) =>
+    `Mỗi câu hỏi gửi câu hỏi và vài đoạn liên quan của tài liệu tới ${provider}.`,
+  askNoContext:
+    'Không tìm thấy đoạn nào liên quan tới câu hỏi trong các trang đã lập chỉ mục. Thử diễn đạt khác hoặc dùng từ khoá có trong tài liệu.',
+  askNotFound: 'Tài liệu không có thông tin này.',
+  askUnverified:
+    'Một số trích dẫn không kiểm chứng được nên đã bị ẩn, hoặc câu trả lời không kèm trích dẫn nào. Hãy đối chiếu với trang gốc.',
+  askCitationsTitle: 'Trích dẫn',
+  askCitationOpen: (page: number) => `Mở trang ${page}`,
+  askRetry: 'Hỏi lại',
+  askCopy: 'Sao chép',
+  askCopied: 'Đã sao chép',
+  askDelete: 'Xoá',
+  askClearHistory: 'Xoá lịch sử hỏi đáp',
+  askHistoryEmpty: 'Chưa có câu hỏi nào cho tài liệu này.',
+  askQuestionLabel: 'Câu hỏi',
+  askAnswerLabel: 'Trả lời',
+  askModelInfo: (provider: string, model: string) => `${provider} · ${model}`,
 
   summaryTab: 'Tóm tắt',
   summaryBadgeTitle: 'Mục này đã có tóm tắt',

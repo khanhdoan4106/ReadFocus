@@ -37,6 +37,7 @@ export type SemanticApi = {
     query: string,
     keywordHits: readonly KeywordHit[],
     limit: number,
+    options?: { skipPermission?: boolean },
   ) => Promise<RetrievedChunk[] | null>;
   clearError: () => void;
 };
@@ -191,17 +192,24 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
   }, [docId, source, key, settings, pendingChunks.length, chunks, records, apiKey, baseUrl]);
 
   const search = useCallback(
-    async (query: string, keywordHits: readonly KeywordHit[], limit: number) => {
+    async (
+      query: string,
+      keywordHits: readonly KeywordHit[],
+      limit: number,
+      options: { skipPermission?: boolean } = {},
+    ) => {
       if (docId === null || source === null) return null;
       const scope = scopeRef.current;
       const text = query.trim();
       if (text === '') return [];
 
-      const granted = await requestOrigin(settings);
-      if (scopeRef.current !== scope) return null;
-      if (!granted) {
-        setError(vi.aiPermissionDenied);
-        return null;
+      if (options.skipPermission !== true) {
+        const granted = await requestOrigin(settings);
+        if (scopeRef.current !== scope) return null;
+        if (!granted) {
+          setError(vi.aiPermissionDenied);
+          return null;
+        }
       }
 
       const abort = new AbortController();

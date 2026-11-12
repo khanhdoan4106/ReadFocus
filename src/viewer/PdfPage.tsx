@@ -3,13 +3,15 @@ import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { ocrHighlightRects } from '../core/ocr/highlight';
 import { isLowConfidence } from '../core/ocr/pages';
 import type { OcrPageView } from '../core/ocr/types';
-import { matchesQuery } from '../core/search';
+import { matchesQuery, spanInQuote } from '../core/search';
 import { vi } from '../i18n/vi';
 import type { PageSize } from './PageList';
 
 export type TextHighlight = {
   query: string;
   ignoreDiacritics: boolean;
+  /** `query` là câu trích dẫn dài: tô các span nằm trong câu đó thay vì span chứa câu. */
+  quote?: boolean;
 };
 
 type PdfPageProps = {
@@ -27,7 +29,9 @@ function paintHighlight(container: HTMLElement, highlight: TextHighlight | null)
   for (const span of container.querySelectorAll<HTMLElement>('span')) {
     const matched =
       highlight !== null &&
-      matchesQuery(span.textContent ?? '', highlight.query, highlight.ignoreDiacritics);
+      (highlight.quote === true
+        ? spanInQuote(span.textContent ?? '', highlight.query, highlight.ignoreDiacritics)
+        : matchesQuery(span.textContent ?? '', highlight.query, highlight.ignoreDiacritics));
     span.classList.toggle('textLayer__match', matched);
   }
 }

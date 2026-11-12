@@ -109,6 +109,7 @@ import { readTextLayers, renderPageForOcr } from './ocr';
 import { MAX_FILE_BYTES, openPdfData, readPdfFile } from './pdf';
 import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
+import { useAsk } from './ask';
 import { useSemanticIndex } from './semantic';
 import { Sidebar } from './Sidebar';
 import { applyTheme, watchSystemTheme } from './theme';
@@ -221,6 +222,7 @@ export function App() {
     page: number;
     query: string;
     ignoreDiacritics: boolean;
+    quote?: boolean;
   } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [timer, setTimer] = useState<FocusTimer>(IDLE_TIMER);
@@ -567,6 +569,14 @@ export function App() {
     (page: number, query: string, ignoreDiacritics: boolean) => {
       goToPage(page);
       setHighlight({ page, query, ignoreDiacritics });
+    },
+    [goToPage],
+  );
+
+  const handleCitation = useCallback(
+    (page: number, quote: string) => {
+      goToPage(page);
+      setHighlight({ page, query: quote, ignoreDiacritics: true, quote: true });
     },
     [goToPage],
   );
@@ -951,11 +961,31 @@ export function App() {
   }, [currentSection, extractedPages, analysis.phase]);
 
   const aiModel = resolveModel(aiSettings.providerId, aiSettings.model);
+  const ensureAskConsent = useCallback(
+    (proceed: () => void) => {
+      if (aiSettings.consentGiven) {
+        proceed();
+        return;
+      }
+      pendingConsentRef.current = proceed;
+      setAiConsentOpen(true);
+    },
+    [aiSettings.consentGiven],
+  );
   const semantic = useSemanticIndex({
     docId,
     pages: extractedPages,
     settings: aiSettings,
     apiKey: aiKey,
+  });
+  const ask = useAsk({
+    docId,
+    pages: extractedPages,
+    index: searchIndex,
+    semantic,
+    settings: aiSettings,
+    apiKey: aiKey,
+    ensureConsent: ensureAskConsent,
   });
   const summaryConfig = useMemo<SummaryConfig>(
     () => ({ providerId: aiSettings.providerId, model: aiModel, language: aiSettings.language }),
@@ -2144,6 +2174,16 @@ export function App() {
                 : null,
             }}
             semantic={semantic}
+            askPanel={{
+              ask,
+              hasDocument: docId !== null,
+              hasText: extractedPages.some((page) => page.text.trim() !== ''),
+              configured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
+              semanticReady: semantic.state === 'ready',
+              providerId: aiSettings.providerId,
+              onOpenSettings: () => {},
+              onSelectCitation: handleCitation,
+            }}
             summarizedSpans={summarizedSpans}
             searchRequest={searchRequest}
             onSelectPage={goToPage}
