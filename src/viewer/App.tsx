@@ -68,6 +68,7 @@ import { useAiSettings } from './hooks/useAiSettings';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
 import { useSettings } from './hooks/useSettings';
+import { useShortcuts } from './hooks/useShortcuts';
 import { Sidebar } from './Sidebar';
 
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
@@ -1056,58 +1057,23 @@ export function App() {
     return () => clearTimeout(timer);
   }, [scale, scrollToPage]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (docRef.current === null || status !== 'ready') return;
-      const target = event.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
-      if (target?.isContentEditable) return;
-      // Hộp thoại đang mở: phím tắt của viewer không được chạy phía sau nó.
-      if (document.querySelector('[aria-modal="true"]')) return;
-      if (event.altKey || event.ctrlKey || event.metaKey) return;
-
-      if (focusMode) {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          toggleFocusMode();
-          return;
-        }
-        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-          event.preventDefault();
-          const delta = event.key === 'ArrowUp' ? -32 : 32;
-          moveBand(delta);
-          return;
-        }
-      }
-
-      if (event.key === '/') {
-        event.preventDefault();
-        if (focusMode) toggleFocusMode();
-        setSidebarOpen(true);
-        setSearchRequest((value) => value + 1);
-      } else if (event.key === 'f' || event.key === 'F') {
-        event.preventDefault();
-        toggleFocusMode();
-      } else if (event.key === 't' || event.key === 'T') {
-        event.preventDefault();
-        setSidebarOpen((open) => !open);
-      } else if (event.key === ' ') {
-        // Để nút đang có focus tự xử lý Space, tránh vừa bấm nút vừa đổi hẹn giờ.
-        if (target?.tagName === 'BUTTON' || target?.tagName === 'A') return;
-        event.preventDefault();
-        toggleTimer();
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        goToPage(pageNumberRef.current + 1);
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        goToPage(pageNumberRef.current - 1);
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [focusMode, goToPage, status, toggleFocusMode, toggleTimer]);
+  const handleOpenSearch = useCallback(() => {
+    setSidebarOpen(true);
+    setSearchRequest((value) => value + 1);
+  }, []);
+  const handleToggleSidebar = useCallback(() => setSidebarOpen((open) => !open), []);
+  useShortcuts({
+    ready: status === 'ready',
+    docRef,
+    pageNumberRef,
+    focusMode,
+    goToPage,
+    toggleFocusMode,
+    toggleTimer,
+    moveBand,
+    onOpenSearch: handleOpenSearch,
+    onToggleSidebar: handleToggleSidebar,
+  });
 
   const handleZoom = (direction: 1 | -1) => {
     anchorPageRef.current = pageNumberRef.current;
