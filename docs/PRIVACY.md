@@ -7,13 +7,13 @@ ReadFocus xử lý PDF và mọi dữ liệu đọc ngay trên máy. Mặc đị
 Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension (cơ sở dữ liệu `readfocus`):
 
 - tên file, kích thước, số trang, thời điểm mở;
-- văn bản trích từ từng trang (để tìm kiếm và ước tính thời gian);
+- văn bản trích từ từng trang (để tìm kiếm và ước tính thời gian), kể cả chữ do OCR nhận dạng kèm vị trí từng từ;
 - mục lục và chỉ mục tìm kiếm;
 - trang đang đọc và thời gian đã đọc;
 - thống kê số phút, số trang theo ngày;
 - cài đặt như giao diện, tốc độ đọc, Pomodoro và chiều cao dải sáng;
 - bản tóm tắt AI đã tạo (cache, kèm nhà cung cấp và model đã dùng), nếu bạn từng tóm tắt;
-- vector tìm theo ý nghĩa và lịch sử hỏi đáp của từng tài liệu, nếu bạn từng dùng hai tính năng đó.
+- vector tìm theo ý nghĩa, lịch sử hỏi đáp và thẻ ôn tập (kèm hộp và ngày ôn) của từng tài liệu, nếu bạn từng dùng các tính năng đó.
 
 Ngoài ra:
 
@@ -92,3 +92,15 @@ Hai tính năng này dùng cùng nhà cung cấp, key và quyền truy cập nh�
 **Hỏi đáp.** Mỗi câu hỏi là một request, gửi *câu hỏi và vài đoạn văn liên quan nhất của tài liệu* (kèm số trang). Câu hỏi và câu trả lời được lưu trong IndexedDB (store `qa`) để xem lại; chỉ hiển thị dạng văn bản thuần. Trích dẫn trang chỉ được hiện khi kiểm chứng được với văn bản của trang đó.
 
 **Cách xoá.** Nút **Xoá** và **Xoá lịch sử hỏi đáp** trong tab Hỏi đáp; **Xoá dữ liệu của …** và **Xoá toàn bộ dữ liệu đọc** xoá luôn vector và lịch sử hỏi đáp.
+
+## Nhận dạng chữ (OCR)
+
+OCR chạy hoàn toàn trên máy: thư viện, file WebAssembly và dữ liệu ngôn ngữ (tiếng Việt, tiếng Anh) nằm sẵn trong extension, không tải gì từ mạng và không gửi ảnh trang hay chữ nhận dạng đi đâu. Chữ nhận dạng được lưu cùng văn bản các trang (IndexedDB, store `pages`) và bị xoá cùng dữ liệu tài liệu.
+
+## Thẻ ôn tập
+
+Thẻ tạo từ các bản tóm tắt đã có không gọi mạng. **Tạo thêm bằng AI** gửi văn bản của mục đang đọc tới nhà cung cấp AI (một request), qua hộp đồng ý và quyền truy cập như tóm tắt. Thẻ lưu trong IndexedDB (store `flashcards`), xoá được từng thẻ hoặc tất cả trong tab Thẻ ôn tập, và bị xoá cùng dữ liệu tài liệu. **Xuất CSV** chỉ tạo file tải về trên máy bạn.
+
+## Chưa có: embedding chạy trên máy
+
+Tìm theo ý nghĩa hiện luôn gửi văn bản và câu tìm tới API của nhà cung cấp (xem phần trên). Phương án chạy model ngay trên máy, tải trọng số từ Hugging Face một lần rồi dùng offline, đang hoãn vì thư viện cần dùng còn chứa chuỗi CDN trong bundle. Khi làm, phần này sẽ ghi rõ lúc nào tải gì, lưu ở đâu và xoá thế nào.

@@ -282,7 +282,7 @@ Nhóm G, nhánh `feat/v2-ask`:
 Nhóm H, nhánh `feat/v2-flashcards`:
 
 - [x] **T22** Flashcard: tạo từ cache, tạo thêm bằng AI, Leitner, xuất CSV.
-- [ ] **T23** Hoàn thiện v2: PRIVACY, PERMISSIONS, README, CHANGELOG, rà câu chữ toàn bộ phần mới, kiểm tra dark mode và bàn phím.
+- [x] **T23** Hoàn thiện v2: PRIVACY, PERMISSIONS, README, CHANGELOG, rà câu chữ toàn bộ phần mới, kiểm tra dark mode và bàn phím.
 
 Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
 
@@ -302,6 +302,7 @@ Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
 
 ## Để sau (không làm ở v2)
 
+- **Embedding chạy trên máy** (`@huggingface/transformers` với model `Xenova/multilingual-e5-small` bản `model_quantized.onnx`, ~118 MB + tokenizer ~17 MB, tải từ Hugging Face có xác nhận dung lượng, lưu Cache API, nút xoá model). Hoãn vì `@huggingface/transformers` 4.3.2 còn chuỗi `https://cdn.jsdelivr.net/npm/onnxruntime...` mặc định trong `dist/transformers.web.min.js`, trái luật cấm CDN trong `dist/`. Cần quyết định từ người dùng (ví dụ plugin thay chuỗi như đã làm với tesseract.js, kèm đặt `env.backends.onnx.wasm.wasmPaths` về `chrome.runtime.getURL`) trước khi làm. `huggingface.co` trả CORS phản chiếu origin nên có thể không cần host permission; cần thử trong Chrome.
 - Chrome Side Panel API, Chrome built-in AI (Gemini Nano, Summarizer API).
 - Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật.
 - Đăng Chrome Web Store, Firefox.
