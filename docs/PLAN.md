@@ -198,6 +198,111 @@ Nhánh và PR theo nhóm: **Nhóm A** (T1–T3) trên `feat/v0-foundation`, **Nh
 
 - Chrome Side Panel API.
 - Chrome built-in AI (Gemini Nano, Summarizer API).
-- Hỏi đáp theo tài liệu có trích dẫn trang, tìm kiếm ngữ nghĩa (transformers.js, `multilingual-e5-small`), flashcard.
-- OCR cho bản scan (tesseract.js, gói `vie`).
 - Bản tiếng Anh (`src/i18n/en.ts`), Firefox, đăng Chrome Web Store tự động.
+
+(Hỏi đáp có trích dẫn, tìm kiếm ngữ nghĩa, flashcard và OCR đã chuyển sang v2.)
+
+## v2 — OCR, tìm kiếm theo ý nghĩa, hỏi đáp, flashcard
+
+Mục tiêu: đọc được PDF scan, tìm theo ý nghĩa, hỏi đáp có trích dẫn trang, flashcard.
+
+### Nguyên tắc chung
+
+- Mọi tính năng v0 và v1 vẫn chạy như cũ. Tính năng v2 nào cũng là tuỳ chọn.
+- Việc nặng (OCR, tạo embedding) chạy trong Web Worker, có tiến độ, huỷ được, không chặn UI. Giới hạn 100 trang mỗi lần, giống v0.
+- MV3 cấm remote code. Mọi thư viện, worker và file `.wasm` phải được bundle vào extension. Cấu hình rõ đường dẫn cục bộ cho worker, core wasm và runtime ONNX; nhiều thư viện mặc định tải từ jsdelivr/unpkg.
+- CI có bước grep cấm tham chiếu CDN trong `dist/`. Nếu thư viện còn chứa sẵn chuỗi URL CDN mặc định trong bundle dù đã cấu hình đường dẫn cục bộ thì DỪNG VÀ HỎI người dùng. Không tự sửa workflow, không lách bước grep.
+- Kết quả AI vẫn chỉ hiển thị dạng text, không `innerHTML`, không render markdown (PDF có thể chứa prompt injection).
+- Với mỗi thư viện mới: kiểm tra phiên bản hiện tại, license (phải tương thích MIT), kích thước thêm vào file zip; ghi vào `PROGRESS.md` mục Dependency.
+
+### OCR (`src/core/ocr/`, worker riêng)
+
+- Dùng `tesseract.js`, bundle cục bộ worker, core wasm và dữ liệu ngôn ngữ `vie` + `eng`. Ưu tiên bộ dữ liệu "fast" để zip nhẹ. Tắt chế độ tạo worker từ blob URL nếu CSP của extension chặn.
+- Kích hoạt khi T4 phát hiện bản scan, hoặc trang không có lớp chữ: hiện nút "Nhận dạng chữ (OCR)" kèm chọn khoảng trang (mặc định trang đang đọc ± vài trang, tối đa 100).
+- Quy trình: render trang bằng pdf.js ra canvas (~2x) → OCR tuần tự từng trang → lưu text vào store `pages` kèm `source: 'ocr'` và độ tin cậy trung bình.
+- Sau OCR chạy lại phân loại tài liệu, mục lục (không còn cỡ chữ nên dựa vào mẫu "Chương/Chapter/..." và fallback), chỉ mục tìm kiếm, thời gian đọc. Tóm tắt AI dùng được trên text OCR.
+- Tìm kiếm trên trang OCR: nhảy đúng trang, tô vùng chữ bằng bounding box của từ (lớp phủ riêng, không dùng text layer của pdf.js).
+- UI ghi rõ chữ trên trang là chữ nhận dạng, có thể sai; trang độ tin cậy thấp được đánh dấu.
+- Test: logic thuần (chọn khoảng trang, gộp kết quả, ánh xạ bounding box sang toạ độ trang theo zoom). Tesseract thật không chạy trong unit test; tách interface để mock. Fixture PDF scan tiếng Việt nhỏ do script tự sinh để thử tay.
+
+### Embedding và tìm kiếm theo ý nghĩa (`src/core/embed/`)
+
+- Chia văn bản thành đoạn ~200–400 từ, gối đầu nhẹ, mỗi đoạn giữ số trang.
+- Hai nguồn embedding, chọn trong Cài đặt → AI:
+  1. Trên máy: `@huggingface/transformers` chạy model đa ngôn ngữ nhỏ hỗ trợ tiếng Việt (ví dụ `multilingual-e5-small` ONNX lượng tử hoá). Tên model và kích thước tra trên Hugging Face, ghi nguồn vào `PROGRESS.md`. Runtime và wasm bundle cục bộ. Trọng số tải từ Hugging Face lần đầu, có hộp xác nhận hiện dung lượng, lưu Cache API, dùng offline từ lần sau, có nút xoá model. Kiểm tra fetch tới huggingface.co từ trang extension có cần host permission (CORS); nếu cần thì thêm đúng origin vào `optional_host_permissions`, xin lúc người dùng bấm tải. Quyền rộng hơn thì hỏi người dùng.
+  2. Qua API theo key v1: OpenAI và Gemini (endpoint embeddings chính thức), OpenAI-compatible (`/v1/embeddings`, ví dụ Ollama). Anthropic không có embeddings nên ẩn lựa chọn. Tra tên model embedding hiện tại trong tài liệu chính thức. Gửi theo lô; retry và huỷ dùng lại tầng http của v1.
+  Với model e5 phải thêm tiền tố `query: ` / `passage: ` đúng model card.
+- Lưu vector trong IndexedDB (store `embeddings`, key gồm docId + đoạn + nguồn + model). Đổi model thì không dùng lẫn vector cũ.
+- Tìm kiếm: brute-force cosine (≤100 trang), hàm thuần có test. Tab Tìm kiếm thêm công tắc "Theo ý nghĩa". Kết quả hybrid giữa MiniSearch và cosine, có test thứ tự xếp hạng. Chưa có embedding thì chỉ tìm từ khoá như cũ, kèm gợi ý bật.
+
+### Hỏi đáp (`src/core/ask/`, tab "Hỏi đáp")
+
+- Phạm vi: tài liệu đang mở, các trang đã lập chỉ mục.
+- Ngữ cảnh: top-k đoạn liên quan. Có embedding thì dùng hybrid, không thì MiniSearch (có tìm không dấu). Giới hạn ngân sách token đầu vào.
+- Prompt: mỗi đoạn gắn nhãn trang. Trả JSON `{ "answer": string, "citations": [{ "page": number, "quote": string }], "found": boolean }`. Không đủ thông tin thì `found=false` và UI hiện "Tài liệu không có thông tin này".
+- Kiểm tra trích dẫn: trang phải nằm trong các đoạn đã gửi; quote phải xuất hiện trong text trang đó (so sánh sau chuẩn hoá NFC, khoảng trắng, không dấu). Trích dẫn không khớp thì bỏ và đánh dấu câu trả lời có trích dẫn không kiểm chứng được.
+- UI: ô hỏi; câu trả lời dạng text, trích dẫn bấm được để nhảy trang và tô đoạn quote; nút Huỷ, Sao chép, Hỏi lại; nhãn provider/model. Lịch sử theo tài liệu lưu trong IndexedDB (store `qa`), có nút xoá.
+- Mỗi câu hỏi là một request. Lần đầu dùng đi qua hộp đồng ý và xin quyền host của v1 (dùng chung cơ chế).
+- Lỗi dùng chung bộ lỗi đã chuẩn hoá và câu tiếng Việt của v1.
+
+### Flashcard (`src/core/flashcard/`)
+
+- Tạo thẻ miễn phí, không gọi API, từ cache tóm tắt: thuật ngữ → định nghĩa, ý chính → câu hỏi điền chỗ trống. Mỗi thẻ ghi trang nguồn.
+- Tuỳ chọn "Tạo thêm bằng AI" cho một mục: một request, JSON `{ cards: [{ front, back, page }] }`, parser chịu lỗi như v1.
+- Ôn tập kiểu Leitner 5 hộp: Nhớ / Chưa nhớ, lịch ôn theo ngày. Hàm thuần có test.
+- Xuất CSV dùng được với Anki (front, back, tag là tên tài liệu và trang), test escape dấu phẩy, ngoặc kép, xuống dòng.
+- Lưu trong IndexedDB (store `flashcards`).
+
+### IndexedDB version 3
+
+- Thêm store `embeddings`, `qa`, `flashcards` (đều có index `by-doc`). Store `pages` chấp nhận trường `source` tuỳ chọn.
+- Migration từ v1 và từ v2 giữ nguyên dữ liệu cũ (gồm `summaries`, `progress`, `settings`), có test cho cả hai đường.
+- `deleteDocumentData` và `clearAllData` xoá cả các store mới. Nút xoá model embedding trên máy nằm riêng trong Cài đặt.
+
+### Quyền riêng tư và docs
+
+- `docs/PRIVACY.md`: OCR chạy trên máy; tải model từ Hugging Face khi nào, lưu ở đâu, xoá thế nào; dữ liệu gửi đi khi dùng embeddings API và hỏi đáp.
+- `docs/PERMISSIONS.md` cập nhật nếu có quyền mới. README có phần v2. CHANGELOG mục `[Unreleased]`.
+
+### Danh sách task v2
+
+Ba nhóm, mỗi nhóm một nhánh và một PR. Xong mỗi nhóm: tự rà soát, push, mở PR, `gh pr checks --watch` đến khi xanh, đăng bảng rà soát thành comment, rồi dừng chờ merge. Nhóm sau tạo nhánh từ `main` mới nhất. **Không merge, không tag.**
+
+Nhóm F, nhánh `feat/v2-ocr`:
+
+- [ ] **T17** OCR core: bundle `tesseract.js` cục bộ (worker, core, vie + eng), worker OCR, interface để mock, DB v3 + migration (làm ở đây vì T18 cần trường `source`), logic thuần có test.
+- [ ] **T18** OCR UI: nút và chọn khoảng trang, tiến độ, huỷ, lưu text, chạy lại profile/mục lục/chỉ mục/thời gian đọc, lớp phủ tô chữ cho kết quả tìm kiếm, cảnh báo độ tin cậy, fixture scan tiếng Việt.
+
+Nhóm G, nhánh `feat/v2-ask`:
+
+- [ ] **T19** Embedding: chia đoạn, hai nguồn (trên máy và API), tải và xoá model có xác nhận, lưu vector, cosine và hybrid có test.
+- [ ] **T20** Tìm kiếm theo ý nghĩa trong tab Tìm kiếm.
+- [ ] **T21** Hỏi đáp: lấy ngữ cảnh, prompt, kiểm tra trích dẫn, tab Hỏi đáp, lịch sử.
+
+Nhóm H, nhánh `feat/v2-flashcards`:
+
+- [ ] **T22** Flashcard: tạo từ cache, tạo thêm bằng AI, Leitner, xuất CSV.
+- [ ] **T23** Hoàn thiện v2: PRIVACY, PERMISSIONS, README, CHANGELOG, rà câu chữ toàn bộ phần mới, kiểm tra dark mode và bàn phím.
+
+Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
+
+### Danh sách tự rà soát trước mỗi PR
+
+1. Không có request mạng ngoài ý muốn (kể cả khi huỷ, lỗi, đổi tài liệu, đóng viewer); worker dừng hẳn.
+2. Đổi tài liệu/mục, unmount khi đang chạy thì abort; kết quả về muộn không đè chỗ khác.
+3. Không lộ key, header auth hay body response trong log và thông báo lỗi.
+4. Không `innerHTML`, markdown, link tự động; trích dẫn ngoài phạm vi bị loại.
+5. `chrome.permissions.request` luôn gọi đồng bộ trong thao tác người dùng.
+6. Cache và vector không dùng lẫn giữa model, nguồn, ngôn ngữ khác nhau.
+7. Không tham chiếu CDN trong `dist/`, không remote code; ghi lại kích thước zip.
+8. Migration giữ dữ liệu cũ; xoá tài liệu và xoá toàn bộ xoá đủ store mới.
+9. Hộp thoại: `role="dialog"`, `aria-modal`, bẫy Tab, Esc, trả focus; phím tắt không chạy khi đang gõ hoặc hộp đang mở.
+10. Câu chữ tiếng Việt tự nhiên, thống nhất; lỗi nói rõ người dùng cần làm gì; dark mode đúng.
+11. Test kiểm hành vi thật và trượt khi hoàn tác phần sửa.
+
+## Để sau (không làm ở v2)
+
+- Chrome Side Panel API, Chrome built-in AI (Gemini Nano, Summarizer API).
+- Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật.
+- Đăng Chrome Web Store, Firefox.
+- Hỏi đáp trên nhiều tài liệu.
