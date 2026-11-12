@@ -235,3 +235,5 @@ export function useAiSettings() {
     },
   };
 }
+
+export type AiApi = ReturnType<typeof useAiSettings>;

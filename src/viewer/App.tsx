@@ -1,29 +1,13 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
-import { isLLMError } from '../core/llm/errors';
-import { getProvider } from '../core/llm';
-import { providerOriginPattern } from '../core/llm/permissions';
 import { aiConfigProblem } from '../core/llm/settings';
-import type { LLMErrorKind } from '../core/llm/types';
 import type { TextPage } from '../core/summarize/chunk';
-import { PROMPT_VERSION } from '../core/summarize/prompt';
-import { summaryCacheKey } from '../core/summarize/cache-key';
-import { runSummaryBatch } from '../core/summarize/batch';
-import {
-  findCachedSummary,
-  planSummarizeAll,
-  sectionLanguage,
-  type SummaryConfig,
-} from '../core/summarize/plan';
-import { summarizeSection } from '../core/summarize/run';
-import { pagesInSpan, type WorkEstimate } from '../core/summarize/work';
-import type { SummaryRecord } from '../core/summarize/record';
 import { hasTextLayer, type PageRange } from '../core/ocr/pages';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
-import { buildProfile, type DocumentProfile, type PageSample } from '../core/profile';
+import { buildProfile, type PageSample } from '../core/profile';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { chapterEstimate } from '../core/reading-time';
 import { buildSearchIndex, type SearchIndex } from '../core/search';
@@ -36,40 +20,32 @@ import {
   clearPageTexts,
   deleteDocumentData,
   loadProgress,
-  loadSummariesForDoc,
   recordDocumentOpen,
   savePageTexts,
   saveProgress,
-  saveSummary,
-  type TocItem,
 } from '../storage/db';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from './extract';
 import { OcrPanel } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { openPdfData, readPdfFile } from './pdf';
-import { aiErrorMessage } from './ai-errors';
 import { Dialog } from './Dialog';
 import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
+import type { Analysis } from './hooks/types';
 import { useAiSettings } from './hooks/useAiSettings';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
 import { useOcr } from './hooks/useOcr';
 import { useRunScope } from './hooks/useRunScope';
 import { useSettings } from './hooks/useSettings';
+import { useSummaries } from './hooks/useSummaries';
 import { useShortcuts } from './hooks/useShortcuts';
 import { Sidebar } from './Sidebar';
 
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
-type Analysis =
-  | { phase: 'idle' }
-  | { phase: 'extracting'; done: number; total: number }
-  | { phase: 'done'; profile: DocumentProfile }
-  | { phase: 'error' };
-
 type IndexRange = {
   from: string;
   to: string;
@@ -118,38 +94,9 @@ export function App() {
   const aiSettings = ai.settings;
   const aiKey = ai.apiKey;
   const aiSupported = ai.supported;
-  const aiModel = ai.model;
-  const setAiNotice = ai.setNotice;
   const [searchRequest, setSearchRequest] = useState(0);
 
   const [extractedPages, setExtractedPages] = useState<TextPage[]>([]);
-  const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
-  // Mục đang được tóm tắt riêng lẻ (khoá `start-end`); chỉ mục đó hiện trạng thái chạy.
-  const [summarizingKey, setSummarizingKey] = useState<string | null>(null);
-  const [summaryProgress, setSummaryProgress] = useState<{ done: number; total: number } | null>(
-    null,
-  );
-  const [summaryError, setSummaryError] = useState<{ kind: LLMErrorKind; message: string } | null>(
-    null,
-  );
-  // Bản tóm tắt vừa tạo trong phiên này; những bản còn lại là lấy từ cache.
-  const [freshSummaryIds, setFreshSummaryIds] = useState<ReadonlySet<string>>(new Set());
-
-  const [estimateDialog, setEstimateDialog] = useState<{
-    open: boolean;
-    estimate: WorkEstimate | null;
-    sectionsCount: number;
-    cachedCount: number;
-    sections: TocItem[];
-  } | null>(null);
-  const [batchOutcome, setBatchOutcome] = useState<{
-    failed: TocItem[];
-    error: { kind: LLMErrorKind; message: string } | null;
-  } | null>(null);
-  const [batchLoadingProgress, setBatchLoadingProgress] = useState<{
-    done: number;
-    total: number;
-  } | null>(null);
   // Văn bản OCR đã lưu, dùng thay cho lớp chữ trống khi lập chỉ mục.
   const ocrTextRef = useRef<Map<number, string>>(new Map());
   // Khoảng trang đã lập chỉ mục gần nhất, để lập lại sau OCR.
@@ -283,19 +230,31 @@ export function App() {
   const ocrPages = ocr.pages;
   const ocrProgress = ocr.progress;
   const ocrReport = ocr.report;
+  const currentSection = useMemo(() => {
+    if (!toc || toc.items.length === 0) return null;
+    return (
+      toc.items.find((item) => pageNumber >= item.startPage && pageNumber <= item.endPage) ?? null
+    );
+  }, [toc, pageNumber]);
+
+  const summarize = useSummaries({
+    docId,
+    scope,
+    ai,
+    ready: status === 'ready',
+    toc,
+    currentSection,
+    extractedPages,
+    analysis,
+    onSelectPage: goToPage,
+  });
 
   /** Dừng mọi lượt tóm tắt và xoá trạng thái của chúng (mở file khác, đóng, xoá dữ liệu). */
   const resetBackgroundRuns = useCallback(() => {
     scope.stop();
     ocr.clear();
-    setSummarizingKey(null);
-    setSummaryProgress(null);
-    setSummaryError(null);
-    setBatchLoadingProgress(null);
-    setBatchOutcome(null);
-    setEstimateDialog(null);
-    setFreshSummaryIds(new Set());
-  }, [scope.stop, ocr.clear]);
+    summarize.clear();
+  }, [scope.stop, ocr.clear, summarize.clear]);
 
   const handleSearchResult = useCallback(
     (page: number, query: string, ignoreDiacritics: boolean) => {
@@ -369,12 +328,8 @@ export function App() {
           size: file.size,
           pageCount: result.doc.numPages,
         });
-        void loadSummariesForDoc(hash).then((records) => {
-          setSummaries(records);
-        });
-      } else {
-        setSummaries([]);
       }
+      summarize.load(hash);
       setExtractedPages([]);
       resetBackgroundRuns();
 
@@ -471,22 +426,6 @@ export function App() {
     return () => clearTimeout(timer);
   }, [docId, pageNumber, status]);
 
-  const currentSection = useMemo(() => {
-    if (!toc || toc.items.length === 0) return null;
-    return (
-      toc.items.find((item) => pageNumber >= item.startPage && pageNumber <= item.endPage) ?? null
-    );
-  }, [toc, pageNumber]);
-
-  const currentSectionNoText = useMemo(() => {
-    if (!currentSection) return false;
-    const pages = pagesInSpan(extractedPages, currentSection);
-    if (pages.length === 0) {
-      return analysis.phase === 'done';
-    }
-    return !pages.some((page) => page.text.trim().length > 0);
-  }, [currentSection, extractedPages, analysis.phase]);
-
   const ensureAskConsent = ai.ensureConsent;
   const semantic = useSemanticIndex({
     docId,
@@ -505,306 +444,13 @@ export function App() {
   });
   const flashcards = useFlashcards({
     docId,
-    summaries,
+    summaries: summarize.records,
     section: currentSection,
     pages: extractedPages,
     settings: aiSettings,
     apiKey: aiKey,
     ensureConsent: ensureAskConsent,
   });
-  const summaryConfig = useMemo<SummaryConfig>(
-    () => ({ providerId: aiSettings.providerId, model: aiModel, language: aiSettings.language }),
-    [aiSettings.providerId, aiModel, aiSettings.language],
-  );
-
-  // Chỉ bản tóm tắt khớp cấu hình hiện tại mới được tính là đã có (dấu ✦ và cache).
-  const summarizedSpans = useMemo(() => {
-    const spans = new Set<string>();
-    for (const item of toc?.items ?? []) {
-      if (findCachedSummary(summaries, item, summaryConfig, extractedPages)) {
-        spans.add(`${item.startPage}-${item.endPage}`);
-      }
-    }
-    return spans;
-  }, [toc, summaries, summaryConfig, extractedPages]);
-
-  const currentSummaryRecord = useMemo(
-    () =>
-      currentSection
-        ? (findCachedSummary(summaries, currentSection, summaryConfig, extractedPages) ?? null)
-        : null,
-    [currentSection, summaries, summaryConfig, extractedPages],
-  );
-  const isFromCache =
-    currentSummaryRecord !== null && !freshSummaryIds.has(currentSummaryRecord.id);
-  const currentSectionKey = currentSection
-    ? `${currentSection.startPage}-${currentSection.endPage}`
-    : null;
-  const summaryLoading = currentSectionKey !== null && summarizingKey === currentSectionKey;
-
-  // Lỗi của một mục không theo sang mục khác.
-  useEffect(() => {
-    setSummaryError(null);
-  }, [currentSectionKey, docId]);
-
-  const doSummarizeCurrentSection = useCallback(async () => {
-    if (!currentSection || !docId) return;
-    const section = currentSection;
-    const runDocId = docId;
-    const generation = scope.generationRef.current;
-
-    // `permissions.request` phải là lời gọi đầu tiên: Chrome chỉ chấp nhận trong thao tác của người dùng.
-    const chromeApi = typeof chrome === 'undefined' ? null : chrome;
-    if (chromeApi?.permissions) {
-      const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
-      const granted = await chromeApi.permissions.request({ origins: [origin] });
-      if (scope.generationRef.current !== generation) return;
-      if (!granted) {
-        setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
-        return;
-      }
-    }
-
-    const pages = pagesInSpan(extractedPages, section);
-    if (pages.length === 0 || !pages.some((page) => page.text.trim().length > 0)) {
-      setSummaryError({ kind: 'bad-response', message: vi.summarizeNoText });
-      return;
-    }
-
-    const abortCtrl = new AbortController();
-    scope.summaryAbortRef.current?.abort();
-    scope.summaryAbortRef.current = abortCtrl;
-    const isActive = () =>
-      scope.summaryAbortRef.current === abortCtrl && scope.generationRef.current === generation;
-    setSummarizingKey(`${section.startPage}-${section.endPage}`);
-    setSummaryProgress(null);
-    setSummaryError(null);
-
-    try {
-      const provider = getProvider(aiSettings.providerId);
-      const result = await summarizeSection({
-        provider,
-        config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
-        model: aiModel,
-        kind: analysis.phase === 'done' ? analysis.profile.kind : 'unknown',
-        title: section.title,
-        pages,
-        language: aiSettings.language,
-        signal: abortCtrl.signal,
-        onProgress: (done, total) => {
-          if (isActive()) setSummaryProgress({ done, total });
-        },
-      });
-
-      const language = sectionLanguage(aiSettings.language, pages);
-      const record: SummaryRecord = {
-        id: await summaryCacheKey({
-          docId: runDocId,
-          startPage: section.startPage,
-          endPage: section.endPage,
-          title: section.title,
-          providerId: aiSettings.providerId,
-          model: aiModel,
-          promptVersion: PROMPT_VERSION,
-          language: language,
-        }),
-        docId: runDocId,
-        startPage: section.startPage,
-        endPage: section.endPage,
-        title: section.title,
-        providerId: aiSettings.providerId,
-        model: aiModel,
-        promptVersion: PROMPT_VERSION,
-        language,
-        summary: result.summary,
-        keyPoints: result.keyPoints,
-        terms: result.terms,
-        createdAt: Date.now(),
-      };
-
-      if (!isActive()) return;
-      await saveSummary(record);
-      if (!isActive()) return;
-      // Bản mới hiện cho đúng mục đã yêu cầu; nếu người dùng đã sang mục khác thì chỉ vào danh sách.
-      setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
-      setFreshSummaryIds((current) => new Set(current).add(record.id));
-    } catch (error) {
-      if (!isActive()) return;
-      if (abortCtrl.signal.aborted) {
-        setSummaryError({ kind: 'cancelled', message: vi.aiErrorMessages.cancelled });
-      } else if (isLLMError(error)) {
-        setSummaryError({ kind: error.kind, message: aiErrorMessage(error, aiSettings) });
-      } else {
-        setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
-      }
-    } finally {
-      if (scope.summaryAbortRef.current === abortCtrl) {
-        scope.summaryAbortRef.current = null;
-        setSummarizingKey(null);
-        setSummaryProgress(null);
-      }
-    }
-  }, [currentSection, docId, aiSettings, aiKey, aiModel, extractedPages, analysis]);
-
-  const handleSummarizeCurrentSection = useCallback(() => {
-    if (!currentSection || !docId) return;
-
-    if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
-      return;
-    }
-
-    ai.ensureConsent(() => void doSummarizeCurrentSection());
-  }, [currentSection, docId, aiSettings, aiKey, doSummarizeCurrentSection, ai.ensureConsent]);
-
-  const handleCancelSummary = useCallback(() => {
-    scope.summaryAbortRef.current?.abort();
-  }, []);
-
-  const handleRetrySummary = useCallback(() => {
-    handleSummarizeCurrentSection();
-  }, [handleSummarizeCurrentSection]);
-
-  const handleSummarizeAllClick = useCallback(() => {
-    if (!toc || !docId) return;
-    if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
-      return;
-    }
-    setBatchOutcome(null);
-    const plan = planSummarizeAll(toc.items, extractedPages, summaries, summaryConfig);
-    if (plan.todo.length === 0) {
-      setSummaryError({
-        kind: 'bad-response',
-        message: plan.cachedCount > 0 ? vi.summarizeAllNothingToDo : vi.summarizeAllNoText,
-      });
-      return;
-    }
-    setEstimateDialog({
-      open: true,
-      estimate: plan.estimate,
-      sectionsCount: plan.todo.length,
-      cachedCount: plan.cachedCount,
-      sections: plan.todo,
-    });
-  }, [toc, docId, aiSettings, aiKey, extractedPages, summaries, summaryConfig]);
-
-  const runSummarizeAll = useCallback(
-    async (sections: TocItem[]) => {
-      const runDocId = docId;
-      if (!runDocId) return;
-      const generation = scope.generationRef.current;
-
-      // `permissions.request` phải là lời gọi đầu tiên (xem doSummarizeCurrentSection).
-      const chromeApi = typeof chrome === 'undefined' ? null : chrome;
-      if (chromeApi?.permissions) {
-        const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
-        const granted = await chromeApi.permissions.request({ origins: [origin] });
-        if (scope.generationRef.current !== generation) return;
-        if (!granted) {
-          setBatchOutcome({
-            failed: [],
-            error: { kind: 'network', message: vi.aiPermissionDenied },
-          });
-          return;
-        }
-      }
-
-      const abortCtrl = new AbortController();
-      scope.batchAbortRef.current?.abort();
-      scope.batchAbortRef.current = abortCtrl;
-      const isActive = () =>
-        scope.batchAbortRef.current === abortCtrl && scope.generationRef.current === generation;
-      setBatchOutcome(null);
-      setBatchLoadingProgress({ done: 0, total: sections.length });
-      let doneCount = 0;
-      const provider = getProvider(aiSettings.providerId);
-      const kind = analysis.phase === 'done' ? analysis.profile.kind : 'unknown';
-
-      const result = await runSummaryBatch({
-        items: sections,
-        concurrency: 2,
-        signal: abortCtrl.signal,
-        worker: async (section, signal) => {
-          const pages = pagesInSpan(extractedPages, section);
-          const language = sectionLanguage(aiSettings.language, pages);
-          const summary = await summarizeSection({
-            provider,
-            config: { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
-            model: aiModel,
-            kind,
-            title: section.title,
-            pages,
-            language: aiSettings.language,
-            signal,
-          });
-          const record: SummaryRecord = {
-            id: await summaryCacheKey({
-              docId: runDocId,
-              startPage: section.startPage,
-              endPage: section.endPage,
-              title: section.title,
-              providerId: aiSettings.providerId,
-              model: aiModel,
-              promptVersion: PROMPT_VERSION,
-              language: language,
-            }),
-            docId: runDocId,
-            startPage: section.startPage,
-            endPage: section.endPage,
-            title: section.title,
-            providerId: aiSettings.providerId,
-            model: aiModel,
-            promptVersion: PROMPT_VERSION,
-            language,
-            summary: summary.summary,
-            keyPoints: summary.keyPoints,
-            terms: summary.terms,
-            createdAt: Date.now(),
-          };
-          signal.throwIfAborted();
-          await saveSummary(record);
-          if (!isActive()) return;
-          doneCount += 1;
-          setSummaries((current) => [...current.filter((s) => s.id !== record.id), record]);
-          setFreshSummaryIds((current) => new Set(current).add(record.id));
-          setBatchLoadingProgress({ done: doneCount, total: sections.length });
-        },
-      });
-
-      if (!isActive()) return;
-      scope.batchAbortRef.current = null;
-      setBatchLoadingProgress(null);
-      setBatchOutcome({
-        failed: result.failed.map((entry) => entry.item),
-        error:
-          result.fatal === undefined
-            ? null
-            : isLLMError(result.fatal)
-              ? { kind: result.fatal.kind, message: aiErrorMessage(result.fatal, aiSettings) }
-              : { kind: 'unknown', message: vi.aiErrorMessages.unknown },
-      });
-    },
-    [docId, aiSettings, aiKey, aiModel, analysis, extractedPages],
-  );
-
-  const handleConfirmSummarizeAll = useCallback(() => {
-    if (!estimateDialog) return;
-    const { sections } = estimateDialog;
-    setEstimateDialog(null);
-
-    ai.ensureConsent(() => void runSummarizeAll(sections));
-  }, [estimateDialog, ai.ensureConsent, runSummarizeAll]);
-
-  const handleCancelSummarizeAll = useCallback(() => {
-    scope.batchAbortRef.current?.abort();
-  }, []);
-
-  const handleRetryFailedSections = useCallback(() => {
-    if (!batchOutcome || batchOutcome.failed.length === 0) return;
-    void runSummarizeAll(batchOutcome.failed);
-  }, [batchOutcome, runSummarizeAll]);
-
   useEffect(() => {
     if (toast === null) return;
     const id = setTimeout(() => setToast(null), 6000);
@@ -829,7 +475,7 @@ export function App() {
     setHighlight(null);
     setIndexRange(null);
     setRangeError(null);
-    setSummaries([]);
+    summarize.forget();
     setExtractedPages([]);
     ocr.forget();
     resetBackgroundRuns();
@@ -852,7 +498,7 @@ export function App() {
     setSearchIndex(null);
     setAnalysis({ phase: 'idle' });
     setPageWords({});
-    setSummaries([]);
+    summarize.forget();
     setExtractedPages([]);
     ocr.forget();
     resetBackgroundRuns();
@@ -1299,39 +945,7 @@ export function App() {
               onDeleteDocument: () => void handleDeleteDocument(),
               onDeleteAll: () => void handleDeleteAll(),
             }}
-            summary={{
-              configured: ai.configured,
-              onOpenSettings: () => {},
-              currentSection,
-              summary: currentSummaryRecord,
-              isCached: isFromCache,
-              loading: summaryLoading,
-              busyElsewhere: summarizingKey !== null && !summaryLoading,
-              loadingProgress: summaryProgress,
-              error: summaryError,
-              noText: currentSectionNoText,
-              onSummarize: handleSummarizeCurrentSection,
-              onRegenerate: handleSummarizeCurrentSection,
-              onCancel: handleCancelSummary,
-              onRetry: handleRetrySummary,
-              onSelectPage: goToPage,
-              canSummarizeAll: status === 'ready' && toc !== null && toc.items.length > 0,
-              summarizeAllProgress: batchLoadingProgress,
-              onSummarizeAllClick: handleSummarizeAllClick,
-              onCancelSummarizeAll: handleCancelSummarizeAll,
-              summarizeAllOutcome: batchOutcome,
-              onRetryFailed: handleRetryFailedSections,
-              estimateDialog: estimateDialog
-                ? {
-                    open: estimateDialog.open,
-                    estimate: estimateDialog.estimate,
-                    sectionsCount: estimateDialog.sectionsCount,
-                    cachedCount: estimateDialog.cachedCount,
-                    onConfirm: handleConfirmSummarizeAll,
-                    onCancel: () => setEstimateDialog(null),
-                  }
-                : null,
-            }}
+            summary={summarize.panel}
             semantic={semantic}
             flashPanel={{
               flashcards,
@@ -1356,7 +970,7 @@ export function App() {
               onOpenSettings: () => {},
               onSelectCitation: handleCitation,
             }}
-            summarizedSpans={summarizedSpans}
+            summarizedSpans={summarize.summarizedSpans}
             searchRequest={searchRequest}
             onSelectPage={goToPage}
             onSelectResult={handleSearchResult}
