@@ -124,7 +124,7 @@ export const vi = {
   aiTestOk: 'Kết nối thành công.',
   aiMissingKey: 'Nhập API key trước.',
   aiPermissionDenied:
-    'Chưa cấp quyền truy cập tới nhà cung cấp nên chưa kiểm tra được. Thử lại và bấm Cho phép.',
+    'Chưa cấp quyền truy cập tới nhà cung cấp AI nên chưa gọi được. Thử lại và bấm Cho phép.',
   aiUnsupported: 'Phần AI chỉ hoạt động khi ReadFocus được cài trong Chrome.',
   aiCorsHint:
     'Nếu dùng Ollama hoặc LM Studio, kiểm tra dịch vụ đang chạy và đã cho phép origin của extension (biến môi trường OLLAMA_ORIGINS) chưa.',
@@ -141,7 +141,8 @@ export const vi = {
     'Để dùng tính năng tóm tắt, hãy mở tab Cài đặt → AI và thiết lập nhà cung cấp cùng API key.',
   summaryOpenSettings: 'Mở Cài đặt → AI',
   summaryNoDoc: 'Chưa mở tài liệu nào để tóm tắt.',
-  summaryNoToc: 'Tài liệu chưa có mục lục hoặc đang trích văn bản.',
+  summaryNoToc:
+    'Chưa có mục lục. Đợi ReadFocus lập chỉ mục xong, hoặc lập chỉ mục các trang cần tóm tắt.',
   summaryCurrentSectionTitle: (title: string) => `Mục: ${title}`,
   summarySectionRange: (start: number, end: number) =>
     start === end ? `Trang ${start}` : `Trang ${start}–${end}`,
@@ -257,13 +258,16 @@ export const vi = {
     'rate-limit': 'Nhà cung cấp đang giới hạn tốc độ. Đợi một lát rồi thử lại.',
     quota:
       'Tài khoản đã hết hạn mức. Kiểm tra số dư hoặc hạn mức trong trang quản lý của nhà cung cấp.',
-    'context-too-long': 'Phần này quá dài so với giới hạn của model. Thử tóm tắt mục ngắn hơn.',
+    'context-too-long':
+      'Phần này quá dài so với giới hạn của model. Chọn model có giới hạn đầu vào lớn hơn trong Cài đặt → AI.',
     network: 'Không kết nối được tới nhà cung cấp. Kiểm tra mạng rồi thử lại.',
     cancelled: 'Đã huỷ.',
-    'bad-response': 'Nhà cung cấp trả về dữ liệu không đọc được. Thử lại giúp mình nhé.',
+    'bad-response':
+      'Nhà cung cấp trả về dữ liệu không đọc được. Thử lại; nếu vẫn lỗi, chọn model khác trong Cài đặt → AI.',
     truncated:
       'Câu trả lời bị cắt vì vượt giới hạn đầu ra. Thử lại hoặc chọn model khác trong Cài đặt → AI.',
-    unknown: 'Có lỗi khi gọi nhà cung cấp. Thử lại sau.',
+    unknown:
+      'Có lỗi khi gọi nhà cung cấp. Thử lại; nếu vẫn lỗi, kiểm tra địa chỉ API và model trong Cài đặt → AI.',
   } satisfies Record<LLMErrorKind, string>,
 } as const;
 

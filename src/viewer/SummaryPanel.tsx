@@ -124,7 +124,17 @@ export function SummaryPanel({
 
           {summarizeAllProgress ? (
             <div class="summary-card">
-              <div class="summary-progress-bar">
+              <div
+                class="summary-progress-bar"
+                role="progressbar"
+                aria-label={vi.summarizeAllProgress(
+                  summarizeAllProgress.done,
+                  summarizeAllProgress.total,
+                )}
+                aria-valuemin={0}
+                aria-valuemax={summarizeAllProgress.total}
+                aria-valuenow={summarizeAllProgress.done}
+              >
                 <div
                   class="summary-progress-fill"
                   style={{
@@ -197,7 +207,17 @@ export function SummaryPanel({
                     : vi.loading}
                 </p>
                 {loadingProgress && (
-                  <div class="summary-progress-bar">
+                  <div
+                    class="summary-progress-bar"
+                    role="progressbar"
+                    aria-label={vi.summarizeSectionProgress(
+                      loadingProgress.done,
+                      loadingProgress.total,
+                    )}
+                    aria-valuemin={0}
+                    aria-valuemax={loadingProgress.total}
+                    aria-valuenow={loadingProgress.done}
+                  >
                     <div
                       class="summary-progress-fill"
                       style={{
@@ -254,7 +274,7 @@ export function SummaryPanel({
 
             {/* Thông báo lỗi */}
             {error && (
-              <div class="settings-notice settings-notice--error">
+              <div class="settings-notice settings-notice--error" role="alert">
                 <span>{error.message}</span>
                 {error.kind === 'truncated' && (
                   <div class="summary-actions" style={{ marginTop: '0.4rem' }}>
