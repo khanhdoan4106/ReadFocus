@@ -7,6 +7,8 @@ import {
   sanitizeDayStats,
   type DayStats,
 } from '../core/stats';
+import { sanitizeCard } from '../core/flashcard/leitner';
+import type { Card } from '../core/flashcard/types';
 import type { QaRecord } from '../core/ask/types';
 import type { EmbeddingRecord } from '../core/embed/types';
 import type { OcrPageRecord } from '../core/ocr/pages';
@@ -47,7 +49,7 @@ export type PageText = {
 export type DocScopedRecord = { id: string; docId: string } & Record<string, unknown>;
 export type { EmbeddingRecord };
 export type { QaRecord };
-export type FlashcardRecord = DocScopedRecord;
+export type FlashcardRecord = Card;
 
 /** Các store có index `by-doc`, bị xoá cùng tài liệu. */
 const DOC_SCOPED_STORES = ['summaries', 'embeddings', 'qa', 'flashcards'] as const;
@@ -441,6 +443,53 @@ export async function clearQaForDoc(docId: string): Promise<void> {
     const db = await getDb();
     const keys = await db.getAllKeysFromIndex('qa', 'by-doc', docId);
     const tx = db.transaction('qa', 'readwrite');
+    for (const key of keys) void tx.store.delete(key);
+    await tx.done;
+  } catch {
+    // Bỏ qua.
+  }
+}
+
+/** Ghi (thêm hoặc cập nhật) một lô thẻ. */
+export async function saveFlashcards(cards: readonly Card[]): Promise<void> {
+  if (cards.length === 0) return;
+  try {
+    const db = await getDb();
+    const tx = db.transaction('flashcards', 'readwrite');
+    for (const card of cards) void tx.store.put(card);
+    await tx.done;
+  } catch {
+    // Không lưu được thì thẻ vẫn hiện trong phiên này.
+  }
+}
+
+export async function loadFlashcards(docId: string): Promise<Card[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('flashcards', 'by-doc', docId);
+    return records
+      .map(sanitizeCard)
+      .filter((card): card is Card => card !== null)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteFlashcard(id: string): Promise<void> {
+  try {
+    const db = await getDb();
+    await db.delete('flashcards', id);
+  } catch {
+    // Bỏ qua.
+  }
+}
+
+export async function clearFlashcardsForDoc(docId: string): Promise<void> {
+  try {
+    const db = await getDb();
+    const keys = await db.getAllKeysFromIndex('flashcards', 'by-doc', docId);
+    const tx = db.transaction('flashcards', 'readwrite');
     for (const key of keys) void tx.store.delete(key);
     await tx.done;
   } catch {

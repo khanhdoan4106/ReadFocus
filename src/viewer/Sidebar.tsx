@@ -4,13 +4,14 @@ import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
 import { vi } from '../i18n/vi';
 import { AskPanel, type AskPanelProps } from './AskPanel';
+import { FlashcardPanel, type FlashcardPanelProps } from './FlashcardPanel';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
 import { SearchPanel } from './SearchPanel';
 import type { SemanticApi } from './semantic';
 import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
-type SidebarTab = 'toc' | 'summary' | 'ask' | 'search' | 'focus' | 'settings';
+type SidebarTab = 'toc' | 'summary' | 'ask' | 'flash' | 'search' | 'focus' | 'settings';
 
 type SidebarProps = {
   toc: TocResult | null;
@@ -23,6 +24,7 @@ type SidebarProps = {
   summary: SummaryPanelProps;
   semantic: SemanticApi;
   askPanel: AskPanelProps;
+  flashPanel: FlashcardPanelProps;
   summarizedSpans: ReadonlySet<string>;
   searchRequest: number;
   onSelectPage: (page: number) => void;
@@ -40,6 +42,7 @@ export function Sidebar({
   summary,
   semantic,
   askPanel,
+  flashPanel,
   summarizedSpans,
   searchRequest,
   onSelectPage,
@@ -83,6 +86,15 @@ export function Sidebar({
           onClick={() => setTab('ask')}
         >
           {vi.askTab}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'flash'}
+          class={`sidebar__tab${tab === 'flash' ? ' sidebar__tab--active' : ''}`}
+          onClick={() => setTab('flash')}
+        >
+          {vi.flashTab}
         </button>
         <button
           type="button"
@@ -179,6 +191,10 @@ export function Sidebar({
       ) : tab === 'ask' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.askTab}>
           <AskPanel {...askPanel} onOpenSettings={() => setTab('settings')} />
+        </div>
+      ) : tab === 'flash' ? (
+        <div class="sidebar__panel" role="tabpanel" aria-label={vi.flashTab}>
+          <FlashcardPanel {...flashPanel} onOpenSettings={() => setTab('settings')} />
         </div>
       ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
