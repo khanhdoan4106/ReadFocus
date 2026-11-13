@@ -17,7 +17,7 @@ Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension 
 
 Ngoài ra:
 
-- **`localStorage`** giữ đúng một giá trị `readfocus:theme` để áp giao diện trước khi viewer render, tránh nháy màu.
+- **`localStorage`** giữ hai giá trị `readfocus:theme` và `readfocus.uiLanguage` để áp giao diện và ngôn ngữ trước khi viewer render, tránh nháy màu hay đổi chữ.
 - **`chrome.storage.sync`** chỉ giữ cờ `autoOpenPdf` (bật/tắt tự mở PDF). Nếu bạn đăng nhập Chrome, cờ này có thể được Chrome đồng bộ theo tài khoản Google của bạn; không có nội dung tài liệu nào được đồng bộ.
 
 Tài liệu gốc không bị sửa và không bị sao chép ra khỏi máy.
