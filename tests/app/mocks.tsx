@@ -96,13 +96,38 @@ export function fakePageListModule() {
       doc: PDFDocumentProxy;
       highlight: { page: number; query: string } | null;
       onCurrentPageChange: (page: number) => void;
+      annotations?: ReadonlyMap<number, readonly { id: string }[]>;
+      reflow?: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
+      onReflow?: (
+        id: string,
+        start: number,
+        end: number,
+        rects: { x: number; y: number; w: number; h: number }[],
+      ) => void;
     }) {
+      const drawn = [...(props.annotations?.values() ?? [])].flat().map((item) => item.id);
+      const pending = [...(props.reflow?.values() ?? [])].flat();
       return (
         <div data-testid="page-list">
           {Array.from({ length: props.doc.numPages }, (_, index) => (
             <div class="page-slot" data-page={index + 1} key={index}>
-              {`Trang ${index + 1}`}
+              <div class="pdf-page" tabIndex={-1}>{`Trang ${index + 1}`}</div>
             </div>
+          ))}
+          <div data-testid="drawn-annotations">{drawn.join(',')}</div>
+          {pending.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              data-testid={`reflow-${item.id}`}
+              onClick={() =>
+                props.onReflow?.(item.id, item.start, item.end, [
+                  { x: 0.5, y: 0.5, w: 0.1, h: 0.02 },
+                ])
+              }
+            >
+              {`reflow ${item.id} ${item.start}-${item.end}`}
+            </button>
           ))}
           {props.highlight && (
             <div data-testid="highlight">{`${props.highlight.page}:${props.highlight.query}`}</div>

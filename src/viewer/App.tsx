@@ -8,7 +8,7 @@ import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { useDocument, type DocumentLifecycle } from './hooks/useDocument';
 import { useAiSettings } from './hooks/useAiSettings';
-import type { Annotation } from '../core/annotate/types';
+import type { Annotation, Rect } from '../core/annotate/types';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useAnnotationUi } from './hooks/useAnnotationUi';
 import { useLocalModel } from './hooks/useLocalModel';
@@ -205,7 +205,8 @@ export function App() {
   const annotationsByPage = useMemo(() => {
     const map = new Map<number, Annotation[]>();
     for (const item of annotations.items) {
-      if (annotations.statuses.get(item.id) === 'orphan') continue;
+      // Chỉ vẽ highlight đã có rect đúng: `orphan` không có chỗ, `moved` chờ tính lại rect từ text layer.
+      if (annotations.statuses.get(item.id) !== 'ok') continue;
       map.set(item.page, [...(map.get(item.page) ?? []), item]);
     }
     return map;
@@ -217,6 +218,24 @@ export function App() {
       setTimeout(() => setFlashId((current) => (current === annotation.id ? null : current)), 1800);
     },
     [goToPage],
+  );
+  const reflowByPage = useMemo(() => {
+    const map = new Map<number, Array<{ id: string; start: number; end: number }>>();
+    for (const item of annotations.moved) {
+      map.set(item.page, [...(map.get(item.page) ?? []), item]);
+    }
+    return map;
+  }, [annotations.moved]);
+  const annotationItems = annotations.items;
+  const changeAnnotation = annotations.change;
+  const handleReflow = useCallback(
+    (id: string, start: number, end: number, rects: Rect[]) => {
+      const target = annotationItems.find((item) => item.id === id);
+      if (!target || target.anchor.type !== 'text') return;
+      // Giữ nguyên quote/prefix/suffix; chỉ đổi vị trí và rect (updatedAt tăng theo).
+      changeAnnotation(id, { anchor: { ...target.anchor, start, end, rects } });
+    },
+    [annotationItems, changeAnnotation],
   );
   const handleOpenSearch = useCallback(() => {
     setSidebarOpen(true);
@@ -327,6 +346,9 @@ export function App() {
               annotations={annotationsByPage}
               areaMode={annotationUi.areaMode}
               flashId={flashId}
+              pageTexts={annotations.textByPage}
+              reflow={reflowByPage}
+              onReflow={handleReflow}
               onDrawArea={annotationUi.addAreaNote}
               onOpenAnnotation={annotationUi.openPopover}
               scrollerRef={contentRef}

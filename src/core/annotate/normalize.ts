@@ -58,3 +58,41 @@ export function normalizeWithMap(source: string): NormalizedText {
 export function normalizeForMatch(source: string): string {
   return normalizeWithMap(source).text;
 }
+
+export type Cluster = {
+  /** Cụm ký tự đã chuẩn hóa NFC. */
+  text: string;
+  /** Offset đầu và cuối (không gồm) trong văn bản gốc. */
+  start: number;
+  end: number;
+};
+
+/**
+ * Các cụm ký tự KHÔNG phải khoảng trắng (một ký tự cộng dấu kết hợp theo sau), đã chuẩn hóa NFC,
+ * kèm offset gốc. Dùng để so hai văn bản chỉ khác nhau ở khoảng trắng và dạng NFC/NFD.
+ */
+export function compactClusters(source: string): Cluster[] {
+  const chars = Array.from(source);
+  const result: Cluster[] = [];
+  let offset = 0;
+  let index = 0;
+  while (index < chars.length) {
+    const char = chars[index] as string;
+    if (WHITESPACE.test(char)) {
+      offset += char.length;
+      index += 1;
+      continue;
+    }
+    const start = offset;
+    let cluster = char;
+    offset += char.length;
+    index += 1;
+    while (index < chars.length && COMBINING.test(chars[index] as string)) {
+      cluster += chars[index] as string;
+      offset += (chars[index] as string).length;
+      index += 1;
+    }
+    result.push({ text: cluster.normalize('NFC'), start, end: offset });
+  }
+  return result;
+}

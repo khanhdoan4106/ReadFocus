@@ -18,6 +18,9 @@ type PageListProps = {
   annotations: ReadonlyMap<number, readonly Annotation[]>;
   areaMode: boolean;
   flashId: string | null;
+  pageTexts: ReadonlyMap<number, string>;
+  reflow: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
+  onReflow: (id: string, start: number, end: number, rects: Rect[]) => void;
   onDrawArea: (page: number, rect: Rect, x: number, y: number) => void;
   onOpenAnnotation: (id: string, x: number, y: number) => void;
   scrollerRef: RefObject<HTMLElement | null>;
@@ -44,6 +47,9 @@ export function PageList({
   annotations,
   areaMode,
   flashId,
+  pageTexts,
+  reflow,
+  onReflow,
   onDrawArea,
   onOpenAnnotation,
   scrollerRef,
@@ -126,6 +132,9 @@ export function PageList({
                 annotations={annotations.get(pageNumber)}
                 areaMode={areaMode}
                 flashId={flashId}
+                pageText={pageTexts.get(pageNumber)}
+                reflow={reflow.get(pageNumber)}
+                onReflow={onReflow}
                 onDrawArea={onDrawArea}
                 onOpenAnnotation={onOpenAnnotation}
                 onMeasured={onMeasured}

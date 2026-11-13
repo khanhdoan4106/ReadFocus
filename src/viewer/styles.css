@@ -1837,3 +1837,17 @@ body {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+.notes__relocating {
+  align-self: flex-start;
+  padding: 0 6px;
+  font-size: 0.6875rem;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+}
+
+.pdf-page:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

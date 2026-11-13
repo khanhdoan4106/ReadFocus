@@ -17,6 +17,9 @@ type Input = {
 
 export type AnnotationStatus = AnchorResolution['status'];
 
+/** Vị trí mới của một highlight chữ đã `moved`, cần tính lại rect từ text layer. */
+export type MovedAnchor = { id: string; start: number; end: number };
+
 /**
  * Ghi chú và highlight của tài liệu đang mở. Lưu ngay xuống IndexedDB sau mỗi thay đổi;
  * xóa chỉ xảy ra khi giao diện đã hỏi xác nhận và gọi `remove`.
@@ -89,8 +92,9 @@ export function useAnnotations({ docId, pages }: Input) {
   const textByPage = useMemo(() => new Map(pages.map((p) => [p.page, p.text])), [pages]);
 
   /** Trạng thái neo của từng highlight chữ; loại khác luôn `ok`. Trang chưa có văn bản thì chưa kết luận. */
-  const statuses = useMemo(() => {
+  const { statuses, moved } = useMemo(() => {
     const map = new Map<string, AnnotationStatus>();
+    const movedList: Array<MovedAnchor & { page: number }> = [];
     for (const item of items) {
       if (item.anchor.type !== 'text') {
         map.set(item.id, 'ok');
@@ -102,9 +106,18 @@ export function useAnnotations({ docId, pages }: Input) {
         map.set(item.id, 'ok');
         continue;
       }
-      map.set(item.id, resolveTextAnchor(item.anchor, text).status);
+      const resolution = resolveTextAnchor(item.anchor, text);
+      map.set(item.id, resolution.status);
+      if (resolution.status === 'moved') {
+        movedList.push({
+          id: item.id,
+          page: item.page,
+          start: resolution.start,
+          end: resolution.end,
+        });
+      }
     }
-    return map;
+    return { statuses: map, moved: movedList };
   }, [items, textByPage]);
 
   const sorted = useMemo(
@@ -112,7 +125,7 @@ export function useAnnotations({ docId, pages }: Input) {
     [items],
   );
 
-  return { items: sorted, statuses, failed, add, change, remove, replaceMany };
+  return { items: sorted, statuses, moved, textByPage, failed, add, change, remove, replaceMany };
 }
 
 export type AnnotationsApi = ReturnType<typeof useAnnotations>;

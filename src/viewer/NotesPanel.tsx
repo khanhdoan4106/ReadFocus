@@ -44,20 +44,24 @@ function preview(annotation: Annotation): string {
 function Entry({
   annotation,
   orphan,
+  relocating,
   props,
 }: {
   annotation: Annotation;
   orphan: boolean;
+  /** Vị trí đã đổi, đang tính lại từ text layer (chưa vẽ trên trang). */
+  relocating: boolean;
   props: NotesPanelProps;
 }) {
   return (
-    <li class={`notes__entry notes__entry--${annotation.color}`}>
+    <li class={`notes__entry notes__entry--${annotation.color}`} data-note-id={annotation.id}>
       <button type="button" class="notes__jump" onClick={() => props.onJump(annotation)}>
         <span class="notes__quote">{preview(annotation)}</span>
         {annotation.note.trim() !== '' && <span class="notes__note">{annotation.note}</span>}
         <span class="notes__meta">
           {t.notesPage(annotation.page)} · {t.annotColors[annotation.color]}
         </span>
+        {relocating && <span class="notes__relocating">{t.notesRelocating}</span>}
       </button>
       <div class="notes__actions">
         <button
@@ -204,7 +208,13 @@ export function NotesPanel(props: NotesPanelProps) {
               <h3 class="notes__page">{t.notesPage(page)}</h3>
               <ul class="notes__list">
                 {items.map((item) => (
-                  <Entry key={item.id} annotation={item} orphan={false} props={props} />
+                  <Entry
+                    key={item.id}
+                    annotation={item}
+                    orphan={false}
+                    relocating={api.statuses.get(item.id) === 'moved'}
+                    props={props}
+                  />
                 ))}
               </ul>
             </section>
@@ -216,7 +226,7 @@ export function NotesPanel(props: NotesPanelProps) {
               <p class="notes__hint">{t.notesOrphanHint}</p>
               <ul class="notes__list">
                 {orphans.map((item) => (
-                  <Entry key={item.id} annotation={item} orphan props={props} />
+                  <Entry key={item.id} annotation={item} orphan relocating={false} props={props} />
                 ))}
               </ul>
             </section>

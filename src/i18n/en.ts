@@ -395,6 +395,7 @@ export const en: Messages = {
   notesKindArea: 'Marked area',
   notesKindPage: 'Page note',
   notesEdit: 'Edit',
+  notesRelocating: 'Updating position',
   notesFlashcard: 'Make flashcard',
   notesFlashcardDone: 'Flashcard created. See the Flashcards tab.',
   notesFlashcardExists: 'An identical flashcard already exists.',

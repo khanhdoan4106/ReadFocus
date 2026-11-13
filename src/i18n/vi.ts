@@ -389,6 +389,7 @@ export const vi = {
   notesKindArea: 'Vùng đã đánh dấu',
   notesKindPage: 'Ghi chú trang',
   notesEdit: 'Sửa',
+  notesRelocating: 'Đang cập nhật vị trí',
   notesFlashcard: 'Tạo thẻ ôn tập',
   notesFlashcardDone: 'Đã tạo thẻ ôn tập. Xem ở tab Thẻ ôn tập.',
   notesFlashcardExists: 'Đã có thẻ giống hệt.',
