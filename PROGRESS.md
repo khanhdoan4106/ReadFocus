@@ -214,6 +214,23 @@ Thư mục làm việc chuẩn là `C:\dev\readfocus\readfocus`. Không làm vi�
 - Kiểm tra T21 sau khi load unpacked (cần key thật): tab Hỏi đáp chưa cấu hình AI thì hiện hướng dẫn; hỏi một câu có trong sách: câu trả lời có trích dẫn, bấm số trang nhảy đúng và tô đúng đoạn; hỏi câu không có trong sách: "Tài liệu không có thông tin này"; hỏi khi chưa tạo chỉ mục ý nghĩa vẫn chạy (theo từ khoá); Huỷ giữa chừng; Hỏi lại, Sao chép, Xoá, Xoá lịch sử; đóng/mở lại file thấy lịch sử; mở file khác khi đang hỏi thì dừng; lần đầu hiện hộp đồng ý; thử trên bản OCR; dark mode.
 - Kiểm tra T22 sau khi load unpacked: tab Thẻ ôn tập; chưa có tóm tắt thì "Tạo thẻ từ các bản tóm tắt" báo cần tóm tắt trước; sau khi tóm tắt một mục thì tạo thẻ, bấm lần hai không trùng; "Tạo thêm bằng AI" (cần key): hộp đồng ý lần đầu, Chrome hỏi quyền, tạo được thẻ, Huỷ giữa chừng; Ôn tập: Hiện đáp án, Nhớ/Chưa nhớ, đóng và mở lại file thấy lịch ôn đã đổi; bấm số trang nhảy đúng trang; Xuất CSV rồi Import vào Anki (xác nhận 3 cột và tag); xoá thẻ, xoá tất cả, xoá dữ liệu tài liệu thì mất thẻ; 7 tab trong thanh bên xuống dòng gọn ở độ rộng nhỏ; dark mode.
 
+## Rà lỗ hổng dependency (`npm audit`, 13/11/2026, nhánh `chore/npm-audit`)
+
+`npm audit --omit=dev`: **0 lỗ hổng** (dependency đi vào extension sạch). `npm audit`: 10 mức moderate, tất cả cùng một gốc là `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249, từ chối dịch vụ qua khuếch đại globparts; vá ở 11.0.1).
+
+| Gói | Mức | Trực tiếp? | Prod/dev | Trong `dist/`? |
+|---|---|---|---|---|
+| minimatch 10.2.6 (gốc lỗi) | moderate | gián tiếp | dev | không |
+| @eslint/config-array | moderate | gián tiếp | dev | không |
+| eslint | moderate | trực tiếp | dev | không |
+| @eslint/js | moderate | trực tiếp | dev | không |
+| typescript-eslint | moderate | trực tiếp | dev | không |
+| @typescript-eslint/eslint-plugin, parser, type-utils, typescript-estree, utils | moderate | gián tiếp | dev | không |
+
+`grep minimatch|globparts dist/` trống; không CDN trong `dist/`; zip 9.668.149 byte trước và sau (không đổi gì trong gói).
+
+**Quyết định: chấp nhận, không đổi gì.** Lý do: (1) chỉ ở công cụ lint, không vào extension; (2) không có bản sửa trong phạm vi semver: eslint 10.14.0, @eslint/config-array 0.23.5 và typescript-estree 8.72.2 đều là bản mới nhất và đều khoá `minimatch ^10.x`, trong khi bản vá là 11.x; (3) \"bản sửa\" npm gợi ý là hạ eslint xuống 9.39.5 và typescript-eslint xuống 8.36.0, tức lùi phiên bản và vẫn không chắc hết lỗi; (4) lỗi chỉ bị khai thác khi đưa mẫu glob độc hại vào minimatch, mà ở đây mẫu glob là cấu hình của chính repo; (5) không dùng `npm audit fix --force`, không thêm `overrides` ép minimatch 11 vì nhánh 11 chưa được eslint kiểm thử. Xem lại khi eslint hoặc typescript-eslint nâng minimatch lên ^11.
+
 ## Dependency đã thêm (và lý do)
 - `preact` — UI nhẹ theo stack đã chốt.
 - `vite`, `@crxjs/vite-plugin` — build MV3.
