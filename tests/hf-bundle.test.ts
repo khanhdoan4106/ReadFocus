@@ -65,3 +65,25 @@ describe('dist/ sau khi build', () => {
     expect(big).toEqual([]);
   });
 });
+
+describe('worker embedding trên máy', () => {
+  const source = readFileSync(join(root, 'src', 'embed-worker', 'local-embed.worker.ts'), 'utf8');
+
+  // Bài học từ lần chạy thật trên Chromium: nếu để thư viện tự chọn `revision`, một số file được
+  // tra cache theo khoá `main` và model không dùng được khi offline.
+  it('ghim commit trong đường dẫn tải để mọi file cùng một khoá cache', () => {
+    expect(source).toContain('env.remotePathTemplate');
+    expect(source).toContain('LOCAL_MODEL_REVISION');
+  });
+
+  it('khi không được tải thì tắt nguồn từ xa và chặn cả fetch', () => {
+    expect(source).toContain('env.allowRemoteModels = download');
+    expect(source).toContain('env.fetch = ');
+  });
+
+  it('wasm trỏ vào gói extension, không dùng blob URL', () => {
+    expect(source).toContain('env.useWasmCache = false');
+    expect(source).toContain('wasmPaths');
+    expect(source).not.toMatch(/https?:\/\//);
+  });
+});

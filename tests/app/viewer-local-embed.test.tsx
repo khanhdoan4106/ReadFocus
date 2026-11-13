@@ -2,7 +2,7 @@
 import 'fake-indexeddb/auto';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/preact';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { localModelCacheUrls, type CacheLike } from '../../src/core/embed/local';
+import { LOCAL_MODEL_FILES, localModelFileUrl, type CacheLike } from '../../src/core/embed/local';
 import { defaultAiSettings } from '../../src/core/llm/settings';
 import { saveAiSettings, type KeyStore } from '../../src/storage/ai';
 import { en } from '../../src/i18n/en';
@@ -47,7 +47,7 @@ const CATALOGS = [
 ] as const;
 
 const cacheModel = () => {
-  for (const url of localModelCacheUrls()) local.urls.add(url);
+  for (const file of LOCAL_MODEL_FILES) local.urls.add(localModelFileUrl(file));
 };
 
 beforeEach(async () => {

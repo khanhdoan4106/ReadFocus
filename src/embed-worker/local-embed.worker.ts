@@ -25,6 +25,8 @@ function ortUrl(file: string): string {
 // Phải bật: transformers.js từ chối khi cả hai nguồn cùng tắt. Địa chỉ model là URL nên
 // không bao giờ đọc đường dẫn cục bộ; nguồn từ xa chỉ bật trong lúc tải (xem `load`).
 env.allowLocalModels = true;
+// Ghim commit trong đường dẫn: mọi file (kể cả những lần tải không truyền `revision`) cùng một khoá cache.
+env.remotePathTemplate = `{model}/resolve/${LOCAL_MODEL_REVISION}/`;
 env.useBrowserCache = true; // Cache API: tải một lần, các lần sau dùng offline.
 env.useWasmCache = false; // Tránh nạp runtime qua blob URL (CSP của extension chặn).
 const onnx = env.backends.onnx;
@@ -43,15 +45,19 @@ async function load(id: number, download: boolean): Promise<void> {
     post({ type: 'loaded', id });
     return;
   }
-  // `download: false` thì cấm hẳn mạng: chỉ đọc cache, thiếu file thì báo chưa tải.
+  // `download: false` thì cấm hẳn mạng, hai lớp: tắt nguồn từ xa của thư viện và chặn `fetch`
+  // (kể cả các request kiểm tra kích thước/tồn tại). Thiếu file trong cache thì báo chưa tải.
   env.allowRemoteModels = download;
+  const realFetch = env.fetch;
+  if (!download) {
+    env.fetch = () =>
+      Promise.reject(new Error('Network access is disabled for the on-device model'));
+  }
   const tracker = createProgressTracker();
   try {
     extractor = (await pipeline('feature-extraction', LOCAL_MODEL_ID, {
-      revision: LOCAL_MODEL_REVISION,
       dtype: LOCAL_MODEL_DTYPE,
       device: 'wasm',
-      local_files_only: !download,
       progress_callback: (event: unknown) => {
         const { loaded, total } = tracker.update(event);
         post({ type: 'progress', id, loaded, total });
@@ -67,6 +73,7 @@ async function load(id: number, download: boolean): Promise<void> {
     });
   } finally {
     env.allowRemoteModels = false;
+    env.fetch = realFetch;
   }
 }
 

@@ -23,8 +23,7 @@ function fakeCache(initial: readonly string[]): CacheLike & { urls: Set<string> 
   };
 }
 
-const MAIN_CONFIG = `https://huggingface.co/${LOCAL_MODEL_ID}/resolve/main/config.json`;
-const ALL_URLS = [...LOCAL_MODEL_FILES.map(localModelFileUrl), MAIN_CONFIG];
+const ALL_URLS = LOCAL_MODEL_FILES.map(localModelFileUrl);
 
 describe('model chạy trên máy: hằng số', () => {
   it('ghim commit và trỏ tới Hugging Face', () => {
@@ -54,8 +53,7 @@ describe('cache của model', () => {
   it('xoá model chỉ xoá file của model, giữ mục khác trong cache', async () => {
     const other = 'https://huggingface.co/other/model/resolve/main/config.json';
     const cache = fakeCache([...ALL_URLS, other]);
-    // Cả config.json theo nhánh main mà transformers.js lưu thêm.
-    expect(await deleteModelFiles(cache)).toBe(LOCAL_MODEL_FILES.length + 1);
+    expect(await deleteModelFiles(cache)).toBe(LOCAL_MODEL_FILES.length);
     expect([...cache.urls]).toEqual([other]);
     expect(await isModelCached(cache)).toBe(false);
   });
