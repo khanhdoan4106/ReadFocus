@@ -1,5 +1,7 @@
 # PROGRESS
 
+Thư mục làm việc chuẩn là C:deveadfocuseadfocus. Không làm việc trong OneDrive.
+
 ## Trạng thái
 - Nhánh hiện tại: `docs/v3-store` (nhóm K, T29–T30); nhóm J (PR #13) đã merge ở 54d01a6
 - Task đang làm: nhóm K (T29–T30) xong; đang tự rà soát và mở PR `docs/v3-store` → `main`
