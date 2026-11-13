@@ -429,6 +429,24 @@ export const en: Messages = {
   deleteAllNotesConfirm: (count: number) =>
     `Final confirmation: delete all ${count} notes and highlights across every document? This can’t be undone.`,
   deleteAllNotesDone: 'Deleted notes and highlights too.',
+  syncTitle: 'Sync reading progress',
+  syncToggle: 'Sync reading progress through your Chrome account',
+  syncHint:
+    'Off by default. When on, the current page of each document (with its page count and time) goes through Google’s Chrome Sync so your other computers know where you stopped. No file names, text, notes or AI keys.',
+  syncFailing:
+    'Couldn’t sync for a while (the quota may be used up or you may be offline). ReadFocus will retry on its own; reading isn’t affected.',
+  syncUnavailable: 'This browser doesn’t support syncing through a Chrome account.',
+  syncDisableTitle: 'Turn off progress sync?',
+  syncDisableBody:
+    'Do you want to keep or delete the progress already synced to your Chrome account? Deleting only removes ReadFocus’s progress data, not the progress on this computer or your notes.',
+  syncDisableKeep: 'Turn off and keep data',
+  syncDisableDelete: 'Turn off and delete synced data',
+  syncDisableCancel: 'Cancel',
+  syncDeleted: (count: number) =>
+    `Deleted ${count} synced progress ${count === 1 ? 'entry' : 'entries'}.`,
+  syncNotice: (page: number) => `On another computer you read up to page ${page}.`,
+  syncNoticeGo: (page: number) => `Go to page ${page}`,
+  syncNoticeDismiss: 'Dismiss',
   annotColors: {
     yellow: 'Yellow',
     green: 'Green',

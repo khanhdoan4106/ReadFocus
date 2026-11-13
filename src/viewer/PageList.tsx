@@ -21,6 +21,7 @@ type PageListProps = {
   pageTexts: ReadonlyMap<number, string>;
   reflow: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
   onReflow: (id: string, start: number, end: number, rects: Rect[]) => void;
+  onReflowFailed: (id: string) => void;
   onDrawArea: (page: number, rect: Rect, x: number, y: number) => void;
   onOpenAnnotation: (id: string, x: number, y: number) => void;
   scrollerRef: RefObject<HTMLElement | null>;
@@ -50,6 +51,7 @@ export function PageList({
   pageTexts,
   reflow,
   onReflow,
+  onReflowFailed,
   onDrawArea,
   onOpenAnnotation,
   scrollerRef,
@@ -135,6 +137,7 @@ export function PageList({
                 pageText={pageTexts.get(pageNumber)}
                 reflow={reflow.get(pageNumber)}
                 onReflow={onReflow}
+                onReflowFailed={onReflowFailed}
                 onDrawArea={onDrawArea}
                 onOpenAnnotation={onOpenAnnotation}
                 onMeasured={onMeasured}

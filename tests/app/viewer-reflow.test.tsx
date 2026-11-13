@@ -124,6 +124,40 @@ describe.each(CATALOGS)('tính lại vị trí highlight đã moved ($code)', ({
     expect(saved?.updatedAt).toBe(100);
   });
 
+  it('moved đang chờ tính lại: CHƯA có nút Gắn lại (đợi text layer)', async () => {
+    await open((d) => [textNote('mv', d, 0)]);
+    fireEvent.click(tab(text.notesTab));
+    const entry = (await screen.findByText(QUOTE)).closest('li') as HTMLElement;
+    expect(within(entry).getByText(text.notesRelocating)).toBeTruthy();
+    expect(within(entry).queryByRole('button', { name: text.notesReattach })).toBeNull();
+  });
+
+  it('moved mà text layer đã dựng nhưng ánh xạ vẫn thất bại: có nút Gắn lại để gỡ, không chỉ xoá', async () => {
+    const docId = await open((d) => [textNote('mv', d, 0)]);
+    fireEvent.click(await screen.findByTestId('reflow-fail-mv'));
+    fireEvent.click(tab(text.notesTab));
+    const entry = (await screen.findByText(QUOTE)).closest('li') as HTMLElement;
+    expect(within(entry).getByText(text.notesRelocating)).toBeTruthy();
+    expect(within(entry).getByRole('button', { name: text.notesReattach })).toBeTruthy();
+    expect(within(entry).getByRole('button', { name: text.annotDelete })).toBeTruthy();
+
+    // Bấm Gắn lại khi chưa chọn chữ: nhắc bôi đen, không đổi bản ghi.
+    fireEvent.click(within(entry).getByRole('button', { name: text.notesReattach }));
+    expect(await screen.findByText(text.annotNoSelection)).toBeTruthy();
+    const [saved] = await loadAnnotations(docId);
+    expect(saved?.anchor).toMatchObject({ start: 0, rects: [STALE_RECT] });
+  });
+
+  it('khi tính lại thành công sau đó thì nút Gắn lại biến mất cùng nhãn', async () => {
+    await open((d) => [textNote('mv', d, 0)]);
+    fireEvent.click(await screen.findByTestId('reflow-fail-mv'));
+    fireEvent.click(await screen.findByTestId('reflow-mv'));
+    fireEvent.click(tab(text.notesTab));
+    const entry = (await screen.findByText(QUOTE)).closest('li') as HTMLElement;
+    await waitFor(() => expect(within(entry).queryByText(text.notesRelocating)).toBeNull());
+    expect(within(entry).queryByRole('button', { name: text.notesReattach })).toBeNull();
+  });
+
   it('mồ côi: không vẽ, không chờ tính lại, không có nhãn "Đang cập nhật"', async () => {
     await open((d) => [textNote('lost', d, 0, 'đoạn không còn trong trang')]);
     fireEvent.click(tab(text.notesTab));

@@ -98,6 +98,7 @@ export function fakePageListModule() {
       onCurrentPageChange: (page: number) => void;
       annotations?: ReadonlyMap<number, readonly { id: string }[]>;
       reflow?: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
+      onReflowFailed?: (id: string) => void;
       onReflow?: (
         id: string,
         start: number,
@@ -115,6 +116,16 @@ export function fakePageListModule() {
             </div>
           ))}
           <div data-testid="drawn-annotations">{drawn.join(',')}</div>
+          {pending.map((item) => (
+            <button
+              type="button"
+              key={`fail-${item.id}`}
+              data-testid={`reflow-fail-${item.id}`}
+              onClick={() => props.onReflowFailed?.(item.id)}
+            >
+              {`fail ${item.id}`}
+            </button>
+          ))}
           {pending.map((item) => (
             <button
               type="button"
@@ -159,8 +170,8 @@ type FakeArea = {
 function makeArea(): FakeArea {
   const area: FakeArea = {
     data: {},
-    get: vi.fn(async (keys?: string | string[]) => {
-      if (keys === undefined) return { ...area.data };
+    get: vi.fn(async (keys?: string | string[] | null) => {
+      if (keys === undefined || keys === null) return { ...area.data };
       const list = typeof keys === 'string' ? [keys] : keys;
       return Object.fromEntries(
         list.filter((key) => key in area.data).map((k) => [k, area.data[k]]),
@@ -169,8 +180,8 @@ function makeArea(): FakeArea {
     set: vi.fn(async (items: Record<string, unknown>) => {
       Object.assign(area.data, items);
     }),
-    remove: vi.fn(async (key: string) => {
-      delete area.data[key];
+    remove: vi.fn(async (key: string | string[]) => {
+      for (const k of Array.isArray(key) ? key : [key]) delete area.data[k];
     }),
   };
   return area;
@@ -183,14 +194,28 @@ export type FakeChrome = {
   permissionsRequest: ReturnType<typeof vi.fn>;
 };
 
+/** Phát một sự kiện `chrome.storage.onChanged` giả (dùng trong test đồng bộ). */
+export let emitStorageChange: (changes: Record<string, unknown>, area: string) => void = () =>
+  undefined;
+
 export function installChrome(): FakeChrome {
   const local = makeArea();
   const session = makeArea();
   const sync = makeArea();
+  const changeListeners = new Set<(changes: Record<string, unknown>, area: string) => void>();
+  const onChanged = {
+    addListener: (listener: (changes: Record<string, unknown>, area: string) => void) =>
+      changeListeners.add(listener),
+    removeListener: (listener: (changes: Record<string, unknown>, area: string) => void) =>
+      changeListeners.delete(listener),
+  };
+  emitStorageChange = (changes, area) => {
+    for (const listener of changeListeners) listener(changes, area);
+  };
   const permissionsRequest = vi.fn(async () => true);
   Object.assign(globalThis, {
     chrome: {
-      storage: { local, session, sync },
+      storage: { local, session, sync, onChanged },
       permissions: {
         request: permissionsRequest,
         contains: vi.fn(async () => false),

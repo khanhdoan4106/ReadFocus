@@ -15,6 +15,8 @@ import { downloadText, safeFileStem } from './notes-io';
 
 export type NotesPanelProps = {
   api: AnnotationsApi;
+  /** Highlight đang `moved` mà text layer đã dựng nhưng không ánh xạ được. */
+  stuck: ReadonlySet<string>;
   ui: AnnotationUi;
   docId: string | null;
   documentName: string;
@@ -82,7 +84,7 @@ function Entry({
             {t.notesFlashcard}
           </button>
         )}
-        {orphan && (
+        {(orphan || (relocating && props.stuck.has(annotation.id))) && (
           <button
             type="button"
             class="notes__action"

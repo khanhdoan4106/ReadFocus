@@ -17,6 +17,7 @@ Extension Chrome giúp đọc PDF dễ chịu hơn: tự lập mục lục, tìm
 - **Tìm theo ý nghĩa (tuỳ chọn)**: tìm theo ý chứ không chỉ theo từ khoá, kết hợp với tìm từ khoá. Dùng API embeddings của nhà cung cấp bạn đã cấu hình.
 - **Hỏi đáp (tuỳ chọn)**: hỏi về nội dung tài liệu, câu trả lời kèm trích dẫn trang đã được kiểm chứng với văn bản của trang; bấm trích dẫn để nhảy tới trang và tô đoạn.
 - **Ghi chú và highlight**: bôi đen chữ để tô 4 màu và thêm ghi chú, kéo khung để đánh dấu hình, công thức, bảng hay trang scan, hoặc ghi chú cả trang (phím H và N). Tab Ghi chú liệt kê theo trang, lọc theo màu, tìm có dấu và không dấu, xuất Markdown, sao lưu và nhập JSON, tạo thẻ ôn tập từ highlight. Tất cả chỉ lưu trên máy bạn, không gọi mạng.
+- **Đồng bộ tiến độ đọc (tuỳ chọn, tắt mặc định)**: qua tài khoản Chrome, chỉ gồm trang đang đọc của mỗi tài liệu (khóa là mã băm một chiều, không có tên file, văn bản hay ghi chú). Mở tài liệu ở máy khác thì hiện thông báo "Trên máy khác bạn đã đọc tới trang X" và nút nhảy tới; không tự nhảy.
 - **Thẻ ôn tập**: tạo thẻ từ các bản tóm tắt (không gọi AI) hoặc nhờ AI tạo thêm cho một mục, ôn theo 5 hộp Leitner, xuất CSV nhập vào Anki.
 - **Cài đặt**: giao diện sáng/tối/theo hệ thống, tốc độ đọc, tự mở PDF trên web, xoá dữ liệu đã lưu.
 

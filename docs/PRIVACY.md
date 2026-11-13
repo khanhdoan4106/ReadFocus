@@ -1,6 +1,6 @@
 # Quyền riêng tư
 
-ReadFocus xử lý PDF và mọi dữ liệu đọc ngay trên máy. Mặc định không gửi dữ liệu ra ngoài. Không có analytics, telemetry, quảng cáo hay thư viện tải từ CDN. Ngoại lệ duy nhất là tóm tắt bằng AI: tuỳ chọn và chỉ chạy khi bạn chủ động (xem phần *Tóm tắt bằng AI*).
+ReadFocus xử lý PDF và mọi dữ liệu đọc ngay trên máy. Mặc định không gửi dữ liệu ra ngoài. Không có analytics, telemetry, quảng cáo hay thư viện tải từ CDN. Ngoại lệ là hai tính năng tuỳ chọn: tóm tắt bằng AI, chỉ chạy khi bạn chủ động (xem phần *Tóm tắt bằng AI*), và đồng bộ tiến độ đọc, tắt mặc định (xem phần *Đồng bộ tiến độ đọc*).
 
 ## Dữ liệu được lưu
 
@@ -19,7 +19,7 @@ Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension 
 Ngoài ra:
 
 - **`localStorage`** giữ hai giá trị `readfocus:theme` và `readfocus.uiLanguage` để áp giao diện và ngôn ngữ trước khi viewer render, tránh nháy màu hay đổi chữ.
-- **`chrome.storage.sync`** chỉ giữ cờ `autoOpenPdf` (bật/tắt tự mở PDF). Nếu bạn đăng nhập Chrome, cờ này có thể được Chrome đồng bộ theo tài khoản Google của bạn; không có nội dung tài liệu nào được đồng bộ.
+- **`chrome.storage.sync`** giữ cờ `autoOpenPdf` (bật/tắt tự mở PDF) và, CHỈ khi bạn tự bật **Đồng bộ tiến độ đọc**, các mục tiến độ (xem phần *Đồng bộ tiến độ đọc*). Nếu bạn đăng nhập Chrome, Chrome có thể đồng bộ các mục này theo tài khoản Google của bạn; không có nội dung tài liệu nào được đồng bộ.
 
 Tài liệu gốc không bị sửa và không bị sao chép ra khỏi máy.
 
@@ -102,9 +102,19 @@ OCR chạy hoàn toàn trên máy: thư viện, file WebAssembly và dữ liệu
 
 Thẻ tạo từ các bản tóm tắt đã có không gọi mạng. **Tạo thêm bằng AI** gửi văn bản của mục đang đọc tới nhà cung cấp AI (một request), qua hộp đồng ý và quyền truy cập như tóm tắt. Thẻ lưu trong IndexedDB (store `flashcards`), xoá được từng thẻ hoặc tất cả trong tab Thẻ ôn tập, và bị xoá cùng dữ liệu tài liệu. **Xuất CSV** chỉ tạo file tải về trên máy bạn.
 
+## Đồng bộ tiến độ đọc (tuỳ chọn, tắt mặc định)
+
+Ở **Cài đặt → Đồng bộ tiến độ đọc** bạn có thể bật đồng bộ để máy khác (cùng tài khoản Chrome) biết bạn đã đọc tới đâu. Cơ chế là `chrome.storage.sync`: dữ liệu đi qua **Chrome Sync của Google**; ReadFocus không có máy chủ riêng và không thêm quyền nào.
+
+- **Chỉ gồm** mỗi tài liệu một mục: khóa `p:` cộng 32 ký tự đầu của mã băm SHA-256 của file, giá trị gồm đúng ba trường `page` (trang đang đọc), `pageCount` (số trang), `updatedAt` (thời điểm). **Không có** tên file, văn bản, ghi chú, highlight hay API key. Mã băm một chiều nên không suy ra được tên file.
+- **Khi nào ghi.** Khoảng 10 giây sau lần đổi trang cuối, và khi tab bị ẩn hoặc đóng. ReadFocus giữ dưới giới hạn của Chrome (tối đa 512 mục, 100 KB, 120 lần ghi mỗi phút, 1.800 mỗi giờ); gần đầy thì bỏ các tài liệu đọc lâu nhất. Lỗi hoặc mất mạng thì tự thử lại sau, không làm phiền việc đọc.
+- **Khi mở tài liệu.** Nếu bản đồng bộ mới hơn và khác trang, ReadFocus chỉ HIỆN thông báo "Trên máy khác bạn đã đọc tới trang X" kèm nút **Đến trang X**; không bao giờ tự nhảy trang. Bản mới hơn (theo thời điểm) thắng khi hai máy khác nhau.
+- **Tắt.** Khi tắt, ReadFocus hỏi giữ hay xoá dữ liệu đã đồng bộ; xoá chỉ xoá các khóa `p:*` (không đụng tiến độ trên máy này, ghi chú hay cờ tự mở PDF).
+- Nếu Chrome của bạn chưa đăng nhập hoặc tắt Sync, `chrome.storage.sync` hoạt động như bộ nhớ cục bộ: dữ liệu không rời máy.
+
 ## Ghi chú và highlight
 
-Ghi chú và highlight là nội dung bạn tự tạo. Chúng **chỉ lưu trên máy này** (IndexedDB, store `annotations`), không được gửi đi đâu, không đi qua nhà cung cấp AI và không đồng bộ qua tài khoản Chrome. Mỗi bản ghi gồm trang, vị trí (offset ký tự, đoạn trích kèm khoảng 32 ký tự ngữ cảnh hai bên, hình chữ nhật chuẩn hoá), màu, ghi chú và thời điểm tạo/sửa.
+Ghi chú và highlight là nội dung bạn tự tạo. Chúng **chỉ lưu trên máy này** (IndexedDB, store `annotations`), không được gửi đi đâu, không đi qua nhà cung cấp AI và không bao giờ được đồng bộ qua tài khoản Chrome (kể cả khi bạn bật đồng bộ tiến độ). Mỗi bản ghi gồm trang, vị trí (offset ký tự, đoạn trích kèm khoảng 32 ký tự ngữ cảnh hai bên, hình chữ nhật chuẩn hoá), màu, ghi chú và thời điểm tạo/sửa.
 
 - **Không bị xoá ngầm.** Xoá một highlight luôn hỏi lại. **Xoá dữ liệu của …** xoá cả ghi chú của tài liệu đó và hộp xác nhận nói rõ số lượng. **Xoá toàn bộ dữ liệu đọc** mặc định GIỮ ghi chú; chỉ khi bật riêng **Xoá cả ghi chú và highlight** và xác nhận lần hai thì mới xoá.
 - **Sao lưu.** Tab Ghi chú xuất Markdown hoặc JSON thành file tải về máy bạn và nhập lại file JSON (gộp theo mã, giữ bản mới hơn; file lỗi bị từ chối trọn vẹn). ReadFocus không gửi file đi đâu.

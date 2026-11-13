@@ -12,6 +12,7 @@ import type { Annotation, Rect } from '../core/annotate/types';
 import { useAnnotations } from './hooks/useAnnotations';
 import { useAnnotationUi } from './hooks/useAnnotationUi';
 import { useLocalModel } from './hooks/useLocalModel';
+import { useProgressSync } from './hooks/useProgressSync';
 import { useExtraction } from './hooks/useExtraction';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
@@ -24,6 +25,7 @@ import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
 import { NoticeBar } from './NoticeBar';
 import { Toolbar } from './Toolbar';
 import { AnnotationOverlays } from './AnnotationOverlays';
+import { SyncNoticeBar } from './SyncNoticeBar';
 import { ViewerSidebar } from './ViewerSidebar';
 
 import { errorMessage } from './labels';
@@ -74,6 +76,7 @@ export function App() {
     commitPageDraft,
     handleDeleteDocument,
     handleDeleteAll,
+    openedProgress,
     fallbackSize,
     totalPages,
   } = useDocument({ lifecycle, showToast: setToast });
@@ -192,6 +195,14 @@ export function App() {
     toggleFullscreen,
     moveBand,
   } = focus;
+  const progressSync = useProgressSync({
+    docId,
+    pageNumber,
+    totalPages,
+    ready: status === 'ready',
+    openedProgress,
+    goToPage,
+  });
   const annotations = useAnnotations({ docId, pages: extractedPages });
   const [flashId, setFlashId] = useState<string | null>(null);
   const annotationUi = useAnnotationUi({
@@ -226,6 +237,16 @@ export function App() {
     }
     return map;
   }, [annotations.moved]);
+  // Highlight `moved` mà text layer đã dựng nhưng ánh xạ vẫn thất bại: tab Ghi chú cho gắn lại.
+  const [reflowFailed, setReflowFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const handleReflowFailed = useCallback((id: string) => {
+    setReflowFailed((current) => (current.has(id) ? current : new Set(current).add(id)));
+  }, []);
+  const stuckAnnotations = useMemo(
+    () => new Set(annotations.moved.filter((m) => reflowFailed.has(m.id)).map((m) => m.id)),
+    [annotations.moved, reflowFailed],
+  );
+  useEffect(() => setReflowFailed(new Set()), [docId]);
   const annotationItems = annotations.items;
   const changeAnnotation = annotations.change;
   const handleReflow = useCallback(
@@ -300,6 +321,8 @@ export function App() {
         onToggleAreaMode={annotationUi.toggleAreaMode}
       />
 
+      <SyncNoticeBar sync={progressSync} />
+
       <NoticeBar
         ready={status === 'ready'}
         pageNumber={pageNumber}
@@ -349,6 +372,7 @@ export function App() {
               pageTexts={annotations.textByPage}
               reflow={reflowByPage}
               onReflow={handleReflow}
+              onReflowFailed={handleReflowFailed}
               onDrawArea={annotationUi.addAreaNote}
               onOpenAnnotation={annotationUi.openPopover}
               scrollerRef={contentRef}
@@ -364,6 +388,8 @@ export function App() {
             localModel={localModel}
             annotations={annotations}
             annotationUi={annotationUi}
+            progressSync={progressSync}
+            stuckAnnotations={stuckAnnotations}
             showToast={setToast}
             onJumpNote={handleJumpNote}
             ready

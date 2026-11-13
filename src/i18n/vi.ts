@@ -422,6 +422,23 @@ export const vi = {
   deleteAllNotesConfirm: (count: number) =>
     `Xác nhận lần cuối: xoá cả ${count} ghi chú và highlight của mọi tài liệu? Việc này không khôi phục được.`,
   deleteAllNotesDone: 'Đã xoá cả ghi chú và highlight.',
+  syncTitle: 'Đồng bộ tiến độ đọc',
+  syncToggle: 'Đồng bộ tiến độ đọc qua tài khoản Chrome',
+  syncHint:
+    'Tắt mặc định. Khi bật, trang đang đọc của mỗi tài liệu (cùng số trang và thời điểm) đi qua Chrome Sync của Google để máy khác của bạn biết bạn đã đọc tới đâu. Không có tên file, văn bản, ghi chú hay key AI.',
+  syncFailing:
+    'Chưa đồng bộ được trong một lúc (có thể hết hạn mức hoặc mất mạng). ReadFocus sẽ tự thử lại; việc đọc không bị ảnh hưởng.',
+  syncUnavailable: 'Trình duyệt này không hỗ trợ đồng bộ qua tài khoản Chrome.',
+  syncDisableTitle: 'Tắt đồng bộ tiến độ?',
+  syncDisableBody:
+    'Bạn muốn giữ hay xoá tiến độ đã đồng bộ trên tài khoản Chrome? Xoá chỉ bỏ dữ liệu tiến độ của ReadFocus, không đụng tới tiến độ trên máy này hay ghi chú.',
+  syncDisableKeep: 'Tắt và giữ dữ liệu',
+  syncDisableDelete: 'Tắt và xoá dữ liệu đã đồng bộ',
+  syncDisableCancel: 'Huỷ',
+  syncDeleted: (count: number) => `Đã xoá ${count} mục tiến độ đã đồng bộ.`,
+  syncNotice: (page: number) => `Trên máy khác bạn đã đọc tới trang ${page}.`,
+  syncNoticeGo: (page: number) => `Đến trang ${page}`,
+  syncNoticeDismiss: 'Bỏ qua',
   annotColors: {
     yellow: 'Vàng',
     green: 'Xanh lá',
