@@ -268,7 +268,9 @@ describe('viewer: mở PDF từ địa chỉ (menu chuột phải, nút trên th
     await waitFor(() => expect(screen.getByText(t.pageLabel(2, 4))).toBeTruthy());
     await tick(50);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://example.com/docs/tai-lieu.pdf');
+    expect((fetchSpy.mock.calls[0] as unknown[] | undefined)?.[0]).toBe(
+      'https://example.com/docs/tai-lieu.pdf',
+    );
   });
 
   it('địa chỉ file:// thì báo cần bật quyền truy cập file, không gọi mạng', async () => {
