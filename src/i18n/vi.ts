@@ -34,6 +34,7 @@ export const vi = {
     'Chrome không cho extension đọc trực tiếp file://. Hãy mở bằng nút “Mở PDF” hoặc kéo thả file vào cửa sổ. Nếu muốn mở theo địa chỉ, bật “Cho phép truy cập URL tệp” cho ReadFocus trong chrome://extensions.',
   retry: 'Chọn file khác',
 
+  toolbarLabel: 'Điều khiển tài liệu',
   fileNameUnknown: 'Tài liệu không tên',
 
   profileBook: 'Sách',
@@ -137,6 +138,12 @@ export const vi = {
   autoOpenEnabled: 'Đã bật tự mở PDF bằng ReadFocus.',
   autoOpenDisabled: 'Đã tắt tự mở PDF và thu hồi quyền truy cập trang web.',
 
+  languageTitle: 'Ngôn ngữ',
+  languageLabel: 'Ngôn ngữ giao diện',
+  languageAuto: 'Theo trình duyệt',
+  languageVi: 'Tiếng Việt',
+  languageEn: 'English',
+
   themeTitle: 'Giao diện',
   themeSystem: 'Theo hệ thống',
   themeLight: 'Sáng',
@@ -172,7 +179,9 @@ export const vi = {
   aiSaveKeyHint: 'Tắt để chỉ giữ key tới khi đóng trình duyệt.',
   aiLanguageLabel: 'Ngôn ngữ tóm tắt',
   aiLanguageVi: 'Tiếng Việt',
+  aiLanguageEn: 'Tiếng Anh',
   aiLanguageDocument: 'Theo ngôn ngữ tài liệu',
+  aiLanguageUi: 'Theo ngôn ngữ giao diện',
   aiTestConnection: 'Kiểm tra kết nối',
   aiTesting: 'Đang kiểm tra kết nối…',
   aiTestOk: 'Kết nối thành công.',
@@ -238,7 +247,7 @@ export const vi = {
     'Để hỏi đáp, hãy mở tab Cài đặt → AI và thiết lập nhà cung cấp cùng API key.',
   askNoText:
     'Chưa có chữ nào của tài liệu để tìm câu trả lời. Đợi ReadFocus lập chỉ mục xong hoặc nhận dạng chữ (OCR) trước.',
-  askScopeNote: (semantic: boolean) =>
+  askScopeNote: (semantic: boolean): string =>
     semantic
       ? 'Tìm đoạn liên quan theo ý nghĩa và từ khoá trong các trang đã lập chỉ mục.'
       : 'Tìm đoạn liên quan theo từ khoá trong các trang đã lập chỉ mục. Tạo chỉ mục theo ý nghĩa ở tab Tìm kiếm để kết quả tốt hơn.',
@@ -396,6 +405,6 @@ export const vi = {
     unknown:
       'Có lỗi khi gọi nhà cung cấp. Thử lại; nếu vẫn lỗi, kiểm tra địa chỉ API và model trong Cài đặt → AI.',
   } satisfies Record<LLMErrorKind, string>,
-} as const;
+};
 
 export type Messages = typeof vi;

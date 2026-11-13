@@ -1,7 +1,7 @@
 import type { FocusTimer } from '../core/focus';
 import type { ProviderId } from '../core/llm/types';
 import { formatTimer } from '../core/focus';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { Dialog } from './Dialog';
 
 import { timerModeLabel } from './labels';
@@ -30,20 +30,20 @@ export function FocusOverlay({
         style={{ top: `${bandTop}px`, height: `${bandHeight}px` }}
         aria-hidden="true"
       />
-      <div class="focus-controls" role="group" aria-label={vi.focusModeTitle}>
+      <div class="focus-controls" role="group" aria-label={t.focusModeTitle}>
         {timer.status !== 'idle' && (
           <span class="focus-controls__timer">
             {timerModeLabel(timer.mode)} · {formatTimer(remainingMs)}
           </span>
         )}
         <button type="button" class="focus-button" onClick={onToggleFullscreen}>
-          {fullscreen ? vi.focusExitFullscreen : vi.focusFullscreen}
+          {fullscreen ? t.focusExitFullscreen : t.focusFullscreen}
         </button>
         <button type="button" class="focus-button focus-button--primary" onClick={onExit}>
-          {vi.focusModeOff}
+          {t.focusModeOff}
         </button>
       </div>
-      <p class="focus-move-hint">{vi.focusMoveHint}</p>
+      <p class="focus-move-hint">{t.focusMoveHint}</p>
     </>
   );
 }
@@ -55,7 +55,7 @@ export function Toast({ message, onDismiss }: { message: string; onDismiss: () =
       <button
         type="button"
         class="toast__close"
-        aria-label={vi.toastDismiss}
+        aria-label={t.toastDismiss}
         onClick={() => onDismiss()}
       >
         ×
@@ -77,15 +77,15 @@ export function ConsentDialog({
   return (
     <Dialog titleId="ai-consent-title" onClose={onCancel}>
       <h2 class="consent-dialog__title" id="ai-consent-title">
-        {vi.aiConsentTitle}
+        {t.aiConsentTitle}
       </h2>
-      <p class="consent-dialog__body">{vi.aiConsentBody(vi.aiProviders[providerId])}</p>
+      <p class="consent-dialog__body">{t.aiConsentBody(t.aiProviders[providerId])}</p>
       <div class="consent-dialog__actions">
         <button type="button" class="settings-button settings-button--primary" onClick={onAccept}>
-          {vi.aiConsentAccept}
+          {t.aiConsentAccept}
         </button>
         <button type="button" class="settings-button" onClick={onCancel}>
-          {vi.aiConsentCancel}
+          {t.aiConsentCancel}
         </button>
       </div>
     </Dialog>

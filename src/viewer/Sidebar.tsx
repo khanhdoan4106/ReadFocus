@@ -2,7 +2,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { estimateItemMinutes, estimateRemainingTime, roundedMinutes } from '../core/reading-time';
 import type { SearchIndex } from '../core/search';
 import type { TocResult } from '../core/toc';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { AskPanel, type AskPanelProps } from './AskPanel';
 import { FlashcardPanel, type FlashcardPanelProps } from './FlashcardPanel';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
@@ -59,7 +59,7 @@ export function Sidebar({
 
   return (
     <aside class="sidebar" id="viewer-sidebar">
-      <div class="sidebar__tabs" role="tablist" aria-label={vi.sidebarLabel}>
+      <div class="sidebar__tabs" role="tablist" aria-label={t.sidebarLabel}>
         <button
           type="button"
           role="tab"
@@ -67,7 +67,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'toc' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('toc')}
         >
-          {vi.tocTitle}
+          {t.tocTitle}
         </button>
         <button
           type="button"
@@ -76,7 +76,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'summary' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('summary')}
         >
-          {vi.summaryTab}
+          {t.summaryTab}
         </button>
         <button
           type="button"
@@ -85,7 +85,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'ask' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('ask')}
         >
-          {vi.askTab}
+          {t.askTab}
         </button>
         <button
           type="button"
@@ -94,7 +94,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'flash' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('flash')}
         >
-          {vi.flashTab}
+          {t.flashTab}
         </button>
         <button
           type="button"
@@ -103,7 +103,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'search' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('search')}
         >
-          {vi.searchTab}
+          {t.searchTab}
         </button>
         <button
           type="button"
@@ -112,7 +112,7 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'focus' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('focus')}
         >
-          {vi.focusTab}
+          {t.focusTab}
         </button>
         <button
           type="button"
@@ -121,34 +121,34 @@ export function Sidebar({
           class={`sidebar__tab${tab === 'settings' ? ' sidebar__tab--active' : ''}`}
           onClick={() => setTab('settings')}
         >
-          {vi.settingsTab}
+          {t.settingsTab}
         </button>
       </div>
 
       {tab === 'toc' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.tocTitle}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.tocTitle}>
           {toc === null ? (
-            <p class="sidebar__empty">{building ? vi.tocBuilding : vi.tocEmpty}</p>
+            <p class="sidebar__empty">{building ? t.tocBuilding : t.tocEmpty}</p>
           ) : toc.items.length === 0 ? (
-            <p class="sidebar__empty">{vi.tocEmpty}</p>
+            <p class="sidebar__empty">{t.tocEmpty}</p>
           ) : (
             <>
               {remaining !== null && wordsPerMinute > 0 && (
                 <dl class="reading">
                   <div class="reading__row">
-                    <dt>{vi.readingSectionLabel}</dt>
-                    <dd>{vi.readingMinutes(roundedMinutes(remaining.sectionMinutes))}</dd>
+                    <dt>{t.readingSectionLabel}</dt>
+                    <dd>{t.readingMinutes(roundedMinutes(remaining.sectionMinutes))}</dd>
                   </div>
                   <div class="reading__row">
-                    <dt>{vi.readingTotalLabel}</dt>
-                    <dd>{vi.readingMinutes(roundedMinutes(remaining.totalMinutes))}</dd>
+                    <dt>{t.readingTotalLabel}</dt>
+                    <dd>{t.readingMinutes(roundedMinutes(remaining.totalMinutes))}</dd>
                   </div>
                 </dl>
               )}
               <ol class="toc">
                 {toc.items.map((item, index_) => {
                   const active = currentPage >= item.startPage && currentPage <= item.endPage;
-                  const label = item.title || vi.tocPageRange(item.startPage, item.endPage);
+                  const label = item.title || t.tocPageRange(item.startPage, item.endPage);
                   const itemMinutes = roundedMinutes(estimateItemMinutes(item, wordsPerMinute));
                   const hasSummary = summarizedSpans.has(`${item.startPage}-${item.endPage}`);
 
@@ -166,14 +166,14 @@ export function Sidebar({
                         {hasSummary && (
                           <span
                             class="toc__summary-badge"
-                            title={vi.summaryBadgeTitle}
-                            aria-label={vi.summaryBadgeTitle}
+                            title={t.summaryBadgeTitle}
+                            aria-label={t.summaryBadgeTitle}
                           >
                             ✦
                           </span>
                         )}
                         {itemMinutes > 0 && (
-                          <span class="toc__time">{vi.readingMinutes(itemMinutes)}</span>
+                          <span class="toc__time">{t.readingMinutes(itemMinutes)}</span>
                         )}
                         <span class="toc__page">{item.startPage}</span>
                       </button>
@@ -185,19 +185,19 @@ export function Sidebar({
           )}
         </div>
       ) : tab === 'summary' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.summaryTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.summaryTab}>
           <SummaryPanel {...summary} onOpenSettings={() => setTab('settings')} />
         </div>
       ) : tab === 'ask' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.askTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.askTab}>
           <AskPanel {...askPanel} onOpenSettings={() => setTab('settings')} />
         </div>
       ) : tab === 'flash' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.flashTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.flashTab}>
           <FlashcardPanel {...flashPanel} onOpenSettings={() => setTab('settings')} />
         </div>
       ) : tab === 'search' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.searchTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.searchTab}>
           <SearchPanel
             index={index}
             semantic={semantic}
@@ -206,11 +206,11 @@ export function Sidebar({
           />
         </div>
       ) : tab === 'focus' ? (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.focusTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.focusTab}>
           <FocusPanel {...focus} />
         </div>
       ) : (
-        <div class="sidebar__panel" role="tabpanel" aria-label={vi.settingsTab}>
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.settingsTab}>
           <SettingsPanel {...settings} />
         </div>
       )}

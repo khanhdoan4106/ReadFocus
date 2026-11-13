@@ -6,7 +6,7 @@ import { buildProfile, type PageSample } from '../../core/profile';
 import { buildSearchIndex, type SearchIndex } from '../../core/search';
 import { countWords } from '../../core/text';
 import { buildToc, type TocPage, type TocResult } from '../../core/toc';
-import { vi } from '../../i18n/vi';
+import { t } from '../../i18n';
 import { clearPageTexts, savePageTexts } from '../../storage/db';
 import { extractRange, INDEX_PAGE_LIMIT, readOutline } from '../extract';
 
@@ -130,11 +130,11 @@ export function useExtraction({ ocrTextRef, indexedRangeRef }: Input) {
       to < from ||
       to > doc.numPages
     ) {
-      setRangeError(vi.indexRangeInvalid);
+      setRangeError(t.indexRangeInvalid);
       return;
     }
     if (to - from + 1 > INDEX_PAGE_LIMIT) {
-      setRangeError(vi.indexRangeTooLong(INDEX_PAGE_LIMIT));
+      setRangeError(t.indexRangeTooLong(INDEX_PAGE_LIMIT));
       return;
     }
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { chunkPreview, type RetrievedChunk } from '../core/embed/retrieve';
 import { searchIndex as runSearch, type SearchIndex } from '../core/search';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { Dialog } from './Dialog';
 import type { SemanticApi } from './semantic';
 
@@ -73,7 +73,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
     });
   };
 
-  const provider = vi.aiProviders[semantic.providerId];
+  const provider = t.aiProviders[semantic.providerId];
 
   return (
     <div class="search">
@@ -82,14 +82,14 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
           ref={inputRef}
           class="search__input"
           type="search"
-          placeholder={vi.searchPlaceholder}
-          aria-label={vi.searchPlaceholder}
+          placeholder={t.searchPlaceholder}
+          aria-label={t.searchPlaceholder}
           value={query}
           onInput={(event) => setQuery(event.currentTarget.value)}
         />
         {showSemantic && (
           <button type="submit" class="notice__button" disabled={searching}>
-            {vi.searchSubmit}
+            {t.searchSubmit}
           </button>
         )}
       </form>
@@ -99,7 +99,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
           checked={ignoreDiacritics}
           onChange={(event) => setIgnoreDiacritics(event.currentTarget.checked)}
         />
-        {vi.searchIgnoreDiacritics}
+        {t.searchIgnoreDiacritics}
       </label>
       <label class="search__toggle">
         <input
@@ -107,25 +107,23 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
           checked={semanticOn}
           onChange={(event) => setSemanticOn(event.currentTarget.checked)}
         />
-        {vi.semanticToggle}
+        {t.semanticToggle}
       </label>
 
       {semanticOn && (
         <div class="search__semantic">
           {semantic.state === 'unsupported' && (
-            <p class="sidebar__empty">{vi.semanticUnsupported}</p>
+            <p class="sidebar__empty">{t.semanticUnsupported}</p>
           )}
-          {semantic.state === 'missing-key' && (
-            <p class="sidebar__empty">{vi.semanticMissingKey}</p>
-          )}
-          {semantic.state === 'empty' && <p class="sidebar__empty">{vi.semanticEmpty}</p>}
+          {semantic.state === 'missing-key' && <p class="sidebar__empty">{t.semanticMissingKey}</p>}
+          {semantic.state === 'empty' && <p class="sidebar__empty">{t.semanticEmpty}</p>}
 
           {building && semantic.progress ? (
             <div class="notice__progress">
               <progress value={semantic.progress.done} max={semantic.progress.total} />
-              <span>{vi.semanticBuilding(semantic.progress.done, semantic.progress.total)}</span>
+              <span>{t.semanticBuilding(semantic.progress.done, semantic.progress.total)}</span>
               <button type="button" class="notice__button" onClick={semantic.cancel}>
-                {vi.semanticCancel}
+                {t.semanticCancel}
               </button>
             </div>
           ) : (
@@ -134,17 +132,17 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
               <>
                 <p class="sidebar__empty">
                   {semantic.state === 'none'
-                    ? vi.semanticNoIndex
-                    : vi.semanticPartialIndex(semantic.pending.chunks)}
+                    ? t.semanticNoIndex
+                    : t.semanticPartialIndex(semantic.pending.chunks)}
                 </p>
                 <button type="button" class="notice__button" onClick={() => setConfirmOpen(true)}>
-                  {semantic.state === 'none' ? vi.semanticBuild : vi.semanticBuildMore}
+                  {semantic.state === 'none' ? t.semanticBuild : t.semanticBuildMore}
                 </button>
               </>
             )
           )}
 
-          {indexReady && <p class="search__note">{vi.semanticToggleHint(provider)}</p>}
+          {indexReady && <p class="search__note">{t.semanticToggleHint(provider)}</p>}
           {semantic.error !== null && (
             <p class="notice__error" role="alert">
               {semantic.error}
@@ -156,16 +154,16 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
       {showSemantic ? (
         searching ? (
           <p class="sidebar__empty" role="status">
-            {vi.semanticSearching}
+            {t.semanticSearching}
           </p>
         ) : semanticResults === null ? (
-          <p class="sidebar__empty">{vi.semanticReady}</p>
+          <p class="sidebar__empty">{t.semanticReady}</p>
         ) : semanticResults.items.length === 0 ? (
-          <p class="sidebar__empty">{vi.searchNoResults(semanticResults.query)}</p>
+          <p class="sidebar__empty">{t.searchNoResults(semanticResults.query)}</p>
         ) : (
           <>
-            <p class="search__count">{vi.searchResultCount(semanticResults.items.length)}</p>
-            <p class="search__note">{vi.semanticHybridNote}</p>
+            <p class="search__count">{t.searchResultCount(semanticResults.items.length)}</p>
+            <p class="search__note">{t.semanticHybridNote}</p>
             <ul class="search__results">
               {semanticResults.items.map(({ chunk }) => (
                 <li key={chunk.id}>
@@ -176,7 +174,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
                       onSelectResult(chunk.page, semanticResults.query, ignoreDiacritics)
                     }
                   >
-                    <span class="search__page">{vi.tocPageRange(chunk.page, chunk.page)}</span>
+                    <span class="search__page">{t.tocPageRange(chunk.page, chunk.page)}</span>
                     <span class="search__snippet">{chunkPreview(chunk.text)}</span>
                   </button>
                 </li>
@@ -185,14 +183,14 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
           </>
         )
       ) : index === null ? (
-        <p class="sidebar__empty">{vi.searchNotReady}</p>
+        <p class="sidebar__empty">{t.searchNotReady}</p>
       ) : query.trim() === '' ? (
-        <p class="sidebar__empty">{vi.searchHint}</p>
+        <p class="sidebar__empty">{t.searchHint}</p>
       ) : keywordResults.length === 0 ? (
-        <p class="sidebar__empty">{vi.searchNoResults(query.trim())}</p>
+        <p class="sidebar__empty">{t.searchNoResults(query.trim())}</p>
       ) : (
         <>
-          <p class="search__count">{vi.searchResultCount(keywordResults.length)}</p>
+          <p class="search__count">{t.searchResultCount(keywordResults.length)}</p>
           <ul class="search__results">
             {keywordResults.map((hit, index_) => (
               <li key={`${hit.page}-${index_}`}>
@@ -201,7 +199,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
                   class="search__result"
                   onClick={() => onSelectResult(hit.page, query, ignoreDiacritics)}
                 >
-                  <span class="search__page">{vi.tocPageRange(hit.page, hit.page)}</span>
+                  <span class="search__page">{t.tocPageRange(hit.page, hit.page)}</span>
                   <span class="search__snippet">{hit.snippet}</span>
                 </button>
               </li>
@@ -213,10 +211,10 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
       {confirmOpen && (
         <Dialog titleId="semantic-confirm-title" onClose={() => setConfirmOpen(false)}>
           <h2 class="consent-dialog__title" id="semantic-confirm-title">
-            {vi.semanticConfirmTitle}
+            {t.semanticConfirmTitle}
           </h2>
           <p class="consent-dialog__body">
-            {vi.semanticConfirmBody(
+            {t.semanticConfirmBody(
               semantic.pending.chunks,
               semantic.pending.requests,
               provider,
@@ -232,10 +230,10 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
                 void semantic.build();
               }}
             >
-              {vi.semanticConfirmAccept}
+              {t.semanticConfirmAccept}
             </button>
             <button type="button" class="settings-button" onClick={() => setConfirmOpen(false)}>
-              {vi.semanticConfirmCancel}
+              {t.semanticConfirmCancel}
             </button>
           </div>
         </Dialog>

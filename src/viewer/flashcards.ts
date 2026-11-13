@@ -19,7 +19,7 @@ import {
   loadFlashcards,
   saveFlashcards,
 } from '../storage/db';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { aiErrorMessage } from './ai-errors';
 
 export type FlashcardNotice =
@@ -141,7 +141,7 @@ export function useFlashcards({
       });
       if (scopeRef.current !== scope) return;
       if (!granted) {
-        setError(vi.aiPermissionDenied);
+        setError(t.aiPermissionDenied);
         return;
       }
     }
@@ -178,7 +178,7 @@ export function useFlashcards({
       if (isActive()) setNotice({ type: 'created', count: fresh.length });
     } catch (caught) {
       if (!isActive()) return;
-      if (isLLMError(caught) && caught.kind === 'cancelled') setError(vi.aiErrorMessages.cancelled);
+      if (isLLMError(caught) && caught.kind === 'cancelled') setError(t.aiErrorMessages.cancelled);
       else setError(aiErrorMessage(caught, settings));
     } finally {
       if (runRef.current === current) {

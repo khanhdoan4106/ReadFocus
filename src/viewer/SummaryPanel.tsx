@@ -3,7 +3,7 @@ import type { LLMErrorKind, ProviderId } from '../core/llm/types';
 import { formatSummaryClipboard } from '../core/summarize/format';
 import type { SummaryRecord } from '../core/summarize/record';
 import type { WorkEstimate } from '../core/summarize/work';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { Dialog } from './Dialog';
 import type { TocItem } from '../storage/db';
 
@@ -74,15 +74,15 @@ export function SummaryPanel({
     return (
       <div class="summary-panel">
         <div class="settings-card">
-          <h3 class="settings-card__title">{vi.summaryNotConfiguredTitle}</h3>
-          <p class="settings-card__hint">{vi.summaryNotConfiguredHint}</p>
+          <h3 class="settings-card__title">{t.summaryNotConfiguredTitle}</h3>
+          <p class="settings-card__hint">{t.summaryNotConfiguredHint}</p>
           <div class="settings-actions">
             <button
               type="button"
               class="settings-button settings-button--primary"
               onClick={onOpenSettings}
             >
-              {vi.summaryOpenSettings}
+              {t.summaryOpenSettings}
             </button>
           </div>
         </div>
@@ -101,11 +101,11 @@ export function SummaryPanel({
 
   const sectionTitle = currentSection
     ? currentSection.title ||
-      vi.summarySectionRange(currentSection.startPage, currentSection.endPage)
+      t.summarySectionRange(currentSection.startPage, currentSection.endPage)
     : null;
 
   const providerLabel = summary
-    ? (vi.aiProviders[summary.providerId as ProviderId] ?? summary.providerId)
+    ? (t.aiProviders[summary.providerId as ProviderId] ?? summary.providerId)
     : '';
 
   return (
@@ -114,10 +114,10 @@ export function SummaryPanel({
       {canSummarizeAll && (
         <div class="summary-card">
           <div class="summary-card__header">
-            <h3 class="summary-card__title">{vi.summarizeAllSections}</h3>
+            <h3 class="summary-card__title">{t.summarizeAllSections}</h3>
             {summarizeAllProgress && (
               <span class="summary-card__meta">
-                {vi.summarizeAllProgress(summarizeAllProgress.done, summarizeAllProgress.total)}
+                {t.summarizeAllProgress(summarizeAllProgress.done, summarizeAllProgress.total)}
               </span>
             )}
           </div>
@@ -127,7 +127,7 @@ export function SummaryPanel({
               <div
                 class="summary-progress-bar"
                 role="progressbar"
-                aria-label={vi.summarizeAllProgress(
+                aria-label={t.summarizeAllProgress(
                   summarizeAllProgress.done,
                   summarizeAllProgress.total,
                 )}
@@ -146,7 +146,7 @@ export function SummaryPanel({
               </div>
               <div class="summary-actions">
                 <button type="button" class="settings-button" onClick={onCancelSummarizeAll}>
-                  {vi.summarizeCancel}
+                  {t.summarizeCancel}
                 </button>
               </div>
             </div>
@@ -158,7 +158,7 @@ export function SummaryPanel({
                 disabled={loading || busyElsewhere}
                 onClick={onSummarizeAllClick}
               >
-                {vi.summarizeAllSections}
+                {t.summarizeAllSections}
               </button>
             </div>
           )}
@@ -170,10 +170,10 @@ export function SummaryPanel({
           )}
           {summarizeAllOutcome && summarizeAllOutcome.failed.length > 0 && (
             <div class="settings-notice settings-notice--error" role="alert">
-              <span>{vi.summarizeAllFailed(summarizeAllOutcome.failed.length)}</span>
+              <span>{t.summarizeAllFailed(summarizeAllOutcome.failed.length)}</span>
               <div class="summary-actions" style={{ marginTop: '0.4rem' }}>
                 <button type="button" class="settings-button" onClick={onRetryFailed}>
-                  {vi.summarizeAllRetryFailed}
+                  {t.summarizeAllRetryFailed}
                 </button>
               </div>
             </div>
@@ -185,17 +185,17 @@ export function SummaryPanel({
       <div class="summary-card">
         <div class="summary-card__header">
           <h3 class="summary-card__title">
-            {sectionTitle ? vi.summaryCurrentSectionTitle(sectionTitle) : vi.summaryNoToc}
+            {sectionTitle ? t.summaryCurrentSectionTitle(sectionTitle) : t.summaryNoToc}
           </h3>
           {currentSection && (
             <span class="summary-card__meta">
-              {vi.summarySectionRange(currentSection.startPage, currentSection.endPage)}
+              {t.summarySectionRange(currentSection.startPage, currentSection.endPage)}
             </span>
           )}
         </div>
 
         {currentSection === null ? (
-          <p class="settings-card__hint">{vi.summaryNoToc}</p>
+          <p class="settings-card__hint">{t.summaryNoToc}</p>
         ) : (
           <>
             {/* Thanh tác vụ hoặc trạng thái đang chạy */}
@@ -203,14 +203,14 @@ export function SummaryPanel({
               <div class="summary-card">
                 <p class="settings-card__hint">
                   {loadingProgress
-                    ? vi.summarizeSectionProgress(loadingProgress.done, loadingProgress.total)
-                    : vi.loading}
+                    ? t.summarizeSectionProgress(loadingProgress.done, loadingProgress.total)
+                    : t.loading}
                 </p>
                 {loadingProgress && (
                   <div
                     class="summary-progress-bar"
                     role="progressbar"
-                    aria-label={vi.summarizeSectionProgress(
+                    aria-label={t.summarizeSectionProgress(
                       loadingProgress.done,
                       loadingProgress.total,
                     )}
@@ -230,19 +230,19 @@ export function SummaryPanel({
                 )}
                 <div class="summary-actions">
                   <button type="button" class="settings-button" onClick={onCancel}>
-                    {vi.summarizeCancel}
+                    {t.summarizeCancel}
                   </button>
                 </div>
               </div>
             ) : noText ? (
-              <p class="settings-notice settings-notice--error">{vi.summarizeNoText}</p>
+              <p class="settings-notice settings-notice--error">{t.summarizeNoText}</p>
             ) : summary ? (
               <>
                 <div class="summary-card__header">
                   <span class="summary-card__meta">
-                    {vi.summaryModelInfo(providerLabel, summary.model)}
+                    {t.summaryModelInfo(providerLabel, summary.model)}
                   </span>
-                  {isCached && <span class="summary-card__badge">{vi.summarizeFromCache}</span>}
+                  {isCached && <span class="summary-card__badge">{t.summarizeFromCache}</span>}
                 </div>
 
                 <div class="summary-actions">
@@ -252,10 +252,10 @@ export function SummaryPanel({
                     disabled={loading || busyElsewhere || Boolean(summarizeAllProgress)}
                     onClick={onRegenerate}
                   >
-                    {vi.summarizeRegenerate}
+                    {t.summarizeRegenerate}
                   </button>
                   <button type="button" class="settings-button" onClick={handleCopy}>
-                    {copied ? vi.summarizeCopied : vi.summarizeCopy}
+                    {copied ? t.summarizeCopied : t.summarizeCopy}
                   </button>
                 </div>
               </>
@@ -267,7 +267,7 @@ export function SummaryPanel({
                   disabled={loading || busyElsewhere || Boolean(summarizeAllProgress)}
                   onClick={onSummarize}
                 >
-                  {vi.summarizeCurrentSection}
+                  {t.summarizeCurrentSection}
                 </button>
               </div>
             )}
@@ -283,7 +283,7 @@ export function SummaryPanel({
                       class="settings-button settings-button--primary"
                       onClick={onRetry}
                     >
-                      {vi.summaryRetry}
+                      {t.summaryRetry}
                     </button>
                   </div>
                 )}
@@ -297,7 +297,7 @@ export function SummaryPanel({
 
                 {summary.keyPoints.length > 0 && (
                   <>
-                    <h4 class="summary-subtitle">{vi.summaryKeyPointsTitle}</h4>
+                    <h4 class="summary-subtitle">{t.summaryKeyPointsTitle}</h4>
                     <ul class="summary-keypoints">
                       {summary.keyPoints.map((point, index_) => (
                         <li key={index_} class="summary-keypoint-item">
@@ -307,10 +307,10 @@ export function SummaryPanel({
                               key={page}
                               type="button"
                               class="summary-page-btn"
-                              title={vi.summaryPageRef(page)}
+                              title={t.summaryPageRef(page)}
                               onClick={() => onSelectPage(page)}
                             >
-                              {vi.summaryPageRef(page)}
+                              {t.summaryPageRef(page)}
                             </button>
                           ))}
                         </li>
@@ -321,7 +321,7 @@ export function SummaryPanel({
 
                 {summary.terms.length > 0 && (
                   <>
-                    <h4 class="summary-subtitle">{vi.summaryTermsTitle}</h4>
+                    <h4 class="summary-subtitle">{t.summaryTermsTitle}</h4>
                     <dl class="summary-terms">
                       {summary.terms.map((term, index_) => (
                         <div key={index_} class="summary-term-row">
@@ -342,10 +342,10 @@ export function SummaryPanel({
       {estimateDialog?.open && estimateDialog.estimate && (
         <Dialog titleId="summary-estimate-title" onClose={estimateDialog.onCancel}>
           <h2 class="consent-dialog__title" id="summary-estimate-title">
-            {vi.summarizeAllConfirmTitle}
+            {t.summarizeAllConfirmTitle}
           </h2>
           <p class="consent-dialog__body">
-            {vi.summarizeAllConfirmBody(
+            {t.summarizeAllConfirmBody(
               estimateDialog.sectionsCount,
               estimateDialog.cachedCount,
               estimateDialog.estimate.requests,
@@ -358,10 +358,10 @@ export function SummaryPanel({
               class="settings-button settings-button--primary"
               onClick={estimateDialog.onConfirm}
             >
-              {vi.summarizeAllConfirmAccept}
+              {t.summarizeAllConfirmAccept}
             </button>
             <button type="button" class="settings-button" onClick={estimateDialog.onCancel}>
-              {vi.summarizeAllConfirmCancel}
+              {t.summarizeAllConfirmCancel}
             </button>
           </div>
         </Dialog>

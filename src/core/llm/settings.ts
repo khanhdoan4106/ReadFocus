@@ -1,7 +1,8 @@
 import { DEFAULT_MODELS } from './models';
 import type { ProviderId } from './types';
 
-export type SummaryLanguage = 'vi' | 'document';
+/** `ui`: theo ngôn ngữ giao diện đang chọn; `document`: theo ngôn ngữ của tài liệu. */
+export type SummaryLanguage = 'vi' | 'en' | 'document' | 'ui';
 
 /**
  * Tuỳ chọn AI lưu trong `chrome.storage.local`. Key không nằm ở đây; key có
@@ -72,7 +73,10 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
     typeof value.model === 'string' && value.model.trim() !== ''
       ? value.model.trim()
       : DEFAULT_MODELS[providerId];
-  const language: SummaryLanguage = value.language === 'document' ? 'document' : 'vi';
+  const language: SummaryLanguage =
+    value.language === 'document' || value.language === 'en' || value.language === 'ui'
+      ? value.language
+      : 'vi';
 
   return {
     providerId,

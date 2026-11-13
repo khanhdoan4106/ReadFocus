@@ -6,6 +6,7 @@ import { App } from '../../src/viewer/App';
 import { saveAiSettings, saveApiKey, type KeyStore } from '../../src/storage/ai';
 import { defaultAiSettings } from '../../src/core/llm/settings';
 import { sha256Hex } from '../../src/core/hash';
+import { setLocale } from '../../src/i18n';
 import { installChrome, resetMocks, type FakeChrome } from './mocks';
 
 /** Mọi lời gọi `fetch` của viewer; test AI dùng provider giả nên danh sách này phải rỗng. */
@@ -35,16 +36,24 @@ export async function freshEnvironment(): Promise<FakeChrome> {
   vi.stubGlobal('fetch', fetchSpy);
   await resetDatabase();
   document.documentElement.removeAttribute('data-theme');
+  // Trình duyệt tiếng Việt, chưa chọn ngôn ngữ: giao diện tiếng Việt như mặc định của người dùng Việt.
+  Object.defineProperty(navigator, 'language', { value: 'vi-VN', configurable: true });
+  localStorage.clear();
+  setLocale('vi');
   // happy-dom không có Fullscreen API.
   Object.defineProperty(document, 'fullscreenElement', { value: null, configurable: true });
   return installChrome();
 }
 
 /** Cấu hình AI đã đồng ý và có key, để các luồng AI chạy thẳng không hỏi lại. */
-export async function seedAi(chromeApi: FakeChrome, overrides: { consentGiven?: boolean } = {}) {
+export async function seedAi(
+  chromeApi: FakeChrome,
+  overrides: { consentGiven?: boolean; language?: 'vi' | 'en' | 'document' | 'ui' } = {},
+) {
   await saveAiSettings(chromeApi.local as unknown as KeyStore, {
     ...defaultAiSettings(),
     consentGiven: overrides.consentGiven ?? true,
+    language: overrides.language ?? 'vi',
   });
   await saveApiKey(chromeApi.local as unknown as KeyStore, 'sk-test-key');
 }

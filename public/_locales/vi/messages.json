@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "ReadFocus", "description": "Tên extension" },
+  "extDescription": {
+    "message": "Đọc PDF dễ chịu hơn: mục lục tự động, tìm kiếm, ước tính thời gian đọc và chế độ tập trung.",
+    "description": "Mô tả ngắn hiện trong danh sách extension của trình duyệt (tối đa 132 ký tự)"
+  },
+  "actionTitle": { "message": "Mở ReadFocus", "description": "Chú thích nút trên thanh công cụ" },
+  "contextMenuOpen": { "message": "Mở bằng ReadFocus", "description": "Mục trong menu chuột phải" }
+}

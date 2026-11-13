@@ -4,7 +4,7 @@ import { ocrHighlightRects } from '../core/ocr/highlight';
 import { isLowConfidence } from '../core/ocr/pages';
 import type { OcrPageView } from '../core/ocr/types';
 import { matchesQuery, spanInQuote } from '../core/search';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import type { PageSize } from './PageList';
 
 export type TextHighlight = {
@@ -161,9 +161,9 @@ export function PdfPage({
           </div>
           <span
             class={`ocr-badge${isLowConfidence(ocr.confidence) ? ' ocr-badge--low' : ''}`}
-            title={isLowConfidence(ocr.confidence) ? vi.ocrPageBadgeLowTitle : vi.ocrPageBadgeTitle}
+            title={isLowConfidence(ocr.confidence) ? t.ocrPageBadgeLowTitle : t.ocrPageBadgeTitle}
           >
-            {vi.ocrPageBadge}
+            {t.ocrPageBadge}
           </span>
         </>
       )}

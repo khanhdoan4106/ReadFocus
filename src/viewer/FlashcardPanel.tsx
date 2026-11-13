@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import type { Box } from '../core/flashcard/types';
 import type { FlashcardsApi } from './flashcards';
 
@@ -38,7 +38,7 @@ export function FlashcardPanel({
     setRevealed(false);
   }, [hasDocument, documentName]);
 
-  if (!hasDocument) return <p class="sidebar__empty">{vi.flashNoDoc}</p>;
+  if (!hasDocument) return <p class="sidebar__empty">{t.flashNoDoc}</p>;
 
   const { cards, due, counts, notice, error, busy } = flashcards;
   const byId = new Map(cards.map((card) => [card.id, card]));
@@ -51,7 +51,7 @@ export function FlashcardPanel({
         <div class="summary-panel">
           <div class="summary-card">
             <p class="summary-text" role="status">
-              {vi.flashSessionDone}
+              {t.flashSessionDone}
             </p>
             <div class="summary-actions">
               <button
@@ -59,7 +59,7 @@ export function FlashcardPanel({
                 class="settings-button settings-button--primary"
                 onClick={() => setSession(null)}
               >
-                {vi.flashBack}
+                {t.flashBack}
               </button>
             </div>
           </div>
@@ -76,19 +76,19 @@ export function FlashcardPanel({
     return (
       <div class="summary-panel flash">
         <p class="settings-card__hint" role="status">
-          {vi.flashProgress(queue.length)}
+          {t.flashProgress(queue.length)}
         </p>
         <div class="summary-card">
-          <span class="summary-card__meta">{vi.flashFront}</span>
+          <span class="summary-card__meta">{t.flashFront}</span>
           <p class="summary-text flash__text">{current.front}</p>
           {revealed ? (
             <>
-              <span class="summary-card__meta">{vi.flashBackSide}</span>
+              <span class="summary-card__meta">{t.flashBackSide}</span>
               <p class="summary-text flash__text">{current.back}</p>
               <button
                 type="button"
                 class="summary-page-btn"
-                aria-label={vi.flashOpenPage(current.page)}
+                aria-label={t.flashOpenPage(current.page)}
                 onClick={() => onSelectPage(current.page)}
               >
                 {current.page}
@@ -104,10 +104,10 @@ export function FlashcardPanel({
                 class="settings-button settings-button--primary"
                 onClick={() => answer(true)}
               >
-                {vi.flashRemembered}
+                {t.flashRemembered}
               </button>
               <button type="button" class="settings-button" onClick={() => answer(false)}>
-                {vi.flashForgot}
+                {t.flashForgot}
               </button>
             </>
           ) : (
@@ -116,11 +116,11 @@ export function FlashcardPanel({
               class="settings-button settings-button--primary"
               onClick={() => setRevealed(true)}
             >
-              {vi.flashReveal}
+              {t.flashReveal}
             </button>
           )}
           <button type="button" class="settings-button" onClick={() => setSession(null)}>
-            {vi.flashStop}
+            {t.flashStop}
           </button>
         </div>
       </div>
@@ -130,12 +130,12 @@ export function FlashcardPanel({
   return (
     <div class="summary-panel flash">
       <div class="summary-card">
-        <h3 class="summary-card__title">{vi.flashSummaryTitle(cards.length, due.length)}</h3>
+        <h3 class="summary-card__title">{t.flashSummaryTitle(cards.length, due.length)}</h3>
         {cards.length > 0 && (
-          <ul class="flash__boxes" aria-label={vi.flashBoxesLabel}>
+          <ul class="flash__boxes" aria-label={t.flashBoxesLabel}>
             {BOXES.map((box) => (
               <li key={box}>
-                {vi.flashBox(box)}: {counts[box]}
+                {t.flashBox(box)}: {counts[box]}
               </li>
             ))}
           </ul>
@@ -150,22 +150,22 @@ export function FlashcardPanel({
               setRevealed(false);
             }}
           >
-            {vi.flashStartReview(due.length)}
+            {t.flashStartReview(due.length)}
           </button>
         </div>
         {cards.length > 0 && due.length === 0 && (
-          <p class="settings-card__hint">{vi.flashNothingDue}</p>
+          <p class="settings-card__hint">{t.flashNothingDue}</p>
         )}
       </div>
 
       <div class="summary-card">
         <div class="summary-actions">
           <button type="button" class="settings-button" onClick={flashcards.createFromSummaries}>
-            {vi.flashFromSummaries}
+            {t.flashFromSummaries}
           </button>
           {busy ? (
             <button type="button" class="settings-button" onClick={flashcards.cancel}>
-              {vi.flashCancel}
+              {t.flashCancel}
             </button>
           ) : (
             <button
@@ -174,35 +174,35 @@ export function FlashcardPanel({
               disabled={!aiConfigured || !canGenerate}
               onClick={flashcards.generateWithAi}
             >
-              {vi.flashWithAi}
+              {t.flashWithAi}
             </button>
           )}
         </div>
-        <p class="settings-card__hint">{vi.flashFromSummariesHint}</p>
+        <p class="settings-card__hint">{t.flashFromSummariesHint}</p>
         {!aiConfigured ? (
           <p class="settings-card__hint">
-            {vi.flashAiNotConfigured}{' '}
+            {t.flashAiNotConfigured}{' '}
             <button type="button" class="settings-button" onClick={onOpenSettings}>
-              {vi.summaryOpenSettings}
+              {t.summaryOpenSettings}
             </button>
           </p>
         ) : (
           <p class="settings-card__hint">
-            {sectionLabel === null ? vi.flashAiNoSection : vi.flashAiHint(sectionLabel)}
+            {sectionLabel === null ? t.flashAiNoSection : t.flashAiHint(sectionLabel)}
           </p>
         )}
         {busy && (
           <p class="settings-card__hint" role="status">
-            {vi.flashGenerating}
+            {t.flashGenerating}
           </p>
         )}
         {notice !== null && (
           <p class="settings-card__hint" role="status">
             {notice.type === 'created'
-              ? vi.flashCreated(notice.count)
+              ? t.flashCreated(notice.count)
               : notice.type === 'none'
-                ? vi.flashNoNewCards
-                : vi.flashNoSummaries}
+                ? t.flashNoNewCards
+                : t.flashNoSummaries}
           </p>
         )}
         {error !== null && (
@@ -220,29 +220,29 @@ export function FlashcardPanel({
               class="settings-button"
               onClick={() => flashcards.exportCsv(documentName)}
             >
-              {vi.flashExport}
+              {t.flashExport}
             </button>
             <button type="button" class="settings-button" onClick={() => setShowAll(!showAll)}>
-              {showAll ? vi.flashHideList : vi.flashShowList(cards.length)}
+              {showAll ? t.flashHideList : t.flashShowList(cards.length)}
             </button>
             <button type="button" class="settings-button" onClick={flashcards.clear}>
-              {vi.flashClear}
+              {t.flashClear}
             </button>
           </div>
-          <p class="settings-card__hint">{vi.flashExportHint}</p>
+          <p class="settings-card__hint">{t.flashExportHint}</p>
           {showAll && (
             <ul class="flash__list">
               {cards.map((card) => (
                 <li key={card.id} class="flash__item">
                   <span class="flash__text">{card.front}</span>
                   <span class="summary-card__meta">
-                    {vi.flashBox(card.box)} · {card.dueDate}
+                    {t.flashBox(card.box)} · {card.dueDate}
                   </span>
                   <span class="summary-actions">
                     <button
                       type="button"
                       class="summary-page-btn"
-                      aria-label={vi.flashOpenPage(card.page)}
+                      aria-label={t.flashOpenPage(card.page)}
                       onClick={() => onSelectPage(card.page)}
                     >
                       {card.page}
@@ -252,7 +252,7 @@ export function FlashcardPanel({
                       class="settings-button"
                       onClick={() => flashcards.remove(card.id)}
                     >
-                      {vi.flashDelete}
+                      {t.flashDelete}
                     </button>
                   </span>
                 </li>

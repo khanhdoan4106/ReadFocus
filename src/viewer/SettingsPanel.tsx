@@ -3,7 +3,7 @@ import type { AiSettings, SummaryLanguage } from '../core/llm/settings';
 import { PROVIDERS } from '../core/llm/settings';
 import type { ProviderId } from '../core/llm/types';
 import type { ThemePreference } from '../core/theme';
-import { vi } from '../i18n/vi';
+import { t, type LanguagePreference } from '../i18n';
 
 export type AiPanelProps = {
   settings: AiSettings;
@@ -26,6 +26,8 @@ export type AiPanelProps = {
 };
 
 export type SettingsPanelProps = {
+  language: LanguagePreference;
+  onChangeLanguage: (value: LanguagePreference) => void;
   theme: ThemePreference;
   onChangeTheme: (value: ThemePreference) => void;
   ai: AiPanelProps;
@@ -39,13 +41,34 @@ export type SettingsPanelProps = {
   onDeleteAll: () => void;
 };
 
-const THEME_OPTIONS: ReadonlyArray<{ value: ThemePreference; label: string }> = [
-  { value: 'system', label: vi.themeSystem },
-  { value: 'light', label: vi.themeLight },
-  { value: 'dark', label: vi.themeDark },
-];
+function languageOptions(): ReadonlyArray<{ value: LanguagePreference; label: string }> {
+  return [
+    { value: 'auto', label: t.languageAuto },
+    { value: 'vi', label: t.languageVi },
+    { value: 'en', label: t.languageEn },
+  ];
+}
+
+function aiLanguageOptions(): ReadonlyArray<{ value: SummaryLanguage; label: string }> {
+  return [
+    { value: 'ui', label: t.aiLanguageUi },
+    { value: 'vi', label: t.aiLanguageVi },
+    { value: 'en', label: t.aiLanguageEn },
+    { value: 'document', label: t.aiLanguageDocument },
+  ];
+}
+
+function themeOptions(): ReadonlyArray<{ value: ThemePreference; label: string }> {
+  return [
+    { value: 'system', label: t.themeSystem },
+    { value: 'light', label: t.themeLight },
+    { value: 'dark', label: t.themeDark },
+  ];
+}
 
 export function SettingsPanel({
+  language,
+  onChangeLanguage,
   theme,
   onChangeTheme,
   ai,
@@ -64,9 +87,27 @@ export function SettingsPanel({
   return (
     <div class="settings-panel">
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.themeTitle}</h3>
-        <div class="settings-options" role="radiogroup" aria-label={vi.themeTitle}>
-          {THEME_OPTIONS.map((option) => (
+        <h3 class="settings-card__title">{t.languageTitle}</h3>
+        <div class="settings-options" role="radiogroup" aria-label={t.languageLabel}>
+          {languageOptions().map((option) => (
+            <label class="settings-radio" key={option.value}>
+              <input
+                type="radio"
+                name="readfocus-language"
+                value={option.value}
+                checked={language === option.value}
+                onChange={() => onChangeLanguage(option.value)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
+        </div>
+      </section>
+
+      <section class="settings-card">
+        <h3 class="settings-card__title">{t.themeTitle}</h3>
+        <div class="settings-options" role="radiogroup" aria-label={t.themeTitle}>
+          {themeOptions().map((option) => (
             <label class="settings-radio" key={option.value}>
               <input
                 type="radio"
@@ -82,11 +123,11 @@ export function SettingsPanel({
       </section>
 
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.aiTitle}</h3>
-        <p class="settings-card__hint">{vi.aiHint}</p>
+        <h3 class="settings-card__title">{t.aiTitle}</h3>
+        <p class="settings-card__hint">{t.aiHint}</p>
 
         <label class="settings-field settings-field--stack">
-          <span>{vi.aiProviderLabel}</span>
+          <span>{t.aiProviderLabel}</span>
           <select
             value={providerId}
             disabled={aiDisabled}
@@ -94,14 +135,14 @@ export function SettingsPanel({
           >
             {PROVIDERS.map((id) => (
               <option value={id} key={id}>
-                {vi.aiProviders[id]}
+                {t.aiProviders[id]}
               </option>
             ))}
           </select>
         </label>
 
         <label class="settings-field settings-field--stack">
-          <span>{vi.aiModelLabel}</span>
+          <span>{t.aiModelLabel}</span>
           <input
             type="text"
             value={ai.settings.model}
@@ -110,14 +151,14 @@ export function SettingsPanel({
             onInput={(event) => ai.onChangeModel(event.currentTarget.value)}
           />
         </label>
-        <p class="settings-card__hint">{vi.aiModelHint}</p>
+        <p class="settings-card__hint">{t.aiModelHint}</p>
 
         {providerId === 'anthropic' ? (
-          <p class="settings-card__hint">{vi.aiEmbedUnsupported}</p>
+          <p class="settings-card__hint">{t.aiEmbedUnsupported}</p>
         ) : (
           <>
             <label class="settings-field settings-field--stack">
-              <span>{vi.aiEmbedModelLabel}</span>
+              <span>{t.aiEmbedModelLabel}</span>
               <input
                 type="text"
                 value={ai.settings.embedModel}
@@ -127,29 +168,29 @@ export function SettingsPanel({
                 onInput={(event) => ai.onChangeEmbedModel(event.currentTarget.value)}
               />
             </label>
-            <p class="settings-card__hint">{vi.aiEmbedModelHint}</p>
+            <p class="settings-card__hint">{t.aiEmbedModelHint}</p>
           </>
         )}
 
         {providerId === 'openai-compatible' && (
           <>
             <label class="settings-field settings-field--stack">
-              <span>{vi.aiBaseUrlLabel}</span>
+              <span>{t.aiBaseUrlLabel}</span>
               <input
                 type="url"
                 value={ai.settings.baseUrl}
                 disabled={aiDisabled}
                 spellcheck={false}
-                placeholder={vi.aiBaseUrlHint}
+                placeholder={t.aiBaseUrlHint}
                 onInput={(event) => ai.onChangeBaseUrl(event.currentTarget.value)}
               />
             </label>
-            <p class="settings-card__hint">{vi.aiBaseUrlHint}</p>
+            <p class="settings-card__hint">{t.aiBaseUrlHint}</p>
           </>
         )}
 
         <label class="settings-field settings-field--stack">
-          <span>{vi.aiKeyLabel}</span>
+          <span>{t.aiKeyLabel}</span>
           <span class="settings-key">
             {ai.keyVisible ? (
               <input
@@ -158,7 +199,7 @@ export function SettingsPanel({
                 disabled={aiDisabled}
                 autocomplete="off"
                 spellcheck={false}
-                placeholder={vi.aiKeyPlaceholder}
+                placeholder={t.aiKeyPlaceholder}
                 onInput={(event) => ai.onChangeKey(event.currentTarget.value)}
                 onBlur={ai.onBlurKey}
               />
@@ -169,7 +210,7 @@ export function SettingsPanel({
                 disabled={aiDisabled}
                 autocomplete="off"
                 spellcheck={false}
-                placeholder={vi.aiKeyPlaceholder}
+                placeholder={t.aiKeyPlaceholder}
                 onInput={(event) => ai.onChangeKey(event.currentTarget.value)}
                 onBlur={ai.onBlurKey}
               />
@@ -181,18 +222,18 @@ export function SettingsPanel({
               disabled={aiDisabled}
               onClick={ai.onToggleKeyVisible}
             >
-              {ai.keyVisible ? vi.aiHideKey : vi.aiShowKey}
+              {ai.keyVisible ? t.aiHideKey : t.aiShowKey}
             </button>
           </span>
         </label>
-        <p class="settings-card__hint">{vi.aiKeyHint}</p>
+        <p class="settings-card__hint">{t.aiKeyHint}</p>
         <button
           type="button"
           class="settings-button"
           disabled={aiDisabled || ai.apiKey === ''}
           onClick={ai.onClearKey}
         >
-          {vi.aiClearKey}
+          {t.aiClearKey}
         </button>
 
         <label class="settings-switch">
@@ -203,32 +244,24 @@ export function SettingsPanel({
             disabled={aiDisabled}
             onChange={(event) => ai.onChangeSaveKey(event.currentTarget.checked)}
           />
-          <span>{vi.aiSaveKey}</span>
+          <span>{t.aiSaveKey}</span>
         </label>
-        <p class="settings-card__hint">{vi.aiSaveKeyHint}</p>
+        <p class="settings-card__hint">{t.aiSaveKeyHint}</p>
 
-        <div class="settings-options" role="radiogroup" aria-label={vi.aiLanguageLabel}>
-          <span class="settings-radio-label">{vi.aiLanguageLabel}</span>
-          <label class="settings-radio">
-            <input
-              type="radio"
-              name="readfocus-ai-language"
-              checked={ai.settings.language === 'vi'}
-              disabled={aiDisabled}
-              onChange={() => ai.onChangeLanguage('vi')}
-            />
-            <span>{vi.aiLanguageVi}</span>
-          </label>
-          <label class="settings-radio">
-            <input
-              type="radio"
-              name="readfocus-ai-language"
-              checked={ai.settings.language === 'document'}
-              disabled={aiDisabled}
-              onChange={() => ai.onChangeLanguage('document')}
-            />
-            <span>{vi.aiLanguageDocument}</span>
-          </label>
+        <div class="settings-options" role="radiogroup" aria-label={t.aiLanguageLabel}>
+          <span class="settings-radio-label">{t.aiLanguageLabel}</span>
+          {aiLanguageOptions().map((option) => (
+            <label class="settings-radio" key={option.value}>
+              <input
+                type="radio"
+                name="readfocus-ai-language"
+                checked={ai.settings.language === option.value}
+                disabled={aiDisabled}
+                onChange={() => ai.onChangeLanguage(option.value)}
+              />
+              <span>{option.label}</span>
+            </label>
+          ))}
         </div>
 
         <div class="settings-actions">
@@ -238,7 +271,7 @@ export function SettingsPanel({
             disabled={aiDisabled || ai.busy}
             onClick={ai.onTestConnection}
           >
-            {ai.busy ? vi.aiTesting : vi.aiTestConnection}
+            {ai.busy ? t.aiTesting : t.aiTestConnection}
           </button>
         </div>
 
@@ -251,13 +284,13 @@ export function SettingsPanel({
             {ai.notice.message}
           </p>
         )}
-        {aiDisabled && <p class="settings-card__hint">{vi.aiUnsupported}</p>}
+        {aiDisabled && <p class="settings-card__hint">{t.aiUnsupported}</p>}
       </section>
 
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.readingSpeedTitle}</h3>
+        <h3 class="settings-card__title">{t.readingSpeedTitle}</h3>
         <label class="settings-field">
-          <span>{vi.readingSpeedLabel}</span>
+          <span>{t.readingSpeedLabel}</span>
           <input
             type="number"
             min={50}
@@ -270,11 +303,11 @@ export function SettingsPanel({
             }}
           />
         </label>
-        <p class="settings-card__hint">{vi.readingSpeedHint}</p>
+        <p class="settings-card__hint">{t.readingSpeedHint}</p>
       </section>
 
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.autoOpenPdfTitle}</h3>
+        <h3 class="settings-card__title">{t.autoOpenPdfTitle}</h3>
         <label class="settings-switch">
           <input
             type="checkbox"
@@ -283,30 +316,30 @@ export function SettingsPanel({
             disabled={!autoOpenSupported}
             onChange={(event) => onToggleAutoOpen(event.currentTarget.checked)}
           />
-          <span>{vi.autoOpenPdfToggle}</span>
+          <span>{t.autoOpenPdfToggle}</span>
         </label>
-        <p class="settings-card__hint">{vi.autoOpenPdfHint}</p>
-        <p class="settings-card__hint">{vi.autoOpenPdfFileHint}</p>
-        {!autoOpenSupported && <p class="settings-card__hint">{vi.autoOpenPdfUnsupported}</p>}
+        <p class="settings-card__hint">{t.autoOpenPdfHint}</p>
+        <p class="settings-card__hint">{t.autoOpenPdfFileHint}</p>
+        {!autoOpenSupported && <p class="settings-card__hint">{t.autoOpenPdfUnsupported}</p>}
       </section>
 
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.dataTitle}</h3>
-        <p class="settings-card__hint">{vi.dataHint}</p>
+        <h3 class="settings-card__title">{t.dataTitle}</h3>
+        <p class="settings-card__hint">{t.dataHint}</p>
         {documentName !== null && (
           <button type="button" class="settings-button" onClick={onDeleteDocument}>
-            {vi.deleteDocument(documentName)}
+            {t.deleteDocument(documentName)}
           </button>
         )}
         <button type="button" class="settings-button settings-button--danger" onClick={onDeleteAll}>
-          {vi.deleteAll}
+          {t.deleteAll}
         </button>
       </section>
 
       <section class="settings-card">
-        <h3 class="settings-card__title">{vi.shortcutsTitle}</h3>
+        <h3 class="settings-card__title">{t.shortcutsTitle}</h3>
         <dl class="settings-shortcuts">
-          {vi.shortcuts.map((shortcut) => (
+          {t.shortcuts.map((shortcut) => (
             <div class="settings-shortcuts__row" key={shortcut.keys}>
               <dt>
                 <kbd>{shortcut.keys}</kbd>

@@ -1,0 +1,9 @@
+{
+  "extName": { "message": "ReadFocus", "description": "Extension name" },
+  "extDescription": {
+    "message": "Read PDFs more comfortably: automatic table of contents, search, reading-time estimates and a focus mode.",
+    "description": "Short description shown in the browser's extension list (132 characters at most)"
+  },
+  "actionTitle": { "message": "Open ReadFocus", "description": "Toolbar button tooltip" },
+  "contextMenuOpen": { "message": "Open with ReadFocus", "description": "Context menu item" }
+}

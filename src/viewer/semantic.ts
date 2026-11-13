@@ -10,7 +10,7 @@ import { providerOriginPattern } from '../core/llm/permissions';
 import { providerRequiresKey, type AiSettings } from '../core/llm/settings';
 import type { TextPage } from '../core/summarize/chunk';
 import { loadEmbeddings, saveEmbeddings } from '../storage/db';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { aiErrorMessage } from './ai-errors';
 
 /**
@@ -145,7 +145,7 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
     const granted = await requestOrigin(settings);
     if (scopeRef.current !== scope) return;
     if (!granted) {
-      setError(vi.aiPermissionDenied);
+      setError(t.aiPermissionDenied);
       return;
     }
 
@@ -181,7 +181,7 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
       });
     } catch (caught) {
       if (!isActive()) return;
-      if (isLLMError(caught) && caught.kind === 'cancelled') setError(vi.aiErrorMessages.cancelled);
+      if (isLLMError(caught) && caught.kind === 'cancelled') setError(t.aiErrorMessages.cancelled);
       else setError(aiErrorMessage(caught, settings));
     } finally {
       if (runRef.current === run) {
@@ -207,7 +207,7 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
         const granted = await requestOrigin(settings);
         if (scopeRef.current !== scope) return null;
         if (!granted) {
-          setError(vi.aiPermissionDenied);
+          setError(t.aiPermissionDenied);
           return null;
         }
       }
