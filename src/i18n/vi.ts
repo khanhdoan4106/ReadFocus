@@ -1,3 +1,4 @@
+import type { AnnotationColor } from '../core/annotate/types';
 import type { LLMErrorKind, ProviderId } from '../core/llm/types';
 
 export const vi = {
@@ -368,9 +369,43 @@ export const vi = {
     { keys: 'F', label: 'Bật hoặc tắt chế độ tập trung' },
     { keys: 'T', label: 'Ẩn hoặc hiện thanh bên' },
     { keys: '← →', label: 'Trang trước, trang sau' },
+    { keys: 'H', label: 'Highlight đoạn chữ đang chọn' },
+    { keys: 'N', label: 'Thêm ghi chú cho trang đang đọc' },
     { keys: 'Space', label: 'Bắt đầu hoặc tạm dừng hẹn giờ' },
     { keys: 'Esc', label: 'Thoát chế độ tập trung' },
   ],
+
+  annotColors: {
+    yellow: 'Vàng',
+    green: 'Xanh lá',
+    blue: 'Xanh dương',
+    pink: 'Hồng',
+  } satisfies Record<AnnotationColor, string>,
+  annotBarLabel: 'Đánh dấu đoạn đã chọn',
+  annotColorAction: (color: string) => `Tô màu ${color}`,
+  annotAddNote: 'Thêm ghi chú',
+  annotAreaMode: 'Đánh dấu vùng',
+  annotAreaModeHint: 'Kéo chuột trên trang để chọn một vùng (hình, công thức, bảng, trang scan).',
+  annotAreaLayer: 'Kéo để chọn vùng cần đánh dấu',
+  annotPopoverLabel: 'Sửa highlight và ghi chú',
+  annotColorGroup: 'Màu',
+  annotColorOption: (color: string) => color,
+  annotNoteLabel: 'Ghi chú',
+  annotNotePlaceholder: 'Viết ghi chú (không bắt buộc)',
+  annotDelete: 'Xoá',
+  annotDone: 'Xong',
+  annotDeleteTitle: 'Xoá ghi chú này?',
+  annotDeleteBody: 'Highlight và ghi chú này sẽ bị xoá khỏi máy này và không khôi phục được.',
+  annotDeleteConfirm: 'Xoá',
+  annotDeleteCancel: 'Giữ lại',
+  annotTextAria: (color: string, quote: string) => `Highlight ${color}: ${quote}`,
+  annotAreaAria: (color: string) => `Vùng đã đánh dấu ${color}`,
+  annotPageNoteAria: (preview: string) => `Ghi chú của trang: ${preview}`,
+  annotPageNoteEmpty: '(chưa có nội dung)',
+  annotSaveFailed: 'Không lưu được ghi chú trên máy này. Thử lại sau.',
+  annotNoSelection: 'Hãy bôi đen một đoạn chữ trước. Với hình hoặc trang scan, bật Đánh dấu vùng.',
+  annotFallbackArea:
+    'Không xác định được đoạn chữ trong văn bản của trang, nên đã đánh dấu theo vùng.',
 
   focusTab: 'Tập trung',
   chapterTimerTitle: 'Đọc theo chương',

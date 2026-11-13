@@ -1481,3 +1481,184 @@ body {
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
 }
+
+/* ---- Ghi chú và highlight (v4) ---- */
+:root {
+  --annot-yellow: #ffe066;
+  --annot-green: #a8e6a1;
+  --annot-blue: #9ccffd;
+  --annot-pink: #ffb3d1;
+  /* Độ đậm của highlight trên trang: trang luôn nền trắng nên cùng một giá trị cho cả hai chế độ. */
+  --annot-opacity: 0.6;
+}
+
+.annot-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.annot-rect {
+  position: absolute;
+  border-radius: 2px;
+}
+
+.annot-layer .annot-rect {
+  mix-blend-mode: multiply;
+  opacity: var(--annot-opacity);
+}
+
+.annot-rect--yellow {
+  background: var(--annot-yellow);
+}
+.annot-rect--green {
+  background: var(--annot-green);
+}
+.annot-rect--blue {
+  background: var(--annot-blue);
+}
+.annot-rect--pink {
+  background: var(--annot-pink);
+}
+
+.annot-rect--area {
+  outline: 2px solid rgb(0 0 0 / 0.25);
+}
+
+.annot-rect--preview {
+  background: rgb(31 111 92 / 0.2);
+  border: 2px dashed var(--accent);
+}
+
+.annot-page-notes {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 3;
+}
+
+.annot-page-note {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgb(0 0 0 / 0.35);
+  border-radius: 50%;
+  color: #1d1d1b;
+  font: inherit;
+  cursor: pointer;
+}
+
+.annot-draw {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.annot-bar,
+.annot-popover {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.25);
+}
+
+.annot-swatch {
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.annot-swatch--on {
+  border-color: var(--text);
+}
+
+.annot-bar__note {
+  font: inherit;
+  padding: 0 10px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.annot-popover {
+  flex-direction: column;
+  width: 300px;
+  padding: 10px;
+}
+
+.annot-popover__colors {
+  display: flex;
+  gap: 8px;
+}
+
+.annot-popover__quote {
+  margin: 0;
+  padding-left: 8px;
+  max-height: 4.5em;
+  overflow: auto;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.annot-popover__label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
+}
+
+.annot-popover__label textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+  resize: vertical;
+}
+
+.annot-popover__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.annot-failed {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 40;
+}
+
+.annot-swatch:focus-visible,
+.annot-bar__note:focus-visible,
+.annot-page-note:focus-visible,
+.annot-popover__label textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toolbar__button--on {
+  color: var(--accent);
+  border-color: var(--accent);
+}

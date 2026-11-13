@@ -1,3 +1,4 @@
+import type { AnnotationColor } from '../core/annotate/types';
 import type { Messages } from './vi';
 
 /**
@@ -373,9 +374,44 @@ export const en: Messages = {
     { keys: 'F', label: 'Turn focus mode on or off' },
     { keys: 'T', label: 'Hide or show the sidebar' },
     { keys: '← →', label: 'Previous page, next page' },
+    { keys: 'H', label: 'Highlight the selected text' },
+    { keys: 'N', label: 'Add a note to the current page' },
     { keys: 'Space', label: 'Start or pause the timer' },
     { keys: 'Esc', label: 'Leave focus mode' },
   ],
+
+  annotColors: {
+    yellow: 'Yellow',
+    green: 'Green',
+    blue: 'Blue',
+    pink: 'Pink',
+  } satisfies Record<AnnotationColor, string>,
+  annotBarLabel: 'Highlight the selected text',
+  annotColorAction: (color: string) => `Highlight ${color}`,
+  annotAddNote: 'Add note',
+  annotAreaMode: 'Mark area',
+  annotAreaModeHint: 'Drag on the page to pick an area (figure, formula, table, scanned page).',
+  annotAreaLayer: 'Drag to select the area to mark',
+  annotPopoverLabel: 'Edit highlight and note',
+  annotColorGroup: 'Color',
+  annotColorOption: (color: string) => color,
+  annotNoteLabel: 'Note',
+  annotNotePlaceholder: 'Write a note (optional)',
+  annotDelete: 'Delete',
+  annotDone: 'Done',
+  annotDeleteTitle: 'Delete this note?',
+  annotDeleteBody:
+    'This highlight and its note will be deleted from this computer and can’t be recovered.',
+  annotDeleteConfirm: 'Delete',
+  annotDeleteCancel: 'Keep it',
+  annotTextAria: (color: string, quote: string) => `${color} highlight: ${quote}`,
+  annotAreaAria: (color: string) => `${color} marked area`,
+  annotPageNoteAria: (preview: string) => `Page note: ${preview}`,
+  annotPageNoteEmpty: '(empty)',
+  annotSaveFailed: 'Couldn’t save the note on this computer. Try again later.',
+  annotNoSelection: 'Select some text first. For figures or scanned pages, turn on Mark area.',
+  annotFallbackArea:
+    'Couldn’t locate the text in the page’s text, so the highlight was made as an area.',
 
   focusTab: 'Focus',
   chapterTimerTitle: 'Read by chapter',

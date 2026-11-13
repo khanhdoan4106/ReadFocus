@@ -18,6 +18,7 @@ type Props = {
   totalPages: number;
   scale: number;
   sidebarOpen: boolean;
+  areaMode: boolean;
   inputRef: RefObject<HTMLInputElement | null>;
   onOpenFile: (file: File) => void;
   onPrevious: () => void;
@@ -28,6 +29,7 @@ type Props = {
   onFitWidth: () => void;
   onToggleTimer: () => void;
   onToggleSidebar: () => void;
+  onToggleAreaMode: () => void;
 };
 
 export function Toolbar({
@@ -41,6 +43,7 @@ export function Toolbar({
   totalPages,
   scale,
   sidebarOpen,
+  areaMode,
   inputRef,
   onOpenFile,
   onPrevious,
@@ -51,6 +54,7 @@ export function Toolbar({
   onFitWidth,
   onToggleTimer,
   onToggleSidebar,
+  onToggleAreaMode,
 }: Props) {
   return (
     <header class="toolbar" role="group" aria-label={t.toolbarLabel}>
@@ -153,6 +157,17 @@ export function Toolbar({
           {t.zoomFitWidth}
         </button>
       </div>
+
+      <button
+        type="button"
+        class={`toolbar__button${areaMode ? ' toolbar__button--on' : ''}`}
+        aria-pressed={areaMode}
+        title={t.annotAreaModeHint}
+        disabled={!ready}
+        onClick={() => onToggleAreaMode()}
+      >
+        {t.annotAreaMode}
+      </button>
 
       <button
         type="button"

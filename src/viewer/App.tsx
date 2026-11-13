@@ -8,6 +8,9 @@ import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { useDocument, type DocumentLifecycle } from './hooks/useDocument';
 import { useAiSettings } from './hooks/useAiSettings';
+import type { Annotation } from '../core/annotate/types';
+import { useAnnotations } from './hooks/useAnnotations';
+import { useAnnotationUi } from './hooks/useAnnotationUi';
 import { useLocalModel } from './hooks/useLocalModel';
 import { useExtraction } from './hooks/useExtraction';
 import { useFocusTimer } from './hooks/useFocusTimer';
@@ -20,6 +23,7 @@ import { useShortcuts } from './hooks/useShortcuts';
 import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
 import { NoticeBar } from './NoticeBar';
 import { Toolbar } from './Toolbar';
+import { AnnotationOverlays } from './AnnotationOverlays';
 import { ViewerSidebar } from './ViewerSidebar';
 
 import { errorMessage } from './labels';
@@ -188,6 +192,23 @@ export function App() {
     toggleFullscreen,
     moveBand,
   } = focus;
+  const annotations = useAnnotations({ docId, pages: extractedPages });
+  const annotationUi = useAnnotationUi({
+    api: annotations,
+    pages: extractedPages,
+    getCurrentPage: () => pageNumberRef.current,
+    ready: status === 'ready',
+    showToast: setToast,
+  });
+  // Trang nào cũng nhận danh sách chú thích của riêng nó; highlight chữ mồ côi không được vẽ.
+  const annotationsByPage = useMemo(() => {
+    const map = new Map<number, Annotation[]>();
+    for (const item of annotations.items) {
+      if (annotations.statuses.get(item.id) === 'orphan') continue;
+      map.set(item.page, [...(map.get(item.page) ?? []), item]);
+    }
+    return map;
+  }, [annotations.items, annotations.statuses]);
   const handleOpenSearch = useCallback(() => {
     setSidebarOpen(true);
     setSearchRequest((value) => value + 1);
@@ -204,6 +225,8 @@ export function App() {
     moveBand,
     onOpenSearch: handleOpenSearch,
     onToggleSidebar: handleToggleSidebar,
+    onHighlight: () => annotationUi.highlightSelection(annotationUi.color, false),
+    onPageNote: annotationUi.addPageNote,
   });
 
   return (
@@ -235,6 +258,7 @@ export function App() {
         totalPages={totalPages}
         scale={scale}
         sidebarOpen={sidebarOpen}
+        areaMode={annotationUi.areaMode}
         inputRef={inputRef}
         onOpenFile={(file) => void handleFile(file)}
         onPrevious={() => goToPage(pageNumberRef.current - 1)}
@@ -245,6 +269,7 @@ export function App() {
         onFitWidth={handleFitWidth}
         onToggleTimer={toggleTimer}
         onToggleSidebar={handleToggleSidebar}
+        onToggleAreaMode={annotationUi.toggleAreaMode}
       />
 
       <NoticeBar
@@ -290,6 +315,10 @@ export function App() {
               fallbackSize={fallbackSize}
               highlight={highlight}
               ocrPages={ocrPages}
+              annotations={annotationsByPage}
+              areaMode={annotationUi.areaMode}
+              onDrawArea={annotationUi.addAreaNote}
+              onOpenAnnotation={annotationUi.openPopover}
               scrollerRef={contentRef}
               onMeasured={handleMeasured}
               onCurrentPageChange={handleCurrentPageChange}
@@ -338,6 +367,8 @@ export function App() {
           onExit={toggleFocusMode}
         />
       )}
+
+      <AnnotationOverlays ui={annotationUi} api={annotations} />
 
       {toast !== null && <Toast message={toast} onDismiss={() => setToast(null)} />}
 

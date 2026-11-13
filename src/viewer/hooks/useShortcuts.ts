@@ -16,6 +16,10 @@ type Input = {
   /** Mở thanh bên và đưa focus vào ô tìm kiếm. */
   onOpenSearch: () => void;
   onToggleSidebar: () => void;
+  /** Phím H: highlight vùng chữ đang chọn. */
+  onHighlight: () => void;
+  /** Phím N: ghi chú cho trang đang đọc. */
+  onPageNote: () => void;
 };
 
 /**
@@ -33,6 +37,8 @@ export function useShortcuts({
   moveBand,
   onOpenSearch,
   onToggleSidebar,
+  onHighlight,
+  onPageNote,
 }: Input) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -72,6 +78,12 @@ export function useShortcuts({
       } else if (event.key === 'f' || event.key === 'F') {
         event.preventDefault();
         toggleFocusMode();
+      } else if (event.key === 'h' || event.key === 'H') {
+        event.preventDefault();
+        onHighlight();
+      } else if (event.key === 'n' || event.key === 'N') {
+        event.preventDefault();
+        onPageNote();
       } else if (event.key === 't' || event.key === 'T') {
         event.preventDefault();
         onToggleSidebar();
@@ -96,7 +108,9 @@ export function useShortcuts({
     focusMode,
     goToPage,
     moveBand,
+    onHighlight,
     onOpenSearch,
+    onPageNote,
     onToggleSidebar,
     pageNumberRef,
     ready,

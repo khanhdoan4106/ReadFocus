@@ -3,8 +3,10 @@ import { useEffect, useMemo, useRef } from 'preact/hooks';
 import { ocrHighlightRects } from '../core/ocr/highlight';
 import { isLowConfidence } from '../core/ocr/pages';
 import type { OcrPageView } from '../core/ocr/types';
+import type { Annotation, Rect } from '../core/annotate/types';
 import { matchesQuery, spanInQuote } from '../core/search';
 import { t } from '../i18n';
+import { AnnotationLayer, hitTest } from './AnnotationLayer';
 import type { PageSize } from './PageList';
 
 export type TextHighlight = {
@@ -21,6 +23,11 @@ type PdfPageProps = {
   highlight?: TextHighlight | null;
   /** Trang có chữ do OCR nhận dạng: tô kết quả tìm kiếm bằng lớp phủ riêng và hiện nhãn. */
   ocr?: OcrPageView | null;
+  /** Ghi chú và highlight của trang này (không gồm highlight chữ đã mồ côi). */
+  annotations?: readonly Annotation[];
+  areaMode?: boolean;
+  onDrawArea?: (page: number, rect: Rect, x: number, y: number) => void;
+  onOpenAnnotation?: (id: string, x: number, y: number) => void;
   onMeasured: (page: number, size: PageSize) => void;
   onRenderError: () => void;
 };
@@ -42,6 +49,10 @@ export function PdfPage({
   scale,
   highlight,
   ocr,
+  annotations = [],
+  areaMode = false,
+  onDrawArea,
+  onOpenAnnotation,
   onMeasured,
   onRenderError,
 }: PdfPageProps) {
@@ -140,8 +151,28 @@ export function PdfPage({
   );
 
   return (
-    <div class="pdf-page" ref={pageRef}>
+    <div
+      class="pdf-page"
+      ref={pageRef}
+      onClick={(event) => {
+        // Bấm vào highlight (không phải bôi đen chữ) thì mở popover của nó.
+        if (areaMode || !onOpenAnnotation || !pageRef.current) return;
+        if (window.getSelection()?.isCollapsed === false) return;
+        const box = pageRef.current.getBoundingClientRect();
+        const hit = hitTest(annotations, {
+          x: (event.clientX - box.left) / box.width,
+          y: (event.clientY - box.top) / box.height,
+        });
+        if (hit) onOpenAnnotation(hit.id, event.clientX, event.clientY);
+      }}
+    >
       <canvas ref={canvasRef} />
+      <AnnotationLayer
+        annotations={annotations}
+        areaMode={areaMode}
+        onDrawArea={(rect, x, y) => onDrawArea?.(pageNumber, rect, x, y)}
+        onOpen={(id, x, y) => onOpenAnnotation?.(id, x, y)}
+      />
       <div class="textLayer" ref={textRef} />
       {ocr && (
         <>
