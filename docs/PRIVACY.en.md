@@ -85,7 +85,7 @@ How a provider stores or uses data depends on its terms and your account setting
 
 ## Semantic search and Q&A
 
-These use the same provider, key and permissions as summaries and run only when you click a button. Anthropic has no embeddings API, so semantic search is not available with it.
+These use the same provider, key and permissions as summaries and run only when you click a button. Anthropic has no embeddings API, so the provider source can't be used for semantic search with it; you can still pick the **On this device** source (see *On-device embeddings*).
 
 **Semantic search.**
 
@@ -105,6 +105,13 @@ OCR runs entirely on your computer. The library, the WebAssembly files and the l
 
 Cards built from existing summaries make no network request. **Create more with AI** sends the text of the section you are reading to your AI provider (one request) after the same consent dialog and access request as summaries. Cards are stored in IndexedDB (store `flashcards`), can be deleted one by one or all at once in the Flashcards tab, and are deleted with the document's data. **Export CSV** only creates a file on your computer.
 
-## Not available yet: on-device embeddings
+## On-device embeddings (optional)
 
-Semantic search currently always sends text and queries to the provider's API (see above). Running a model on your computer, downloading weights once from Hugging Face and then working offline, is postponed because the library it needs still contains CDN strings in its bundle. If it is added, this section will say what is downloaded when, where it is stored and how to delete it.
+In **Settings → AI → Embedding source** you can choose **On this device** instead of the AI provider. Semantic search and Ask then create vectors on your computer; document text, search queries and questions are not sent anywhere to create vectors. This source also works when the provider is Anthropic.
+
+**Downloading the model (once, only if you agree).** **Download model** opens a confirmation that states the size (about 129 MB) and the source. Only when you click **Download** does ReadFocus fetch the files of the `Xenova/multilingual-e5-small` model (MIT license, an ONNX build of `intfloat/multilingual-e5-small`, supports Vietnamese), pinned to a commit, from Hugging Face (`huggingface.co`; large files are redirected to `*.hf.co`): the weights and the tokenizer. Hugging Face only sees the file requests and your IP address, as with any browser download; no document text is sent. You can cancel midway; an unfinished download isn't saved.
+
+**Where it is stored and how to delete it.** The model lives in the browser's Cache API (the `transformers-cache` cache of the extension page) and works offline afterwards. **Delete model** in Settings → AI removes all of these files. Vectors made with the model are stored in IndexedDB (store `embeddings`) under their own source key, never mixed with provider vectors, and are deleted with the document's data. The model runs in a Web Worker with the ONNX runtime (WebAssembly) bundled in the extension (`ort/`); no libraries or code are loaded from the network.
+
+After the download, ReadFocus doesn't contact Hugging Face again: running the model only reads from the cache and refuses network requests.
+

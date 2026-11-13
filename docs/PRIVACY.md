@@ -81,7 +81,7 @@ Cách nhà cung cấp lưu hoặc dùng dữ liệu tuỳ theo điều khoản v
 
 ## Tìm theo ý nghĩa và hỏi đáp (v2)
 
-Hai tính năng này dùng cùng nhà cung cấp, key và quyền truy cập như tóm tắt AI, và chỉ chạy khi bạn bấm nút. Anthropic không có API embeddings nên không dùng được tìm theo ý nghĩa.
+Hai tính năng này dùng cùng nhà cung cấp, key và quyền truy cập như tóm tắt AI, và chỉ chạy khi bạn bấm nút. Anthropic không có API embeddings nên không dùng được nguồn nhà cung cấp cho tìm theo ý nghĩa; bạn vẫn có thể chọn nguồn **Trên máy** (xem phần *Embedding chạy trên máy*).
 
 **Tìm theo ý nghĩa.**
 
@@ -101,6 +101,13 @@ OCR chạy hoàn toàn trên máy: thư viện, file WebAssembly và dữ liệu
 
 Thẻ tạo từ các bản tóm tắt đã có không gọi mạng. **Tạo thêm bằng AI** gửi văn bản của mục đang đọc tới nhà cung cấp AI (một request), qua hộp đồng ý và quyền truy cập như tóm tắt. Thẻ lưu trong IndexedDB (store `flashcards`), xoá được từng thẻ hoặc tất cả trong tab Thẻ ôn tập, và bị xoá cùng dữ liệu tài liệu. **Xuất CSV** chỉ tạo file tải về trên máy bạn.
 
-## Chưa có: embedding chạy trên máy
+## Embedding chạy trên máy (tuỳ chọn)
 
-Tìm theo ý nghĩa hiện luôn gửi văn bản và câu tìm tới API của nhà cung cấp (xem phần trên). Phương án chạy model ngay trên máy, tải trọng số từ Hugging Face một lần rồi dùng offline, đang hoãn vì thư viện cần dùng còn chứa chuỗi CDN trong bundle. Khi làm, phần này sẽ ghi rõ lúc nào tải gì, lưu ở đâu và xoá thế nào.
+Ở **Cài đặt → AI → Nguồn embedding**, bạn có thể chọn **Trên máy** thay vì nhà cung cấp AI. Khi đó tìm theo ý nghĩa và hỏi đáp tạo vector ngay trên máy bạn; văn bản tài liệu, câu tìm và câu hỏi không được gửi đi đâu để tạo vector. Nguồn này dùng được cả khi nhà cung cấp là Anthropic.
+
+**Tải model (một lần, chỉ khi bạn đồng ý).** Bấm **Tải model** sẽ hiện hộp xác nhận ghi dung lượng (khoảng 129 MB) và nguồn tải. Chỉ khi bạn bấm **Tải**, ReadFocus tải từ Hugging Face (`huggingface.co`, file lớn được chuyển tiếp sang `*.hf.co`) các file của model `Xenova/multilingual-e5-small` (giấy phép MIT, bản ONNX của `intfloat/multilingual-e5-small`, hỗ trợ tiếng Việt) đã ghim theo mã commit, gồm trọng số và bộ tách từ. Hugging Face chỉ thấy các yêu cầu tải file và địa chỉ IP của bạn, giống khi trình duyệt tải một file bất kỳ; không có nội dung tài liệu nào được gửi. Có thể huỷ giữa chừng; lần tải dở không được lưu.
+
+**Lưu ở đâu, xoá thế nào.** Model nằm trong Cache API của trình duyệt (cache `transformers-cache` của trang extension), lần sau dùng không cần mạng. Nút **Xoá model** trong Cài đặt → AI xoá hết các file này. Vector tạo từ model lưu trong IndexedDB (store `embeddings`) với khoá nguồn riêng, không dùng lẫn với vector của nhà cung cấp, và bị xoá cùng dữ liệu tài liệu. Chạy model dùng Web Worker và runtime ONNX (WebAssembly) nằm sẵn trong extension (`ort/`); không tải thư viện hay code từ mạng.
+
+Sau khi tải, ReadFocus không gọi Hugging Face nữa: chạy model chỉ đọc từ cache và từ chối mọi yêu cầu mạng.
+

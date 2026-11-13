@@ -40,6 +40,8 @@ Khi bật công tắc:
 
 `content_security_policy.extension_pages` là `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`. `'wasm-unsafe-eval'` chỉ cho phép biên dịch WebAssembly của chính extension (core OCR của tesseract.js); không cho `eval`, không cho script từ nguồn ngoài. Toàn bộ thư viện OCR, file wasm và dữ liệu ngôn ngữ nằm trong gói (`ocr/`), OCR không gửi gì ra mạng và không cần quyền host.
 
+**Embedding trên máy (nhóm L).** Cùng CSP này, không thêm quyền nào. Runtime ONNX (WebAssembly, không GPU) và worker nằm trong gói (`ort/`, `assets/local-embed.worker-*.js`); `'wasm-unsafe-eval'` cũng cho phép biên dịch wasm đó. Trọng số model KHÔNG nằm trong gói: chỉ khi người dùng bấm tải và đồng ý, trang extension `fetch` tới `https://huggingface.co/` (file lớn được chuyển tiếp sang `*.hf.co`). Các máy chủ này trả `Access-Control-Allow-Origin` cho cả hai bước nên **không cần host permission** (đã kiểm chứng trên Chromium thật ngày 13/11/2026: tải đủ và dùng offline); vì vậy không thêm gì vào `optional_host_permissions`. Nếu Chrome sau này đòi quyền host cho việc này thì phải hỏi lại trước khi thêm.
+
 ## Quyền cố ý không dùng
 
 - Không dùng `host_permissions` cố định cho `*://*/*`, `<all_urls>`, `tabs` hay `file://`: chỉ quyền host tuỳ chọn ở trên, do người dùng chủ động cấp.
