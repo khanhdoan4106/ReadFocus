@@ -25,6 +25,11 @@ export const LOCAL_CACHE_NAME = 'transformers-cache';
 /** Embedding trên máy chạy từng lô nhỏ để không giữ nhiều bộ nhớ. */
 export const LOCAL_EMBED_BATCH_SIZE = 8;
 
+/** Dung lượng hiển thị cho người dùng, làm tròn theo MiB và gọi là MB. */
+export function formatModelSize(bytes: number): string {
+  return `${Math.round(bytes / 1_048_576)} MB`;
+}
+
 export type LocalModelFile = { path: string; bytes: number };
 
 /** Các file thật sự được tải với `dtype: 'q8'`. */

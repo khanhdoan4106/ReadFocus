@@ -73,7 +73,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
     });
   };
 
-  const provider = t.aiProviders[semantic.providerId];
+  const provider = semantic.local ? t.localModelName : t.aiProviders[semantic.providerId];
 
   return (
     <div class="search">
@@ -115,6 +115,9 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
           {semantic.state === 'unsupported' && (
             <p class="sidebar__empty">{t.semanticUnsupported}</p>
           )}
+          {semantic.state === 'model-missing' && (
+            <p class="sidebar__empty">{t.semanticModelMissing}</p>
+          )}
           {semantic.state === 'missing-key' && <p class="sidebar__empty">{t.semanticMissingKey}</p>}
           {semantic.state === 'empty' && <p class="sidebar__empty">{t.semanticEmpty}</p>}
 
@@ -142,7 +145,11 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
             )
           )}
 
-          {indexReady && <p class="search__note">{t.semanticToggleHint(provider)}</p>}
+          {indexReady && (
+            <p class="search__note">
+              {semantic.local ? t.semanticToggleHintLocal : t.semanticToggleHint(provider)}
+            </p>
+          )}
           {semantic.error !== null && (
             <p class="notice__error" role="alert">
               {semantic.error}
@@ -214,12 +221,14 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
             {t.semanticConfirmTitle}
           </h2>
           <p class="consent-dialog__body">
-            {t.semanticConfirmBody(
-              semantic.pending.chunks,
-              semantic.pending.requests,
-              provider,
-              semantic.model,
-            )}
+            {semantic.local
+              ? t.semanticConfirmBodyLocal(semantic.pending.chunks)
+              : t.semanticConfirmBody(
+                  semantic.pending.chunks,
+                  semantic.pending.requests,
+                  provider,
+                  semantic.model,
+                )}
           </p>
           <div class="consent-dialog__actions">
             <button
@@ -230,7 +239,7 @@ export function SearchPanel({ index, semantic, focusRequest, onSelectResult }: S
                 void semantic.build();
               }}
             >
-              {t.semanticConfirmAccept}
+              {semantic.local ? t.semanticConfirmAcceptLocal : t.semanticConfirmAccept}
             </button>
             <button type="button" class="settings-button" onClick={() => setConfirmOpen(false)}>
               {t.semanticConfirmCancel}

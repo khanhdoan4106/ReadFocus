@@ -6,6 +6,7 @@ import {
   aiConfigProblem,
   defaultAiSettings,
   type AiSettings,
+  type EmbedSourceChoice,
   type SummaryLanguage,
 } from '../../core/llm/settings';
 import type { ProviderId } from '../../core/llm/types';
@@ -73,6 +74,10 @@ export function useAiSettings() {
 
   const handleAiEmbedModel = useCallback((value: string) => {
     setAiSettings((current) => ({ ...current, embedModel: value }));
+  }, []);
+
+  const handleAiEmbedSource = useCallback((embedSource: EmbedSourceChoice) => {
+    setAiSettings((current) => ({ ...current, embedSource }));
   }, []);
 
   const handleAiBaseUrl = useCallback((value: string) => {
@@ -228,6 +233,7 @@ export function useAiSettings() {
       onChangeProvider: handleAiProvider,
       onChangeModel: handleAiModel,
       onChangeEmbedModel: handleAiEmbedModel,
+      onChangeEmbedSource: handleAiEmbedSource,
       onChangeBaseUrl: handleAiBaseUrl,
       onChangeLanguage: handleAiLanguage,
       onChangeKey: handleAiKey,

@@ -1,9 +1,13 @@
+import { useState } from 'preact/hooks';
+import { formatModelSize, LOCAL_MODEL_BYTES, LOCAL_MODEL_ID } from '../core/embed/local';
 import { EMBED_DEFAULT_MODELS } from '../core/embed/models';
-import type { AiSettings, SummaryLanguage } from '../core/llm/settings';
+import type { AiSettings, EmbedSourceChoice, SummaryLanguage } from '../core/llm/settings';
 import { PROVIDERS } from '../core/llm/settings';
 import type { ProviderId } from '../core/llm/types';
 import type { ThemePreference } from '../core/theme';
 import { t, type LanguagePreference } from '../i18n';
+import { Dialog } from './Dialog';
+import type { LocalModelApi } from './hooks/useLocalModel';
 
 export type AiPanelProps = {
   settings: AiSettings;
@@ -12,9 +16,11 @@ export type AiPanelProps = {
   supported: boolean;
   busy: boolean;
   notice: { tone: 'ok' | 'error'; message: string } | null;
+  localModel: LocalModelApi;
   onChangeProvider: (providerId: ProviderId) => void;
   onChangeModel: (value: string) => void;
   onChangeEmbedModel: (value: string) => void;
+  onChangeEmbedSource: (value: EmbedSourceChoice) => void;
   onChangeBaseUrl: (value: string) => void;
   onChangeLanguage: (value: SummaryLanguage) => void;
   onChangeKey: (value: string) => void;
@@ -64,6 +70,91 @@ function themeOptions(): ReadonlyArray<{ value: ThemePreference; label: string }
     { value: 'light', label: t.themeLight },
     { value: 'dark', label: t.themeDark },
   ];
+}
+
+/** Trạng thái và nút tải/xoá model embedding chạy trên máy. */
+function LocalModelBlock({ model }: { model: LocalModelApi }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const size = formatModelSize(LOCAL_MODEL_BYTES);
+  const downloading = model.state === 'downloading';
+
+  return (
+    <div class="settings-local-model">
+      {model.state === 'checking' && <p class="settings-card__hint">{t.localModelChecking}</p>}
+      {model.state === 'unsupported' && (
+        <p class="settings-card__hint">{t.localModelUnsupported}</p>
+      )}
+      {(model.state === 'absent' || model.state === 'error') && (
+        <p class="settings-card__hint">{t.localModelAbsent(size)}</p>
+      )}
+      {model.state === 'ready' && <p class="settings-card__hint">{t.localModelReady}</p>}
+      {downloading && (
+        <div class="notice__progress" role="status">
+          <progress value={model.progress?.loaded ?? 0} max={model.progress?.total || 1} />
+          <span>
+            {t.localModelDownloading(
+              formatModelSize(model.progress?.loaded ?? 0),
+              formatModelSize(model.progress?.total || LOCAL_MODEL_BYTES),
+            )}
+          </span>
+        </div>
+      )}
+      {model.error !== null && (
+        <p class="notice__error" role="alert">
+          {model.error}
+        </p>
+      )}
+      <div class="settings-actions">
+        {(model.state === 'absent' || model.state === 'error') && (
+          <button
+            type="button"
+            class="settings-button settings-button--primary"
+            onClick={() => setConfirmOpen(true)}
+          >
+            {t.localModelDownload(size)}
+          </button>
+        )}
+        {downloading && (
+          <button type="button" class="settings-button" onClick={model.cancel}>
+            {t.localModelCancel}
+          </button>
+        )}
+        {model.state === 'ready' && (
+          <button
+            type="button"
+            class="settings-button settings-button--danger"
+            onClick={() => void model.remove()}
+          >
+            {t.localModelDelete}
+          </button>
+        )}
+      </div>
+
+      {confirmOpen && (
+        <Dialog titleId="local-model-confirm-title" onClose={() => setConfirmOpen(false)}>
+          <h2 class="consent-dialog__title" id="local-model-confirm-title">
+            {t.localModelConfirmTitle}
+          </h2>
+          <p class="consent-dialog__body">{t.localModelConfirmBody(size, LOCAL_MODEL_ID)}</p>
+          <div class="consent-dialog__actions">
+            <button
+              type="button"
+              class="settings-button settings-button--primary"
+              onClick={() => {
+                setConfirmOpen(false);
+                void model.download();
+              }}
+            >
+              {t.localModelConfirmAccept(size)}
+            </button>
+            <button type="button" class="settings-button" onClick={() => setConfirmOpen(false)}>
+              {t.localModelConfirmCancel}
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
 }
 
 export function SettingsPanel({
@@ -153,7 +244,26 @@ export function SettingsPanel({
         </label>
         <p class="settings-card__hint">{t.aiModelHint}</p>
 
-        {providerId === 'anthropic' ? (
+        <div class="settings-options" role="radiogroup" aria-label={t.aiEmbedSourceLabel}>
+          {(['provider', 'local'] as const).map((value) => (
+            <label class="settings-radio" key={value}>
+              <input
+                type="radio"
+                name="readfocus-embed-source"
+                value={value}
+                checked={ai.settings.embedSource === value}
+                disabled={aiDisabled}
+                onChange={() => ai.onChangeEmbedSource(value)}
+              />
+              <span>{value === 'provider' ? t.aiEmbedSourceProvider : t.aiEmbedSourceLocal}</span>
+            </label>
+          ))}
+        </div>
+        <p class="settings-card__hint">{t.aiEmbedSourceHint}</p>
+
+        {ai.settings.embedSource === 'local' ? (
+          <LocalModelBlock model={ai.localModel} />
+        ) : providerId === 'anthropic' ? (
           <p class="settings-card__hint">{t.aiEmbedUnsupported}</p>
         ) : (
           <>

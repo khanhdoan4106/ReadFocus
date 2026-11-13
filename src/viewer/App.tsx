@@ -8,6 +8,7 @@ import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
 import { useDocument, type DocumentLifecycle } from './hooks/useDocument';
 import { useAiSettings } from './hooks/useAiSettings';
+import { useLocalModel } from './hooks/useLocalModel';
 import { useExtraction } from './hooks/useExtraction';
 import { useFocusTimer } from './hooks/useFocusTimer';
 import { useReadingStats } from './hooks/useReadingStats';
@@ -78,6 +79,7 @@ export function App() {
   const readingWordsPerMinute = settings.wordsPerMinute;
   const setSpeed = settings.setSpeed;
   const ai = useAiSettings();
+  const localModel = useLocalModel();
   const aiSettings = ai.settings;
   const aiKey = ai.apiKey;
   const [searchRequest, setSearchRequest] = useState(0);
@@ -146,6 +148,7 @@ export function App() {
     pages: extractedPages,
     settings: aiSettings,
     apiKey: aiKey,
+    localModelReady: localModel.state === 'ready',
   });
   const ask = useAsk({
     docId,
@@ -297,6 +300,7 @@ export function App() {
 
         {status === 'ready' && sidebarOpen && !focusMode && (
           <ViewerSidebar
+            localModel={localModel}
             ready
             pageNumber={pageNumber}
             docId={docId}
