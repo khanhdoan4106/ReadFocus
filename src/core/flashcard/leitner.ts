@@ -58,7 +58,7 @@ export function sanitizeCard(value: unknown): Card | null {
     front: v.front,
     back: v.back,
     page: v.page,
-    source: v.source === 'ai' ? 'ai' : 'summary',
+    source: v.source === 'ai' || v.source === 'note' ? v.source : 'summary',
     box: isBox(v.box) ? v.box : 1,
     dueDate: v.dueDate,
     createdAt: typeof v.createdAt === 'number' ? v.createdAt : 0,

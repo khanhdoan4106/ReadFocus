@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'preact/hooks';
 import { boundingRect, locateSelection } from '../../core/annotate/locate';
-import type { Anchor, AnnotationColor, Rect } from '../../core/annotate/types';
+import type { Anchor, Annotation, AnnotationColor, Rect } from '../../core/annotate/types';
 import type { TextPage } from '../../core/summarize/chunk';
 import { t } from '../../i18n';
 import { readPageSelection, type PageSelection } from '../selection';
@@ -90,6 +90,27 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
     [api, color, openPopover],
   );
 
+  /** Gắn lại một highlight mồ côi vào đoạn chữ đang chọn (cùng trang). */
+  const reattach = useCallback(
+    (annotation: Annotation) => {
+      const selection = readPageSelection();
+      if (selection === null || selection.page !== annotation.page) {
+        showToast(t.annotNoSelection);
+        return;
+      }
+      const pageText = pages.find((p) => p.page === selection.page)?.text ?? '';
+      const anchor = locateSelection(pageText, selection.text, selection.ratio, selection.rects);
+      if (anchor === null) {
+        showToast(t.annotFallbackArea);
+        return;
+      }
+      api.change(annotation.id, { anchor });
+      window.getSelection()?.removeAllRanges();
+      showToast(t.notesReattachDone);
+    },
+    [api, pages, showToast],
+  );
+
   /** Phím N: ghi chú gắn với cả trang đang đọc. */
   const addPageNote = useCallback(() => {
     const created = api.add({ page: getCurrentPage(), anchor: { type: 'page' }, color });
@@ -118,6 +139,7 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
     highlightSelection,
     addAreaNote,
     addPageNote,
+    reattach,
   };
 }
 

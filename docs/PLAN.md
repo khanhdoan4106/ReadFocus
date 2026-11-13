@@ -401,7 +401,7 @@ Task nhóm M:
 
 - [x] **T32** Core neo vị trí + DB v4 + migration + xuất/nhập JSON và Markdown (logic thuần, có test).
 - [x] **T33** Lớp highlight trên trang, thanh nổi chọn màu, highlight vùng, popover, phím tắt.
-- [ ] **T34** Tab Ghi chú, khu mồ côi, xóa an toàn, tạo flashcard từ highlight, i18n vi/en, docs (README, PRIVACY: ghi chú chỉ lưu trên máy).
+- [x] **T34** Tab Ghi chú, khu mồ côi, xóa an toàn, tạo flashcard từ highlight, i18n vi/en, docs (README, PRIVACY: ghi chú chỉ lưu trên máy).
 
 Task nào quá lớn thì tách nhỏ ngay trong file này.
 

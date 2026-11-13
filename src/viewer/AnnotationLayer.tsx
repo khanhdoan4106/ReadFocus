@@ -6,6 +6,8 @@ type Props = {
   /** Chú thích của trang này (không gồm highlight chữ đã mồ côi). */
   annotations: readonly Annotation[];
   areaMode: boolean;
+  /** Highlight đang nháy sau khi nhảy từ tab Ghi chú. */
+  flashId?: string | null;
   onDrawArea: (rect: Rect, x: number, y: number) => void;
   onOpen: (id: string, x: number, y: number) => void;
 };
@@ -40,7 +42,7 @@ function pointIn(element: HTMLElement, event: PointerEvent): { x: number; y: num
  * Các highlight nằm DƯỚI text layer để không chặn bôi đen chữ; bấm vào highlight được nhận
  * bằng `onClick` của trang (xem `hitTest`). Ghi chú trang là các nút thật, nằm ở mép trái trang.
  */
-export function AnnotationLayer({ annotations, areaMode, onDrawArea, onOpen }: Props) {
+export function AnnotationLayer({ annotations, areaMode, flashId, onDrawArea, onOpen }: Props) {
   const drawRef = useRef<HTMLDivElement>(null);
   const [start, setStart] = useState<{ x: number; y: number } | null>(null);
   const [current, setCurrent] = useState<{ x: number; y: number } | null>(null);
@@ -66,7 +68,7 @@ export function AnnotationLayer({ annotations, areaMode, onDrawArea, onOpen }: P
               key={`${annotation.id}-${index}`}
               class={`annot-rect annot-rect--${annotation.color}${
                 annotation.anchor.type === 'area' ? ' annot-rect--area' : ''
-              }`}
+              }${annotation.id === flashId ? ' annot-rect--flash' : ''}`}
               data-annotation-id={annotation.id}
               role="img"
               aria-label={

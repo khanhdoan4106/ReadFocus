@@ -17,6 +17,7 @@ type PageListProps = {
   ocrPages: ReadonlyMap<number, OcrPageView>;
   annotations: ReadonlyMap<number, readonly Annotation[]>;
   areaMode: boolean;
+  flashId: string | null;
   onDrawArea: (page: number, rect: Rect, x: number, y: number) => void;
   onOpenAnnotation: (id: string, x: number, y: number) => void;
   scrollerRef: RefObject<HTMLElement | null>;
@@ -42,6 +43,7 @@ export function PageList({
   ocrPages,
   annotations,
   areaMode,
+  flashId,
   onDrawArea,
   onOpenAnnotation,
   scrollerRef,
@@ -123,6 +125,7 @@ export function PageList({
                 ocr={ocrPages.get(pageNumber) ?? null}
                 annotations={annotations.get(pageNumber)}
                 areaMode={areaMode}
+                flashId={flashId}
                 onDrawArea={onDrawArea}
                 onOpenAnnotation={onOpenAnnotation}
                 onMeasured={onMeasured}

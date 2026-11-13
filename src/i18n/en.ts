@@ -1,3 +1,4 @@
+import type { ImportError } from '../core/annotate/exchange';
 import type { AnnotationColor } from '../core/annotate/types';
 import type { Messages } from './vi';
 
@@ -364,7 +365,7 @@ export const en: Messages = {
     `Delete the saved data for “${name}”? The PDF file on your computer isn’t affected.`,
   deleteAll: 'Delete all reading data',
   deleteAllConfirm:
-    'Delete all reading data on this computer? Progress, tables of contents, search indexes and statistics will be lost; settings are kept.',
+    'Delete all reading data on this computer? Progress, tables of contents, search indexes and statistics will be lost; settings, notes and highlights are kept.',
   deleteDocumentDone: 'Deleted the document’s data.',
   deleteAllDone: 'Deleted all reading data.',
   deleteFailed: "Couldn't delete the data. Try again later.",
@@ -380,6 +381,53 @@ export const en: Messages = {
     { keys: 'Esc', label: 'Leave focus mode' },
   ],
 
+  notesTab: 'Notes',
+  notesDataHint:
+    'Notes and highlights are stored only on this computer. Export JSON to back up or move to another computer.',
+  notesEmpty:
+    'No notes or highlights yet. Select text on a page and pick a color, or press N to add a page note.',
+  notesFilterColor: 'Filter by color',
+  notesColorAll: 'All colors',
+  notesSearchPlaceholder: 'Search notes',
+  notesCount: (count: number) => `${count} ${count === 1 ? 'item' : 'items'}`,
+  notesNoMatch: 'No matching items.',
+  notesPage: (page: number) => `Page ${page}`,
+  notesKindArea: 'Marked area',
+  notesKindPage: 'Page note',
+  notesEdit: 'Edit',
+  notesFlashcard: 'Make flashcard',
+  notesFlashcardDone: 'Flashcard created. See the Flashcards tab.',
+  notesFlashcardExists: 'An identical flashcard already exists.',
+  notesFlashcardNeedNote:
+    'This sentence can’t be turned into a fill-in-the-blank. Add a note to use as the front of the card.',
+  notesOrphanTitle: 'Position not found',
+  notesOrphanHint:
+    'The page’s text has changed (for example after OCR). Select the text again and click Re-attach, or delete.',
+  notesReattach: 'Re-attach to the selection',
+  notesReattachDone: 'Re-attached to the selected text.',
+  notesExportMarkdown: 'Export Markdown',
+  notesExportJson: 'Export JSON (backup)',
+  notesImportJson: 'Import JSON',
+  notesExportEmpty: 'Nothing to export yet.',
+  notesImportDone: (added: number, updated: number) =>
+    `Imported: ${added} added, ${updated} updated.`,
+  notesImportErrors: {
+    'invalid-json': 'Couldn’t read the file: it isn’t valid JSON. Nothing was imported.',
+    'wrong-schema': 'This isn’t a ReadFocus notes file. Nothing was imported.',
+    'wrong-version':
+      'This notes file is from a version this release can’t read. Nothing was imported.',
+    'invalid-data': 'The notes file is damaged or incomplete. Nothing was imported.',
+    'other-document':
+      'This file holds notes for a different document. Open that document and import again.',
+  } satisfies Record<ImportError, string>,
+  deleteDocumentNotes: (count: number) =>
+    ` This includes your ${count} ${count === 1 ? 'note or highlight' : 'notes and highlights'}: they will be deleted too and can’t be recovered (export JSON first).`,
+  deleteAllNotesOption: 'Also delete notes and highlights',
+  deleteAllNotesHint:
+    'By default notes and highlights are kept because you created them. Turn this on only to delete everything.',
+  deleteAllNotesConfirm: (count: number) =>
+    `Final confirmation: delete all ${count} notes and highlights across every document? This can’t be undone.`,
+  deleteAllNotesDone: 'Deleted notes and highlights too.',
   annotColors: {
     yellow: 'Yellow',
     green: 'Green',

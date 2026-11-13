@@ -26,6 +26,7 @@ type PdfPageProps = {
   /** Ghi chú và highlight của trang này (không gồm highlight chữ đã mồ côi). */
   annotations?: readonly Annotation[];
   areaMode?: boolean;
+  flashId?: string | null;
   onDrawArea?: (page: number, rect: Rect, x: number, y: number) => void;
   onOpenAnnotation?: (id: string, x: number, y: number) => void;
   onMeasured: (page: number, size: PageSize) => void;
@@ -51,6 +52,7 @@ export function PdfPage({
   ocr,
   annotations = [],
   areaMode = false,
+  flashId = null,
   onDrawArea,
   onOpenAnnotation,
   onMeasured,
@@ -170,6 +172,7 @@ export function PdfPage({
       <AnnotationLayer
         annotations={annotations}
         areaMode={areaMode}
+        flashId={flashId}
         onDrawArea={(rect, x, y) => onDrawArea?.(pageNumber, rect, x, y)}
         onOpen={(id, x, y) => onOpenAnnotation?.(id, x, y)}
       />

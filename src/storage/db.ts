@@ -545,6 +545,15 @@ export async function countAnnotationsForDoc(docId: string): Promise<number> {
   }
 }
 
+export async function countAllAnnotations(): Promise<number> {
+  try {
+    const db = await getDb();
+    return await db.count('annotations');
+  } catch {
+    return 0;
+  }
+}
+
 /** Xoá một ghi chú. Giao diện phải hỏi xác nhận trước khi gọi. */
 export async function deleteAnnotation(id: string): Promise<boolean> {
   try {

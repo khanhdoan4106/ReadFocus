@@ -193,6 +193,7 @@ export function App() {
     moveBand,
   } = focus;
   const annotations = useAnnotations({ docId, pages: extractedPages });
+  const [flashId, setFlashId] = useState<string | null>(null);
   const annotationUi = useAnnotationUi({
     api: annotations,
     pages: extractedPages,
@@ -209,6 +210,14 @@ export function App() {
     }
     return map;
   }, [annotations.items, annotations.statuses]);
+  const handleJumpNote = useCallback(
+    (annotation: Annotation) => {
+      goToPage(annotation.page);
+      setFlashId(annotation.id);
+      setTimeout(() => setFlashId((current) => (current === annotation.id ? null : current)), 1800);
+    },
+    [goToPage],
+  );
   const handleOpenSearch = useCallback(() => {
     setSidebarOpen(true);
     setSearchRequest((value) => value + 1);
@@ -317,6 +326,7 @@ export function App() {
               ocrPages={ocrPages}
               annotations={annotationsByPage}
               areaMode={annotationUi.areaMode}
+              flashId={flashId}
               onDrawArea={annotationUi.addAreaNote}
               onOpenAnnotation={annotationUi.openPopover}
               scrollerRef={contentRef}
@@ -330,8 +340,13 @@ export function App() {
         {status === 'ready' && sidebarOpen && !focusMode && (
           <ViewerSidebar
             localModel={localModel}
+            annotations={annotations}
+            annotationUi={annotationUi}
+            showToast={setToast}
+            onJumpNote={handleJumpNote}
             ready
             pageNumber={pageNumber}
+            totalPages={totalPages}
             docId={docId}
             fileName={fileName}
             wordsPerMinute={readingWordsPerMinute}
@@ -348,7 +363,7 @@ export function App() {
             flashcards={flashcards}
             ask={ask}
             onDeleteDocument={() => void handleDeleteDocument()}
-            onDeleteAll={() => void handleDeleteAll()}
+            onDeleteAll={(includeNotes) => void handleDeleteAll(includeNotes)}
             onSelectPage={goToPage}
             onSelectCitation={handleCitation}
             onSelectResult={handleSearchResult}

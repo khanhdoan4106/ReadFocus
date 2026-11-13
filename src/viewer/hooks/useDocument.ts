@@ -7,7 +7,10 @@ import { readRequestedPdfUrl } from '../../core/pdf-redirect';
 import { acceptPageReport, canPersistProgress } from '../../core/progress';
 import { t } from '../../i18n';
 import {
+  clearAllAnnotations,
   clearAllData,
+  countAllAnnotations,
+  countAnnotationsForDoc,
   deleteDocumentData,
   loadProgress,
   recordDocumentOpen,
@@ -285,7 +288,11 @@ export function useDocument({ lifecycle, showToast }: Input) {
 
   const handleDeleteDocument = useCallback(async () => {
     if (docId === null) return;
-    if (!window.confirm(t.deleteDocumentConfirm(fileName))) return;
+    // Nói rõ ghi chú/highlight của tài liệu này cũng bị xoá, kèm số lượng.
+    const noteCount = await countAnnotationsForDoc(docId);
+    const message =
+      t.deleteDocumentConfirm(fileName) + (noteCount > 0 ? t.deleteDocumentNotes(noteCount) : '');
+    if (!window.confirm(message)) return;
 
     const ok = await deleteDocumentData(docId);
     if (!ok) {
@@ -303,19 +310,31 @@ export function useDocument({ lifecycle, showToast }: Input) {
     showToast(t.deleteDocumentDone);
   }, [docId, fileName, showToast]);
 
-  const handleDeleteAll = useCallback(async () => {
-    if (!window.confirm(t.deleteAllConfirm)) return;
+  const handleDeleteAll = useCallback(
+    async (includeNotes = false) => {
+      if (!window.confirm(t.deleteAllConfirm)) return;
+      // Ghi chú là nội dung người dùng tự tạo: chỉ xoá khi đã bật tuỳ chọn riêng và xác nhận lần hai.
+      if (includeNotes) {
+        const total = await countAllAnnotations();
+        if (total > 0 && !window.confirm(t.deleteAllNotesConfirm(total))) return;
+      }
 
-    const ok = await clearAllData();
-    if (!ok) {
-      showToast(t.deleteFailed);
-      return;
-    }
+      const ok = await clearAllData();
+      if (!ok) {
+        showToast(t.deleteFailed);
+        return;
+      }
+      if (includeNotes && !(await clearAllAnnotations())) {
+        showToast(t.deleteFailed);
+        return;
+      }
 
-    await resetDocument();
-    lifecycle.current.resetStats();
-    showToast(t.deleteAllDone);
-  }, [resetDocument, showToast]);
+      await resetDocument();
+      lifecycle.current.resetStats();
+      showToast(includeNotes ? t.deleteAllNotesDone : t.deleteAllDone);
+    },
+    [resetDocument, showToast],
+  );
 
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
