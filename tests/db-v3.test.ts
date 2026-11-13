@@ -82,7 +82,7 @@ describe('IndexedDB v3', () => {
     expect(await loadSetting('theme')).toBe('dark');
 
     const db = await openDB(DB_NAME);
-    expect(db.version).toBe(3);
+    expect(db.version).toBe(4);
     expect(await db.get('progress', 'doc-old')).toEqual({
       docId: 'doc-old',
       page: 4,
@@ -90,6 +90,7 @@ describe('IndexedDB v3', () => {
     });
     expect([...db.objectStoreNames].sort()).toEqual(
       [
+        'annotations',
         'documents',
         'embeddings',
         'flashcards',
@@ -128,7 +129,7 @@ describe('IndexedDB v3', () => {
     expect(await loadSetting('theme')).toBe('dark');
 
     const db = await openDB(DB_NAME);
-    expect(db.version).toBe(3);
+    expect(db.version).toBe(4);
     expect(await db.get('progress', 'doc-old')).toMatchObject({ page: 4 });
     expect(db.objectStoreNames.contains('embeddings')).toBe(true);
     db.close();

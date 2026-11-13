@@ -399,7 +399,7 @@ Xuất và nhập:
 
 Task nhóm M:
 
-- [ ] **T32** Core neo vị trí + DB v4 + migration + xuất/nhập JSON và Markdown (logic thuần, có test).
+- [x] **T32** Core neo vị trí + DB v4 + migration + xuất/nhập JSON và Markdown (logic thuần, có test).
 - [ ] **T33** Lớp highlight trên trang, thanh nổi chọn màu, highlight vùng, popover, phím tắt.
 - [ ] **T34** Tab Ghi chú, khu mồ côi, xóa an toàn, tạo flashcard từ highlight, i18n vi/en, docs (README, PRIVACY: ghi chú chỉ lưu trên máy).
 

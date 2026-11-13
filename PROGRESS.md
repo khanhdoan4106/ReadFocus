@@ -3,17 +3,9 @@
 Thư mục làm việc chuẩn là `C:\dev\readfocus\readfocus`. Không làm việc trong OneDrive.
 
 ## Trạng thái
-- v0–v3 và nhóm L (T1–T31) đã xong, không còn task mở. Nhánh làm việc: `docs/plan-sync` (chỉ đồng bộ tài liệu); `main` ở 3bf61a8.
-- Bước tiếp theo: không có việc cho agent; chờ người dùng quyết định (đăng store, thử tay, hay lập kế hoạch mới trong `docs/PLAN.md`).
-
-### Việc của người dùng
-- Đăng Chrome Web Store theo `store/checklist.md` (chưa tải gì lên store; ảnh quảng bá 440×280 và 1400×560 tuỳ chọn chưa làm; đối chiếu `store/data-usage.md` với form "Privacy practices" thật).
-- Thử tay các checklist của PR #9–#17 nếu chưa làm (mục "Cần người dùng thử thủ công" bên dưới): OCR (#9), hỏi đáp (#10), thẻ ôn tập (#11), tách App (#12), tiếng Anh/icon/giao diện (#13), ảnh và hồ sơ store (#14), phím mũi tên trên hàng tab (#15), embedding trên máy gồm tải, huỷ, offline, xoá (#17).
-
-### Rủi ro đã ghi nhận
-- `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249, mức moderate) trong chuỗi eslint/typescript-eslint: chỉ ở công cụ dev, không vào `dist/`, chưa có bản sửa trong phạm vi semver; xem bảng "Rà lỗ hổng dependency". Xem lại khi eslint hoặc typescript-eslint nâng lên `minimatch ^11`.
-- Cảnh báo `Unknown project config "onnxruntime-node-install"` của npm 11 (`.npmrc`): sẽ ngừng hoạt động ở bản npm major kế tiếp; khi đó chuyển sang `ONNXRUNTIME_NODE_INSTALL=skip` trong workflow (phải hỏi người dùng vì sửa `.github/workflows/`).
-- Chất lượng tìm tiếng Việt của model embedding trên máy (`multilingual-e5-small` q8) chưa được đánh giá, mới xác nhận chạy đúng (vector 384 chiều, đã chuẩn hoá); model chạy một luồng nên máy yếu và tài liệu dài có thể chậm.
+- Nhánh hiện tại: `feat/v4-annotations` (nhóm M, v4); `main` ở b2f28fb (PR #18 đã merge)
+- Task đang làm: T32 xong (commit trên nhánh); T33 chưa bắt đầu
+- Bước tiếp theo chính xác: **T33** — lớp highlight trên trang. Việc đầu tiên: đọc `src/viewer/PdfPage.tsx` và `PageList.tsx` (text layer, kích thước trang, trang OCR dùng hộp từ trong `src/core/ocr/`), rồi thêm lớp vẽ `AnnotationLayer` dùng `denormalizeRect` (src/core/annotate/rect.ts), thanh nổi khi chọn chữ (4 màu + "Thêm ghi chú"), chế độ highlight vùng (nút trên thanh công cụ), popover sửa/xóa, phím tắt H và N. Dùng `createTextAnchor`/`resolveTextAnchor`/`mergeLineRects`/`normalizeRect` và `saveAnnotations`/`loadAnnotations` đã có. Xong T33 thì T34 (tab Ghi chú, mồ côi, xóa an toàn, flashcard, i18n, docs), rồi mở PR nhóm M. Nhóm N (T35–T36) chỉ bắt đầu sau khi nhóm M được merge.
 
 ## Đã hoàn thành
 - [x] Bước 0 v3 — đo `src/viewer/App.tsx` = 2286 dòng (`wc -l`; 2104 dòng không rỗng), mục tiêu sau khi tách dưới ~300; baseline: typecheck, lint, 456 test, build, package đều pass.
@@ -64,6 +56,8 @@ Thư mục làm việc chuẩn là `C:\dev\readfocus\readfocus`. Không làm vi�
 - [x] Rà soát v1 trước merge PR #8: sửa batch gọi API ngầm sau lỗi (`runSummaryBatch`), cache chỉ khớp provider/model/prompt/ngôn ngữ/tiêu đề, model rỗng dùng mặc định, ước lượng chỉ tính mục chưa cache và đã lập chỉ mục, tóm tắt gắn đúng tài liệu/mục và bị huỷ khi đổi tài liệu hoặc đóng viewer, `Dialog` (focus trap, Esc, trả focus, chặn phím tắt), câu chữ lỗi, AGENTS.md, hướng dẫn OLLAMA_ORIGINS.
 
 - [x] T31 — Embedding chạy trên máy (nhóm L): nguồn "Trên máy" ở Cài đặt → AI → Nguồn embedding (`AiSettings.embedSource`, mặc định `provider`); model `Xenova/multilingual-e5-small` q8 (384 chiều, MIT, 118,3 MB + tokenizer 17,1 MB = 129 MB) chạy trong Web Worker (`src/embed-worker/local-embed.worker.ts`), tải từ Hugging Face chỉ sau hộp xác nhận ghi dung lượng; Cache API; có tiến độ, huỷ, xoá. Lõi thuần ở `src/core/embed/local.ts` (hằng số, cache, tiến độ, giao thức), `local-client.ts` (điều khiển worker, có test với worker giả); plugin `vite-plugins/hf-assets.ts` thay chuỗi CDN và đổi import `onnxruntime-web/webgpu` sang bản wasm; runtime wasm ở `dist/ort/`. Khoá nguồn `local|xenova/multilingual-e5-small||v1` nên vector không dùng lẫn. Dùng được với Anthropic. Test: `embed-local`, `embed-local-client`, `hf-bundle`, `app/viewer-local-embed` (vi + en). Đã chạy thật trên Chromium (Playwright): tải 129 MB → cache đúng 4 file → tắt mạng, mở lại → tạo chỉ mục 2 giây và tìm theo ý nghĩa được, không có request ngoài extension.
+
+- [x] T32 — Core ghi chú/highlight (nhóm M): `src/core/annotate/` gồm `types` (Annotation, 3 loại neo text/area/page, 4 màu), `normalize` (NFC + gộp khoảng trắng, giữ bảng ánh xạ về offset gốc, xử lý NFD tiếng Việt), `anchor` (`createTextAnchor`, `resolveTextAnchor` trả ok/moved/orphan: thử offset, rồi quote + prefix/suffix, nhiều chỗ khớp thì chọn theo ngữ cảnh rồi theo khoảng cách offset cũ), `rect` (chuẩn hóa 0..1, đổi về px theo zoom, `mergeLineRects`), `record` (sanitize, tạo, cập nhật với `updatedAt` luôn tăng), `exchange` (xuất/nhập JSON có schema + version, nhập tất cả-hoặc-không-gì và chặn tài liệu khác, `mergeAnnotations` theo `updatedAt`, xuất Markdown). IndexedDB v4: store `annotations` (by-doc), `saveAnnotations`/`loadAnnotations`/`countAnnotationsForDoc`/`deleteAnnotation`/`clearAllAnnotations`; `deleteDocumentData` xóa ghi chú của tài liệu đó; `clearAllData` KHÔNG xóa ghi chú. Test: `annotate-anchor`, `annotate-exchange`, `db-v4` (migration từ v1, v2, v3 giữ dữ liệu, ghi chú sống sót qua mở lại, xóa tài liệu, xóa toàn bộ), `db-v3` cập nhật version 4; snapshot `viewer-behavior` chỉ thêm `annotations: []` (store mới, rỗng).
 
 ## Dở dang / ghi chú cho phiên sau
 - Nhóm D trên `feat/v1-ai-core`: T12, T13 và 3 commit `fix:` cho review PR #7 đã push (235 test), PR #7 CI xanh, **chưa merge**. Nhóm E tách từ nhánh này nên PR nhóm E phải chờ PR #7 merge trước khi đổi base về `main`.

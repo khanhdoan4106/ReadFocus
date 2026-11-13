@@ -49,6 +49,7 @@ exports[`kịch bản hành vi tổng hợp của viewer > request, key đã ghi
       "sync": [],
     },
     "indexedDb": {
+      "annotations": [],
       "documents": [
         ""a7949e623819aa32baf4c32d0457e275b4eff130ec61f43cf284ffdef26efcf4"",
       ],
