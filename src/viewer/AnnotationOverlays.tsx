@@ -98,6 +98,21 @@ function Popover({
     // Chỉ chạy khi mở/đóng: lúc đóng thì lưu bản nháp.
   }, [annotation.id]);
 
+  // Bấm ra ngoài popover thì lưu và đóng (trừ khi đang hỏi xác nhận xoá: hộp đó nằm ngoài popover).
+  const deleting = ui.deleting;
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (deleting !== null) return;
+      const target = event.target as Node | null;
+      if (target && rootRef.current?.contains(target)) return;
+      commit();
+      ui.closePopover();
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+    // `commit` và `ui.closePopover` đổi theo mỗi lần render nhưng chỉ đọc giá trị mới nhất qua ref.
+  });
+
   if (state === null) return null;
   const pos = clampToViewport(state.x, state.y + 8, 300, 230);
   return (

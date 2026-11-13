@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'preact/hooks';
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { boundingRect, locateSelection } from '../../core/annotate/locate';
 import type { Anchor, Annotation, AnnotationColor, Rect } from '../../core/annotate/types';
 import type { TextPage } from '../../core/summarize/chunk';
 import { t } from '../../i18n';
+import { focusableOpener, returnFocus } from '../focus-return';
 import { readPageSelection, type PageSelection } from '../selection';
 import type { AnnotationsApi } from './useAnnotations';
 
@@ -25,6 +26,8 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
   const [areaMode, setAreaMode] = useState(false);
   const [bar, setBar] = useState<PageSelection | null>(null);
   const [popover, setPopover] = useState<PopoverState | null>(null);
+  // Phần tử giữ focus lúc mở popover, để trả focus về khi đóng.
+  const openerRef = useRef<HTMLElement | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [color, setColor] = useState<AnnotationColor>('yellow');
 
@@ -47,8 +50,20 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
   }, [ready]);
 
   const openPopover = useCallback((id: string, x: number, y: number, focusNote = false) => {
+    openerRef.current = focusableOpener(document.activeElement);
     setPopover({ id, x, y, focusNote });
   }, []);
+
+  /** Đóng popover (Xong, Esc, bấm ra ngoài) và trả focus về nơi đã mở nó. */
+  const closePopover = useCallback(() => {
+    setPopover((current) => {
+      if (current !== null) {
+        const page = api.items.find((item) => item.id === current.id)?.page ?? null;
+        returnFocus(openerRef.current, current.id, page);
+      }
+      return null;
+    });
+  }, [api.items]);
 
   /** Tạo highlight từ vùng chọn. Không tìm được trong văn bản trang thì đổi sang highlight vùng. */
   const highlightSelection = useCallback(
@@ -124,7 +139,7 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
     toggleAreaMode: () => setAreaMode((on) => !on),
     bar,
     popover,
-    closePopover: () => setPopover(null),
+    closePopover,
     openPopover,
     deleting,
     askDelete: (id: string) => setDeleting(id),
@@ -132,8 +147,16 @@ export function useAnnotationUi({ api, pages, getCurrentPage, ready, showToast }
     confirmDelete: async () => {
       if (deleting === null) return;
       const id = deleting;
+      // Nhớ trang trước khi xoá: sau khi xoá, mục không còn trong danh sách.
+      const page = api.items.find((item) => item.id === id)?.page ?? null;
       setDeleting(null);
-      if (await api.remove(id)) setPopover((current) => (current?.id === id ? null : current));
+      if (await api.remove(id)) {
+        setPopover((current) => {
+          if (current?.id !== id) return current;
+          returnFocus(openerRef.current, id, page);
+          return null;
+        });
+      }
     },
     color,
     highlightSelection,
