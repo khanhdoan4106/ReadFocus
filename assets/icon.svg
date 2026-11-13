@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>ReadFocus</title>
+  <!-- Nền: ô vuông bo góc màu xanh, nhìn rõ trên thanh công cụ sáng lẫn tối -->
+  <rect x="0" y="0" width="128" height="128" rx="28" fill="#4c5fe6"/>
+  <!-- Trang giấy -->
+  <rect x="30" y="18" width="68" height="92" rx="7" fill="#ffffff"/>
+  <!-- Các dòng chữ bị làm mờ -->
+  <rect x="42" y="31" width="44" height="9" rx="4" fill="#b6c0f0"/>
+  <rect x="42" y="82" width="44" height="9" rx="4" fill="#b6c0f0"/>
+  <rect x="42" y="96" width="26" height="9" rx="4" fill="#b6c0f0"/>
+  <!-- Dải sáng của chế độ tập trung, rộng hơn trang một chút -->
+  <rect x="22" y="50" width="84" height="26" rx="7" fill="#ffc832"/>
+  <rect x="42" y="58" width="44" height="10" rx="5" fill="#1b2a8f"/>
+</svg>

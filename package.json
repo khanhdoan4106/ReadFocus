@@ -16,6 +16,7 @@
     "test": "vitest run",
     "fixtures": "node scripts/make-fixtures.mjs",
     "fixtures:scan": "node scripts/make-scan-fixture.mjs",
+    "icons": "node scripts/make-icons.mjs",
     "package": "node scripts/package.mjs"
   },
   "devDependencies": {
