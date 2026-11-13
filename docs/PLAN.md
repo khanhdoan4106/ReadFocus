@@ -307,3 +307,47 @@ Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
 - Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật.
 - Đăng Chrome Web Store, Firefox.
 - Hỏi đáp trên nhiều tài liệu.
+
+---
+
+## v3 — Hoàn thiện: dễ bảo trì và sẵn sàng cho Chrome Web Store
+
+Không thêm tính năng đọc hay AI mới (trừ nhóm L, chỉ làm khi người dùng bảo). Luật như cũ: không merge, không tag, không phát hành, không tải gì lên Chrome Web Store, không force push, không rebase, không dùng key thật.
+
+### Nhóm I: tách `App.tsx` (nhánh `refactor/v3-split-app`)
+
+Mục tiêu: tách mà KHÔNG đổi hành vi.
+
+- **T24 Lưới an toàn trước khi tách**: thêm môi trường test component (`happy-dom`, `@testing-library/preact`, devDependencies; kiểm tra version và license). Viết test "đặc tả hành vi", mock pdf.js, IndexedDB (`fake-indexeddb`), `chrome.*` và provider AI. Luồng cần phủ: mở file → hiện trang và mục lục; bấm mục → nhảy trang; tìm kiếm → kết quả; đổi tab thanh bên; mở file khác khi OCR, tóm tắt hoặc hỏi đáp đang chạy thì việc cũ bị huỷ và kết quả cũ không hiện; phím tắt không chạy khi đang gõ hoặc hộp thoại đang mở; Esc đóng hộp thoại và trả focus. Mọi test phải pass trên code hiện tại TRƯỚC khi tách.
+- **T25 Tách theo miền**: hook `useDocument` (mở file, hash, tiến độ), `useExtraction`, `useOcr`, `useSearch`, `useSummaries`, `useEmbeddings`, `useAsk`, `useFlashcards`, `useFocusTimer`, `useSettings`, `useShortcuts`; phần giao diện còn trong App tách thành component riêng. Mỗi miền một commit `refactor:`, chạy lại toàn bộ test sau mỗi commit. `App.tsx` còn lại chỉ ghép các phần (mục tiêu dưới khoảng 300 dòng). Không đổi tên file công khai trong `src/core/`, không đổi schema IndexedDB, không đổi câu chữ. Logic thuần lộ ra thì chuyển vào `src/core/` kèm test.
+- Tự rà soát: 11 mục cũ + **mục 12 "không đổi hành vi"**: so sánh danh sách request mạng, các key IndexedDB được ghi và chữ hiển thị trước và sau khi tách, trên cùng kịch bản test.
+
+### Nhóm J: tiếng Anh, icon, rà giao diện (nhánh `feat/v3-i18n-icon`)
+
+- **T26 Đa ngôn ngữ**: `src/i18n/en.ts` cùng bộ khoá với `vi.ts`; kiểu `Messages` suy ra từ `vi.ts` để thiếu khoá thì typecheck báo lỗi. Test: hai file cùng khoá, không chuỗi rỗng, tham số chèn (`{n}`, `{page}`…) giống nhau. Cài đặt có "Ngôn ngữ giao diện": Theo trình duyệt / Tiếng Việt / English (mặc định theo trình duyệt; không phải tiếng Việt thì dùng English). Tên và mô tả extension dùng `chrome.i18n` (`_locales/vi`, `_locales/en`, `__MSG_...__`, `default_locale`), cập nhật test manifest. Ngôn ngữ đầu ra của AI giữ cài đặt riêng, thêm lựa chọn "Theo ngôn ngữ giao diện". Bản tiếng Anh tự nhiên, thuật ngữ thống nhất.
+- **T27 Icon thật**: tự vẽ, không dùng logo hay hình của bên thứ ba; nguồn `assets/icon.svg`, script sinh PNG 16/32/48/128; icon 16px còn nhận ra được, đủ tương phản trên thanh công cụ sáng lẫn tối; thay icon tạm, xoá script sinh icon tạm nếu không còn dùng.
+- **T28 Rà giao diện** ở cả hai ngôn ngữ: dark mode, focus bàn phím và thứ tự Tab, aria, tương phản chữ WCAG AA (đo, ghi số), chữ tiếng Anh dài hơn không làm vỡ thanh bên.
+
+### Nhóm K: hồ sơ Chrome Web Store (nhánh `docs/v3-store`)
+
+Chỉ chuẩn bị tài liệu và hình ảnh, KHÔNG tải lên store.
+
+- **T29 Ảnh chụp màn hình**: script Playwright chụp viewer với fixture tự tạo, đúng kích thước store yêu cầu (tra tài liệu hiện tại, ghi nguồn). Mỗi ngôn ngữ một bộ: đọc + mục lục, tìm kiếm, focus mode, tóm tắt (dữ liệu AI giả lập, ghi rõ là minh hoạ), OCR. Lưu trong `store/screenshots/`. Không dùng PDF có bản quyền.
+- **T30 Hồ sơ**: `store/listing.vi.md`, `store/listing.en.md` (tên, mô tả ngắn, mô tả dài, danh mục); `store/permissions.md` (lý do từng quyền theo form store, khớp `docs/PERMISSIONS.md`); `docs/PRIVACY.en.md`; mục khai báo dữ liệu (data usage) khớp hành vi thật của code; checklist các bước người dùng tự làm trên Developer Dashboard.
+
+### Nhóm L (tuỳ chọn, chỉ làm khi người dùng bảo): embedding chạy trên máy (nhánh `feat/v3-local-embed`)
+
+Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (như đã làm với tesseract.js); runtime ONNX và wasm bundle cục bộ. Trọng số model tải từ Hugging Face khi người dùng đồng ý: hộp xác nhận ghi dung lượng, lưu Cache API, nút xoá model, chạy trong Web Worker. Kiểm tra cần host permission hay không; quyền rộng hơn origin của Hugging Face thì hỏi người dùng. Ghi kích thước zip trước và sau.
+
+### Danh sách task v3
+
+- [x] **T24** Lưới an toàn: test component cho các luồng chính, pass trên code hiện tại
+- [x] **T25** Tách `App.tsx` theo miền (mỗi miền một commit)
+- [ ] **T26** Đa ngôn ngữ vi/en, `chrome.i18n`
+- [ ] **T27** Icon thật
+- [ ] **T28** Rà giao diện hai ngôn ngữ
+- [ ] **T29** Ảnh chụp màn hình store
+- [ ] **T30** Hồ sơ store, PRIVACY.en
+- [ ] **T31** (tuỳ chọn) Embedding chạy trên máy
+
+Danh sách tự rà soát: 11 mục của v2, thêm mục 12 cho nhóm I: "không đổi hành vi".

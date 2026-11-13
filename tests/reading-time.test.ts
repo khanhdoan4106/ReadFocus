@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addReadingSample,
+  chapterEstimate,
   DEFAULT_WORDS_PER_MINUTE,
   emptyReadingSpeed,
   estimateItemMinutes,
@@ -118,5 +119,30 @@ describe('estimateRemainingTime', () => {
   it('trả 0 với danh sách rỗng hoặc tốc độ không hợp lệ', () => {
     expect(estimateRemainingTime([], 1, 200).totalMinutes).toBe(0);
     expect(estimateRemainingTime(items, 1, 0).totalMinutes).toBe(0);
+  });
+});
+
+describe('chapterEstimate', () => {
+  const toc = {
+    source: 'outline' as const,
+    items: [
+      { title: 'A', startPage: 1, endPage: 3, level: 1, wordCount: 1000 },
+      { title: 'B', startPage: 4, endPage: 6, level: 1, wordCount: 10 },
+    ],
+  };
+
+  it('ước tính số phút của mục chứa trang đang đọc', () => {
+    expect(chapterEstimate(toc, 2, 200)).toBe(5);
+    expect(chapterEstimate(toc, 4, 200)).toBe(1);
+  });
+
+  it('mục ngắn vẫn tính ít nhất 1 phút', () => {
+    expect(chapterEstimate(toc, 6, 1000)).toBe(1);
+  });
+
+  it('trả 0 khi chưa có mục lục, chưa có tốc độ đọc hoặc trang ngoài mọi mục', () => {
+    expect(chapterEstimate(null, 1, 200)).toBe(0);
+    expect(chapterEstimate(toc, 1, 0)).toBe(0);
+    expect(chapterEstimate(toc, 99, 200)).toBe(0);
   });
 });
