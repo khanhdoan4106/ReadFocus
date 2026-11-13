@@ -302,7 +302,7 @@ Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
 
 ## Để sau (không làm ở v2)
 
-- **Embedding chạy trên máy** (`@huggingface/transformers` với model `Xenova/multilingual-e5-small` bản `model_quantized.onnx`, ~118 MB + tokenizer ~17 MB, tải từ Hugging Face có xác nhận dung lượng, lưu Cache API, nút xoá model). Hoãn vì `@huggingface/transformers` 4.3.2 còn chuỗi `https://cdn.jsdelivr.net/npm/onnxruntime...` mặc định trong `dist/transformers.web.min.js`, trái luật cấm CDN trong `dist/`. Cần quyết định từ người dùng (ví dụ plugin thay chuỗi như đã làm với tesseract.js, kèm đặt `env.backends.onnx.wasm.wasmPaths` về `chrome.runtime.getURL`) trước khi làm. `huggingface.co` trả CORS phản chiếu origin nên có thể không cần host permission; cần thử trong Chrome.
+- ~~Embedding chạy trên máy~~ — đã làm ở v3 nhóm L (T31); xem `PROGRESS.md`.
 - Chrome Side Panel API, Chrome built-in AI (Gemini Nano, Summarizer API).
 - Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật.
 - Đăng Chrome Web Store, Firefox.
@@ -348,6 +348,6 @@ Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (n
 - [ ] **T28** Rà giao diện hai ngôn ngữ
 - [ ] **T29** Ảnh chụp màn hình store
 - [ ] **T30** Hồ sơ store, PRIVACY.en
-- [ ] **T31** (tuỳ chọn) Embedding chạy trên máy
+- [x] **T31** (tuỳ chọn) Embedding chạy trên máy
 
 Danh sách tự rà soát: 11 mục của v2, thêm mục 12 cho nhóm I: "không đổi hành vi".
