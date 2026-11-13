@@ -82,6 +82,12 @@ export function useDocument({ lifecycle, showToast }: Input) {
   pageNumberRef.current = pageNumber;
   // Trang đích trong lúc chờ nhảy tới tiến độ đã lưu; `null` khi không khôi phục.
   const restoringRef = useRef<number | null>(null);
+  // Tiến độ trên máy này lúc mở tài liệu (cho đồng bộ biết bản từ máy khác có mới hơn không).
+  const [openedProgress, setOpenedProgress] = useState<{
+    docId: string;
+    page: number;
+    updatedAt: number;
+  } | null>(null);
 
   useEffect(() => {
     return () => {
@@ -167,6 +173,9 @@ export function useDocument({ lifecycle, showToast }: Input) {
 
       setDoc(result.doc);
       setDocId(hash);
+      setOpenedProgress(
+        hash ? { docId: hash, page: resumePage, updatedAt: stored?.updatedAt ?? 0 } : null,
+      );
       setFileName(file.name);
       setPageNumber(resumePage);
       setPageDraft(String(resumePage));
@@ -402,6 +411,7 @@ export function useDocument({ lifecycle, showToast }: Input) {
     commitPageDraft,
     handleDeleteDocument,
     handleDeleteAll,
+    openedProgress,
     fallbackSize: pageSizes[1] ?? FALLBACK_PAGE_SIZE,
     totalPages: doc?.numPages ?? 0,
   };

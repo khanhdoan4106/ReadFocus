@@ -422,7 +422,7 @@ Docs: PRIVACY (vi, en), `store/data-usage.md`, `store/permissions.md` (nhắc l�
 Task nhóm N:
 
 - [x] **T35** Core đồng bộ: LWW, chọn khóa, LRU, giới hạn ghi, mock `chrome.storage.sync` có mô phỏng quota.
-- [ ] **T36** Cài đặt, thông báo "đến trang X", `onChanged`, docs.
+- [x] **T36** Cài đặt, thông báo "đến trang X", `onChanged`, docs.
 
 ### Tự rà soát v4
 

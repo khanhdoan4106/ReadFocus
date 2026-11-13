@@ -13,6 +13,7 @@ import type { useAiSettings } from './hooks/useAiSettings';
 import type { AnnotationUi } from './hooks/useAnnotationUi';
 import type { AnnotationsApi } from './hooks/useAnnotations';
 import type { LocalModelApi } from './hooks/useLocalModel';
+import type { ProgressSyncApi } from './hooks/useProgressSync';
 import type { useSummaries } from './hooks/useSummaries';
 import type { useExtraction } from './hooks/useExtraction';
 import type { useAsk } from './ask';
@@ -36,6 +37,7 @@ type Props = {
   ai: ReturnType<typeof useAiSettings>;
   localModel: LocalModelApi;
   annotations: AnnotationsApi;
+  progressSync: ProgressSyncApi;
   annotationUi: AnnotationUi;
   /** Highlight `moved` không ánh xạ được sang text layer (cần cho phép gắn lại). */
   stuckAnnotations: ReadonlySet<string>;
@@ -70,6 +72,7 @@ export function ViewerSidebar({
   ai,
   localModel,
   annotations,
+  progressSync,
   annotationUi,
   stuckAnnotations,
   showToast,
@@ -141,6 +144,7 @@ export function ViewerSidebar({
         ai: { ...ai.panel, localModel },
         wordsPerMinute: wordsPerMinute,
         onChangeWordsPerMinute: settings.onChangeWordsPerMinute,
+        sync: progressSync,
         autoOpenPdf: settings.autoOpenPdf,
         autoOpenSupported: settings.autoOpenSupported,
         onToggleAutoOpen: settings.onToggleAutoOpen,

@@ -4,7 +4,7 @@ Mỗi quyền trong `manifest.json` phải có lý do rõ ràng. Ở v0, ReadFoc
 
 | Quyền | Dùng ở đâu | Lý do |
 |---|---|---|
-| `storage` | `src/storage/db.ts` | Lưu metadata tài liệu, tiến độ đọc, mục lục, chỉ mục tìm kiếm, thống kê, bản tóm tắt AI và cài đặt trong IndexedDB của máy; `chrome.storage.local`/`session` giữ tuỳ chọn AI và API key (không đồng bộ). |
+| `storage` | `src/storage/db.ts` | Lưu metadata tài liệu, tiến độ đọc, mục lục, chỉ mục tìm kiếm, thống kê, bản tóm tắt AI và cài đặt trong IndexedDB của máy; `chrome.storage.local`/`session` giữ tuỳ chọn AI và API key (không đồng bộ); `chrome.storage.sync` giữ cờ `autoOpenPdf` và, chỉ khi người dùng tự bật "Đồng bộ tiến độ đọc" (tắt mặc định), mỗi tài liệu một mục `p:<32 ký tự đầu SHA-256>` = `{page, pageCount, updatedAt}`. Không cần quyền nào thêm. |
 | `notifications` | `src/viewer/hooks/useFocusTimer.ts` | Báo khi hết giờ đọc chương hoặc hết phiên Pomodoro/giờ nghỉ, kể cả lúc tab đang ẩn. Không có nội dung nào được gửi ra ngoài. |
 | `contextMenus` | `src/background/service-worker.ts` | Thêm mục "Mở bằng ReadFocus" khi bấm chuột phải vào trang hoặc link PDF. |
 | `activeTab` | `src/background/service-worker.ts` | Đọc địa chỉ tab hiện tại khi người dùng bấm icon hoặc menu để mở đúng PDF đó. Quyền chỉ có hiệu lực sau thao tác của người dùng, không theo dõi duyệt web. |

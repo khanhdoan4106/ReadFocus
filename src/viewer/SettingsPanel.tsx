@@ -8,6 +8,7 @@ import type { ThemePreference } from '../core/theme';
 import { t, type LanguagePreference } from '../i18n';
 import { Dialog } from './Dialog';
 import type { LocalModelApi } from './hooks/useLocalModel';
+import type { ProgressSyncApi } from './hooks/useProgressSync';
 
 export type AiPanelProps = {
   settings: AiSettings;
@@ -39,6 +40,7 @@ export type SettingsPanelProps = {
   ai: AiPanelProps;
   wordsPerMinute: number;
   onChangeWordsPerMinute: (value: number) => void;
+  sync: ProgressSyncApi;
   autoOpenPdf: boolean;
   autoOpenSupported: boolean;
   onToggleAutoOpen: (enabled: boolean) => void;
@@ -166,6 +168,7 @@ export function SettingsPanel({
   ai,
   wordsPerMinute,
   onChangeWordsPerMinute,
+  sync,
   autoOpenPdf,
   autoOpenSupported,
   onToggleAutoOpen,
@@ -175,6 +178,7 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const aiDisabled = !ai.supported;
   const [includeNotes, setIncludeNotes] = useState(false);
+  const [disableSyncOpen, setDisableSyncOpen] = useState(false);
   const providerId = ai.settings.providerId;
 
   return (
@@ -434,6 +438,67 @@ export function SettingsPanel({
         <p class="settings-card__hint">{t.autoOpenPdfFileHint}</p>
         {!autoOpenSupported && <p class="settings-card__hint">{t.autoOpenPdfUnsupported}</p>}
       </section>
+
+      {sync.supported && (
+        <section class="settings-card">
+          <h3 class="settings-card__title">{t.syncTitle}</h3>
+          <label class="settings-radio">
+            <input
+              type="checkbox"
+              checked={sync.enabled}
+              disabled={!sync.loaded}
+              onChange={(event) => {
+                if (event.currentTarget.checked) sync.enable();
+                else setDisableSyncOpen(true);
+              }}
+            />
+            <span>{t.syncToggle}</span>
+          </label>
+          <p class="settings-card__hint">{t.syncHint}</p>
+          {sync.enabled && sync.failing && (
+            <p class="settings-card__hint" role="status">
+              {t.syncFailing}
+            </p>
+          )}
+          {disableSyncOpen && (
+            <Dialog titleId="sync-disable-title" onClose={() => setDisableSyncOpen(false)}>
+              <h2 class="consent-dialog__title" id="sync-disable-title">
+                {t.syncDisableTitle}
+              </h2>
+              <p class="consent-dialog__body">{t.syncDisableBody}</p>
+              <div class="consent-dialog__actions">
+                <button
+                  type="button"
+                  class="settings-button settings-button--primary"
+                  onClick={() => {
+                    setDisableSyncOpen(false);
+                    void sync.disable(false);
+                  }}
+                >
+                  {t.syncDisableKeep}
+                </button>
+                <button
+                  type="button"
+                  class="settings-button settings-button--danger"
+                  onClick={() => {
+                    setDisableSyncOpen(false);
+                    void sync.disable(true);
+                  }}
+                >
+                  {t.syncDisableDelete}
+                </button>
+                <button
+                  type="button"
+                  class="settings-button"
+                  onClick={() => setDisableSyncOpen(false)}
+                >
+                  {t.syncDisableCancel}
+                </button>
+              </div>
+            </Dialog>
+          )}
+        </section>
+      )}
 
       <section class="settings-card">
         <h3 class="settings-card__title">{t.dataTitle}</h3>

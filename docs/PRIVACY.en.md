@@ -1,6 +1,6 @@
 # Privacy
 
-ReadFocus processes your PDFs and all reading data on your own computer. By default nothing is sent anywhere. There is no analytics, no telemetry, no advertising and no library loaded from a CDN. The one exception is the optional AI features, which run only when you ask for them (see _AI features_ below).
+ReadFocus processes your PDFs and all reading data on your own computer. By default nothing is sent anywhere. There is no analytics, no telemetry, no advertising and no library loaded from a CDN. The exceptions are two optional features: the AI features, which run only when you ask for them (see _AI features_ below), and reading-progress sync, which is off by default (see _Reading-progress sync_).
 
 This is the English version of [`PRIVACY.md`](PRIVACY.md). If the two ever differ, the code and the permission list in [`PERMISSIONS.md`](PERMISSIONS.md) are the source of truth.
 
@@ -23,7 +23,7 @@ In addition:
 - **`localStorage`** holds two values so the viewer can paint in your theme and language before it finishes loading: `readfocus:theme` and `readfocus.uiLanguage`.
 - **`chrome.storage.local`** holds your AI settings and, if you chose to save it, your API key. It is not synced.
 - **`chrome.storage.session`** holds the API key instead if you turn off **Keep key on this computer**; it is cleared when the browser closes.
-- **`chrome.storage.sync`** holds only the `autoOpenPdf` flag (whether PDFs open automatically). If you are signed in to Chrome, Chrome may sync this flag through your Google account. No document content is ever synced.
+- **`chrome.storage.sync`** holds the `autoOpenPdf` flag (whether PDFs open automatically) and, ONLY if you turn on **Sync reading progress**, the progress entries (see _Reading-progress sync_). If you are signed in to Chrome, Chrome may sync these entries through your Google account. No document content is ever synced.
 
 Your original files are never modified and never copied off your computer.
 
@@ -106,9 +106,19 @@ OCR runs entirely on your computer. The library, the WebAssembly files and the l
 
 Cards built from existing summaries make no network request. **Create more with AI** sends the text of the section you are reading to your AI provider (one request) after the same consent dialog and access request as summaries. Cards are stored in IndexedDB (store `flashcards`), can be deleted one by one or all at once in the Flashcards tab, and are deleted with the document's data. **Export CSV** only creates a file on your computer.
 
+## Reading-progress sync (optional, off by default)
+
+In **Settings → Sync reading progress** you can turn on sync so your other computers (same Chrome account) know where you stopped. It uses `chrome.storage.sync`: the data goes through **Google's Chrome Sync**; ReadFocus has no server of its own and adds no permission.
+
+- **Only** one entry per document: the key `p:` plus the first 32 characters of the file's SHA-256 hash, and a value with exactly three fields: `page` (the page you are on), `pageCount` (the number of pages) and `updatedAt` (the time). **No** file name, text, notes, highlights or API key. The hash is one-way, so the file name can't be derived from it.
+- **When it writes.** About 10 seconds after your last page change, and when the tab is hidden or closed. ReadFocus stays under Chrome's limits (at most 512 items, 100 KB, 120 writes a minute, 1,800 an hour); when nearly full it drops the least recently read documents. Errors or being offline are retried quietly without disturbing your reading.
+- **When you open a document.** If the synced entry is newer and on a different page, ReadFocus only SHOWS "On another computer you read up to page X" with a **Go to page X** button; it never jumps by itself. When two computers differ, the newer one (by time) wins.
+- **Turning it off.** ReadFocus asks whether to keep or delete the synced data; deleting removes only the `p:*` keys (not the progress on this computer, notes or the auto-open flag).
+- If Chrome isn't signed in or Sync is off, `chrome.storage.sync` behaves like local storage: the data never leaves your computer.
+
 ## Notes and highlights
 
-Notes and highlights are content you create. They are **stored only on this computer** (IndexedDB, store `annotations`), are never sent anywhere, don't pass through an AI provider and aren't synced through your Chrome account. Each record holds the page, the position (character offsets, the quoted text with about 32 characters of context on each side, normalized rectangles), the color, the note and the created/updated times.
+Notes and highlights are content you create. They are **stored only on this computer** (IndexedDB, store `annotations`), are never sent anywhere, don't pass through an AI provider and are never synced through your Chrome account (even if you turn on progress sync). Each record holds the page, the position (character offsets, the quoted text with about 32 characters of context on each side, normalized rectangles), the color, the note and the created/updated times.
 
 - **Never deleted silently.** Deleting a highlight always asks first. **Delete data for …** also deletes that document's notes, and the confirmation states how many. **Delete all reading data** KEEPS notes by default; only if you turn on **Also delete notes and highlights** and confirm a second time are they deleted.
 - **Backup.** The Notes tab exports Markdown or JSON as a file downloaded to your computer and imports JSON back (merged by id, newer version wins; a faulty file is rejected entirely). ReadFocus doesn't send the file anywhere.
