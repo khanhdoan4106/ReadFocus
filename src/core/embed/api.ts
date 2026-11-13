@@ -84,6 +84,9 @@ export async function embedBatch(
 ): Promise<Float32Array[]> {
   if (texts.length === 0) return [];
 
+  if (source.providerId === 'local') {
+    throw new Error('Local embeddings are produced by the worker, not by embedBatch');
+  }
   const prefix = embedPrefix(source.model, kind);
   const inputs = texts.map((text) => `${prefix}${text}`);
 

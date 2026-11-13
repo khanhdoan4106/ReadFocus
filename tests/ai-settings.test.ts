@@ -21,6 +21,7 @@ describe('sanitizeAiSettings', () => {
       providerId: 'gemini',
       model: 'gemini-test',
       embedModel: 'embed-test',
+      embedSource: 'local',
       baseUrl: 'https://gateway.example.com/v1',
       saveKey: false,
       language: 'document',

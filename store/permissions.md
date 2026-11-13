@@ -28,7 +28,7 @@ Other manifest entry: `web_accessible_resources` exposes `viewer.html` with `mat
 
 ## Remote code
 
-"No, I am not using remote code." All libraries (pdf.js, Tesseract.js OCR with its WebAssembly core and Vietnamese/English language data, search) are bundled in the package. The extension-pages CSP is `script-src 'self' 'wasm-unsafe-eval'`; `'wasm-unsafe-eval'` only allows compiling the extension's own bundled WebAssembly for OCR.
+"No, I am not using remote code." All libraries (pdf.js, Tesseract.js OCR with its WebAssembly core and Vietnamese/English language data, search) are bundled in the package. The extension-pages CSP is `script-src 'self' 'wasm-unsafe-eval'`; `'wasm-unsafe-eval'` only allows compiling the extension's own bundled WebAssembly (OCR, and the ONNX runtime for the optional on-device embedding model). The model weights are not part of the package; they are downloaded from Hugging Face only after the user confirms, and no extra host permission is needed for that download.
 
 ## Verified against the code
 

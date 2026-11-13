@@ -8,6 +8,7 @@ import type { useFocusTimer } from './hooks/useFocusTimer';
 import type { useReadingStats } from './hooks/useReadingStats';
 import type { useSettings } from './hooks/useSettings';
 import type { useAiSettings } from './hooks/useAiSettings';
+import type { LocalModelApi } from './hooks/useLocalModel';
 import type { useSummaries } from './hooks/useSummaries';
 import type { useExtraction } from './hooks/useExtraction';
 import type { useAsk } from './ask';
@@ -28,6 +29,7 @@ type Props = {
   stats: ReturnType<typeof useReadingStats>;
   settings: ReturnType<typeof useSettings>;
   ai: ReturnType<typeof useAiSettings>;
+  localModel: LocalModelApi;
   summarize: ReturnType<typeof useSummaries>;
   semantic: ReturnType<typeof useSemanticIndex>;
   flashcards: ReturnType<typeof useFlashcards>;
@@ -54,6 +56,7 @@ export function ViewerSidebar({
   stats,
   settings,
   ai,
+  localModel,
   summarize,
   semantic,
   flashcards,
@@ -118,7 +121,7 @@ export function ViewerSidebar({
         onChangeLanguage: settings.onChangeLanguage,
         theme: settings.theme,
         onChangeTheme: settings.onChangeTheme,
-        ai: ai.panel,
+        ai: { ...ai.panel, localModel },
         wordsPerMinute: wordsPerMinute,
         onChangeWordsPerMinute: settings.onChangeWordsPerMinute,
         autoOpenPdf: settings.autoOpenPdf,

@@ -106,8 +106,10 @@ export const en: Messages = {
   semanticToggle: 'By meaning',
   semanticToggleHint: (provider: string) =>
     `Each search sends the text you type to ${provider} to match by meaning.`,
+  semanticToggleHintLocal: 'The text you type is matched on this computer and isn’t sent anywhere.',
+  semanticModelMissing: 'Download the on-device model first: Settings → AI → Embedding source.',
   semanticUnsupported:
-    'The current provider has no embeddings API. Choose OpenAI, Gemini or OpenAI-compatible in Settings → AI.',
+    'The current provider has no embeddings API. Choose OpenAI, Gemini or OpenAI-compatible, or pick the “On this device” source, in Settings → AI.',
   semanticMissingKey: 'Enter an API key in Settings → AI to search by meaning.',
   semanticEmpty:
     'There is no text to index yet. Wait for ReadFocus to finish indexing or run OCR first.',
@@ -125,6 +127,9 @@ export const en: Messages = {
   semanticConfirmBody: (chunks: number, requests: number, provider: string, model: string) =>
     `ReadFocus will send ${chunks} passages of this document (about ${requests} requests) to ${provider} (model ${model}) to build a semantic index. The index is stored on this computer and deleted along with the document’s data. This may cost money under the provider’s pricing.`,
   semanticConfirmAccept: 'Send and build',
+  semanticConfirmBodyLocal: (chunks: number) =>
+    `ReadFocus will build the semantic index for ${chunks} passages on this computer with the downloaded model; nothing is sent anywhere. This can take a few minutes and warm up your computer. The index is stored on this computer and deleted with the document’s data.`,
+  semanticConfirmAcceptLocal: 'Build index',
   semanticConfirmCancel: 'Not now',
 
   contextMenuOpen: 'Open with ReadFocus',
@@ -169,6 +174,31 @@ export const en: Messages = {
   aiEmbedModelHint:
     'Leave empty to use the default model. If you change it, the old semantic index is no longer used and must be rebuilt.',
   aiEmbedUnsupported: 'Anthropic has no embeddings, so search by meaning isn’t available.',
+  aiEmbedSourceLabel: 'Embedding source',
+  aiEmbedSourceProvider: 'AI provider',
+  aiEmbedSourceLocal: 'On this device',
+  aiEmbedSourceHint:
+    'On this device: download a small model once; after that, search by meaning and Ask send no document text anywhere and work offline. Also works when the provider is Anthropic.',
+  localModelName: 'On-device model',
+  localModelChecking: 'Checking the model…',
+  localModelUnsupported: 'This browser can’t run models on this device.',
+  localModelAbsent: (size: string) => `Model not downloaded (${size}).`,
+  localModelReady: 'Model downloaded; works offline.',
+  localModelDownload: (size: string) => `Download model (${size})`,
+  localModelDownloading: (loaded: string, total: string) => `Downloading: ${loaded} / ${total}`,
+  localModelCancel: 'Cancel download',
+  localModelDelete: 'Delete model',
+  localModelConfirmTitle: 'Download the on-device model?',
+  localModelConfirmBody: (size: string, name: string) =>
+    `ReadFocus will download ${size} from Hugging Face (huggingface.co) once: the ${name} model (MIT license) and its tokenizer. Hugging Face only receives the file requests and your IP address; no document text is sent. The model is stored in the browser’s storage, works offline and can be deleted in Settings → AI. If your connection is metered, download it on Wi-Fi.`,
+  localModelConfirmAccept: (size: string) => `Download ${size}`,
+  localModelConfirmCancel: 'Not now',
+  localModelCancelled: 'Download canceled. The model wasn’t saved.',
+  localModelNotDownloaded: 'The model isn’t downloaded yet. Open Settings → AI to download it.',
+  localModelDownloadFailed:
+    'Couldn’t download the model. Check your connection and try again; it can’t be downloaded if huggingface.co is blocked.',
+  localModelRunFailed:
+    'The on-device model failed to run. Reload the ReadFocus tab and try again; if it still fails, delete the model and download it again.',
   aiBaseUrlLabel: 'API address',
   aiBaseUrlHint:
     'For example http://localhost:11434/v1 for Ollama or http://localhost:1234/v1 for LM Studio.',

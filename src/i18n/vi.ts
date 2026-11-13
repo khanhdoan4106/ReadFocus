@@ -102,8 +102,11 @@ export const vi = {
   semanticToggle: 'Theo ý nghĩa',
   semanticToggleHint: (provider: string) =>
     `Mỗi lần tìm sẽ gửi câu bạn gõ tới ${provider} để so khớp theo ý nghĩa.`,
+  semanticToggleHintLocal: 'Câu bạn gõ được so khớp ngay trên máy, không gửi đi đâu.',
+  semanticModelMissing:
+    'Cần tải model chạy trên máy trước. Mở Cài đặt → AI → Nguồn embedding để tải.',
   semanticUnsupported:
-    'Nhà cung cấp hiện tại không có API embeddings. Chọn OpenAI, Gemini hoặc OpenAI-compatible trong Cài đặt → AI.',
+    'Nhà cung cấp hiện tại không có API embeddings. Chọn OpenAI, Gemini hoặc OpenAI-compatible, hoặc chọn nguồn “Trên máy”, trong Cài đặt → AI.',
   semanticMissingKey: 'Nhập API key trong Cài đặt → AI để tìm theo ý nghĩa.',
   semanticEmpty:
     'Chưa có chữ nào để tạo chỉ mục. Đợi ReadFocus lập chỉ mục xong hoặc nhận dạng chữ (OCR) trước.',
@@ -121,6 +124,9 @@ export const vi = {
   semanticConfirmBody: (chunks: number, requests: number, provider: string, model: string) =>
     `ReadFocus sẽ gửi ${chunks} đoạn văn của tài liệu (khoảng ${requests} request) tới ${provider} (model ${model}) để tạo chỉ mục theo ý nghĩa. Chỉ mục được lưu trên máy này và xoá cùng dữ liệu tài liệu. Việc này có thể tốn phí theo bảng giá của nhà cung cấp.`,
   semanticConfirmAccept: 'Gửi và tạo chỉ mục',
+  semanticConfirmBodyLocal: (chunks: number) =>
+    `ReadFocus sẽ tạo chỉ mục theo ý nghĩa cho ${chunks} đoạn văn ngay trên máy này bằng model đã tải; không có gì được gửi đi. Việc này có thể mất vài phút và làm máy nóng lên. Chỉ mục được lưu trên máy và xoá cùng dữ liệu tài liệu.`,
+  semanticConfirmAcceptLocal: 'Tạo chỉ mục',
   semanticConfirmCancel: 'Để sau',
 
   contextMenuOpen: 'Mở bằng ReadFocus',
@@ -165,6 +171,31 @@ export const vi = {
   aiEmbedModelHint:
     'Để trống để dùng model mặc định. Đổi model thì chỉ mục theo ý nghĩa cũ không dùng nữa và cần tạo lại.',
   aiEmbedUnsupported: 'Anthropic không có embeddings nên không dùng được tìm theo ý nghĩa.',
+  aiEmbedSourceLabel: 'Nguồn embedding',
+  aiEmbedSourceProvider: 'Nhà cung cấp AI',
+  aiEmbedSourceLocal: 'Trên máy',
+  aiEmbedSourceHint:
+    'Trên máy: tải một model nhỏ về một lần; sau đó tìm theo ý nghĩa và hỏi đáp không gửi nội dung tài liệu đi đâu và dùng được khi không có mạng. Dùng được cả khi nhà cung cấp là Anthropic.',
+  localModelName: 'Model trên máy',
+  localModelChecking: 'Đang kiểm tra model…',
+  localModelUnsupported: 'Trình duyệt này không hỗ trợ chạy model trên máy.',
+  localModelAbsent: (size: string) => `Chưa tải model (${size}).`,
+  localModelReady: 'Model đã tải, dùng được khi không có mạng.',
+  localModelDownload: (size: string) => `Tải model (${size})`,
+  localModelDownloading: (loaded: string, total: string) => `Đang tải: ${loaded} / ${total}`,
+  localModelCancel: 'Huỷ tải',
+  localModelDelete: 'Xoá model',
+  localModelConfirmTitle: 'Tải model chạy trên máy?',
+  localModelConfirmBody: (size: string, name: string) =>
+    `ReadFocus sẽ tải ${size} từ Hugging Face (huggingface.co) một lần: model ${name} (giấy phép MIT) và bộ tách từ của nó. Hugging Face chỉ nhận yêu cầu tải file và địa chỉ IP của bạn; nội dung tài liệu không được gửi đi. Model lưu trong bộ nhớ của trình duyệt, dùng được khi không có mạng và xoá được trong Cài đặt → AI. Nếu mạng có giới hạn dung lượng, nên tải khi dùng Wi-Fi.`,
+  localModelConfirmAccept: (size: string) => `Tải ${size}`,
+  localModelConfirmCancel: 'Để sau',
+  localModelCancelled: 'Đã huỷ tải. Model chưa được lưu.',
+  localModelNotDownloaded: 'Model chưa được tải. Mở Cài đặt → AI để tải.',
+  localModelDownloadFailed:
+    'Không tải được model. Kiểm tra kết nối mạng rồi thử lại; nếu mạng chặn huggingface.co thì không tải được.',
+  localModelRunFailed:
+    'Model trên máy gặp lỗi khi chạy. Tải lại tab ReadFocus rồi thử lại; nếu vẫn lỗi, xoá model và tải lại.',
   aiBaseUrlLabel: 'Địa chỉ API',
   aiBaseUrlHint:
     'Ví dụ http://localhost:11434/v1 cho Ollama hoặc http://localhost:1234/v1 cho LM Studio.',

@@ -1,7 +1,10 @@
 import type { ProviderId } from '../llm/types';
 
 /** Anthropic không có API embeddings nên không nằm trong danh sách này. */
-export type EmbedProviderId = Exclude<ProviderId, 'anthropic'>;
+export type RemoteEmbedProviderId = Exclude<ProviderId, 'anthropic'>;
+
+/** Nguồn embedding: một provider có API embeddings, hoặc model chạy trên máy. */
+export type EmbedProviderId = RemoteEmbedProviderId | 'local';
 
 /** Nguồn embedding: provider + model (+ base URL với OpenAI-compatible). */
 export type EmbedSource = {

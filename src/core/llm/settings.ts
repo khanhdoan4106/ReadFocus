@@ -13,6 +13,8 @@ export type AiSettings = {
   model: string;
   /** Model embedding (tìm theo ý nghĩa, hỏi đáp); rỗng thì dùng mặc định của provider. */
   embedModel: string;
+  /** `local`: model chạy trên máy (tải một lần, nội dung không rời máy); `provider`: API embeddings của nhà cung cấp. */
+  embedSource: EmbedSourceChoice;
   /** Chỉ dùng cho `openai-compatible`. */
   baseUrl: string;
   /** `false` nghĩa là key chỉ nằm trong `chrome.storage.session`. */
@@ -21,6 +23,8 @@ export type AiSettings = {
   /** Đã xác nhận hộp thoại "nội dung sẽ được gửi tới nhà cung cấp" chưa. */
   consentGiven: boolean;
 };
+
+export type EmbedSourceChoice = 'provider' | 'local';
 
 const PROVIDER_IDS: readonly ProviderId[] = ['openai', 'gemini', 'anthropic', 'openai-compatible'];
 
@@ -52,6 +56,7 @@ export function defaultAiSettings(): AiSettings {
     providerId: 'openai',
     model: DEFAULT_MODELS.openai,
     embedModel: '',
+    embedSource: 'provider',
     baseUrl: '',
     saveKey: true,
     language: 'vi',
@@ -82,6 +87,7 @@ export function sanitizeAiSettings(raw: unknown): AiSettings {
     providerId,
     model,
     embedModel: typeof value.embedModel === 'string' ? value.embedModel.trim() : '',
+    embedSource: value.embedSource === 'local' ? 'local' : 'provider',
     baseUrl: typeof value.baseUrl === 'string' ? value.baseUrl.trim() : '',
     saveKey: typeof value.saveKey === 'boolean' ? value.saveKey : true,
     language,

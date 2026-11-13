@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { embedBatch, EMBED_BATCH_SIZE } from '../core/embed/api';
 import { chunkPages } from '../core/embed/chunk';
-import { embedKey, embedSupported, resolveEmbedModel } from '../core/embed/models';
+import { LOCAL_EMBED_BATCH_SIZE, LocalEmbedError } from '../core/embed/local';
+import { embedKey, resolveEmbedSource } from '../core/embed/models';
 import { hybridRetrieve, type KeywordHit, type RetrievedChunk } from '../core/embed/retrieve';
 import { chunksToEmbed, estimateEmbedWork, runEmbedding } from '../core/embed/run';
 import type { Chunk, EmbeddingRecord, EmbedProgress, EmbedSource } from '../core/embed/types';
@@ -12,16 +13,22 @@ import type { TextPage } from '../core/summarize/chunk';
 import { loadEmbeddings, saveEmbeddings } from '../storage/db';
 import { t } from '../i18n';
 import { aiErrorMessage } from './ai-errors';
+import { localModelMessage } from './hooks/useLocalModel';
+import { localEmbed } from './local-embed';
 
 /**
- * `unsupported`: provider không có embeddings (Anthropic); `missing-key`: chưa có key;
+ * `unsupported`: provider không có embeddings (Anthropic) và chưa chọn "Trên máy"; `model-missing`:
+ * chọn "Trên máy" nhưng chưa tải model; `missing-key`: chưa có key;
  * `empty`: chưa có chữ để tạo chỉ mục; `none`/`partial`/`ready`: mức độ đã có vector.
  */
-export type SemanticState = 'unsupported' | 'missing-key' | 'empty' | 'none' | 'partial' | 'ready';
+export type SemanticState =
+  'unsupported' | 'model-missing' | 'missing-key' | 'empty' | 'none' | 'partial' | 'ready';
 
 export type SemanticApi = {
   state: SemanticState;
   providerId: AiSettings['providerId'];
+  /** Nguồn là model chạy trên máy: không gửi gì ra ngoài, không cần key hay quyền truy cập. */
+  local: boolean;
   model: string;
   chunks: readonly Chunk[];
   records: readonly EmbeddingRecord[];
@@ -47,6 +54,8 @@ type Input = {
   pages: readonly TextPage[];
   settings: AiSettings;
   apiKey: string;
+  /** Model trên máy đã nằm trong cache và dùng được. */
+  localModelReady: boolean;
 };
 
 async function requestOrigin(settings: AiSettings): Promise<boolean> {
@@ -61,21 +70,25 @@ async function requestOrigin(settings: AiSettings): Promise<boolean> {
  * Chỉ mục ý nghĩa của tài liệu đang mở. Mọi lượt gọi mạng là do người dùng bấm
  * (tạo chỉ mục, gửi câu tìm); đổi tài liệu hoặc đóng viewer thì huỷ và bỏ kết quả về muộn.
  */
-export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): SemanticApi {
+export function useSemanticIndex({
+  docId,
+  pages,
+  settings,
+  apiKey,
+  localModelReady,
+}: Input): SemanticApi {
   const providerId = settings.providerId;
-  const supported = embedSupported(providerId);
-  const model = embedSupported(providerId)
-    ? resolveEmbedModel(providerId, settings.embedModel)
-    : '';
   const baseUrl = settings.baseUrl;
+  const { embedSource, embedModel } = settings;
 
+  // Khoá nguồn khác nhau cho từng nguồn nên vector của nguồn khác không bao giờ dùng lẫn.
   const source = useMemo<EmbedSource | null>(
-    () =>
-      supported && embedSupported(providerId)
-        ? { providerId, model, baseUrl: providerId === 'openai-compatible' ? baseUrl : undefined }
-        : null,
-    [supported, providerId, model, baseUrl],
+    () => resolveEmbedSource({ providerId, embedSource, embedModel, baseUrl }),
+    [providerId, embedSource, embedModel, baseUrl],
   );
+  const local = source?.providerId === 'local';
+  const supported = source !== null;
+  const model = source?.model ?? '';
   const key = useMemo(() => (source === null ? null : embedKey(source)), [source]);
   const chunks = useMemo(() => chunkPages(pages), [pages]);
 
@@ -126,27 +139,31 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
 
   const state: SemanticState = !supported
     ? 'unsupported'
-    : providerRequiresKey(providerId) && apiKey.trim() === ''
-      ? 'missing-key'
-      : chunks.length === 0
-        ? 'empty'
-        : pendingChunks.length === 0
-          ? 'ready'
-          : pendingChunks.length === chunks.length
-            ? 'none'
-            : 'partial';
+    : local && !localModelReady
+      ? 'model-missing'
+      : !local && providerRequiresKey(providerId) && apiKey.trim() === ''
+        ? 'missing-key'
+        : chunks.length === 0
+          ? 'empty'
+          : pendingChunks.length === 0
+            ? 'ready'
+            : pendingChunks.length === chunks.length
+              ? 'none'
+              : 'partial';
 
   const build = useCallback(async () => {
     if (docId === null || source === null || key === null) return;
     const scope = scopeRef.current;
     const runDocId = docId;
 
-    // Phải là lời gọi đầu tiên để còn nằm trong thao tác của người dùng.
-    const granted = await requestOrigin(settings);
-    if (scopeRef.current !== scope) return;
-    if (!granted) {
-      setError(t.aiPermissionDenied);
-      return;
+    // Phải là lời gọi đầu tiên để còn nằm trong thao tác của người dùng. Model trên máy không cần quyền.
+    if (!local) {
+      const granted = await requestOrigin(settings);
+      if (scopeRef.current !== scope) return;
+      if (!granted) {
+        setError(t.aiPermissionDenied);
+        return;
+      }
     }
 
     const abort = new AbortController();
@@ -163,10 +180,12 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
         key,
         chunks,
         existing: records,
-        batchSize: EMBED_BATCH_SIZE,
+        batchSize: local ? LOCAL_EMBED_BATCH_SIZE : EMBED_BATCH_SIZE,
         signal: abort.signal,
         embed: (texts, signal) =>
-          embedBatch(source, { apiKey: apiKey.trim(), baseUrl }, texts, 'passage', { signal }),
+          local
+            ? localEmbed.embed(texts, 'passage', signal)
+            : embedBatch(source, { apiKey: apiKey.trim(), baseUrl }, texts, 'passage', { signal }),
         onBatch: async (batch) => {
           await saveEmbeddings(batch);
           if (!isActive()) return;
@@ -181,15 +200,17 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
       });
     } catch (caught) {
       if (!isActive()) return;
-      if (isLLMError(caught) && caught.kind === 'cancelled') setError(t.aiErrorMessages.cancelled);
-      else setError(aiErrorMessage(caught, settings));
+      if (caught instanceof LocalEmbedError) setError(localModelMessage(caught));
+      else if (isLLMError(caught) && caught.kind === 'cancelled') {
+        setError(t.aiErrorMessages.cancelled);
+      } else setError(aiErrorMessage(caught, settings));
     } finally {
       if (runRef.current === run) {
         runRef.current = null;
         setProgress(null);
       }
     }
-  }, [docId, source, key, settings, pendingChunks.length, chunks, records, apiKey, baseUrl]);
+  }, [docId, source, key, local, settings, pendingChunks.length, chunks, records, apiKey, baseUrl]);
 
   const search = useCallback(
     async (
@@ -203,7 +224,7 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
       const text = query.trim();
       if (text === '') return [];
 
-      if (options.skipPermission !== true) {
+      if (!local && options.skipPermission !== true) {
         const granted = await requestOrigin(settings);
         if (scopeRef.current !== scope) return null;
         if (!granted) {
@@ -219,13 +240,11 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
       setError(null);
 
       try {
-        const [vector] = await embedBatch(
-          source,
-          { apiKey: apiKey.trim(), baseUrl },
-          [text],
-          'query',
-          { signal: abort.signal },
-        );
+        const [vector] = local
+          ? await localEmbed.embed([text], 'query', abort.signal)
+          : await embedBatch(source, { apiKey: apiKey.trim(), baseUrl }, [text], 'query', {
+              signal: abort.signal,
+            });
         if (queryRef.current !== run || scopeRef.current !== scope) return null;
         if (vector === undefined) throw new LLMError('bad-response', 'Missing query embedding');
         return hybridRetrieve({
@@ -237,19 +256,24 @@ export function useSemanticIndex({ docId, pages, settings, apiKey }: Input): Sem
         });
       } catch (caught) {
         if (queryRef.current === run && scopeRef.current === scope) {
-          setError(aiErrorMessage(caught, settings));
+          setError(
+            caught instanceof LocalEmbedError
+              ? localModelMessage(caught)
+              : aiErrorMessage(caught, settings),
+          );
         }
         return null;
       } finally {
         if (queryRef.current === run) queryRef.current = null;
       }
     },
-    [docId, source, settings, apiKey, baseUrl, chunks, records],
+    [docId, source, local, settings, apiKey, baseUrl, chunks, records],
   );
 
   return {
     state,
     providerId,
+    local,
     model,
     chunks,
     records,
