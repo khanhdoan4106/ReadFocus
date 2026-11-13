@@ -2,7 +2,7 @@
 
 Extension Chrome giúp đọc PDF dễ chịu hơn: tự lập mục lục, tìm kiếm trong tài liệu, ước tính thời gian đọc, hẹn giờ theo chương và chế độ tập trung. Phù hợp với sách, bài báo khoa học và slide bài giảng.
 
-> 🚧 Đang phát triển (v0 và v1 đã xong; v2 đã có OCR, tìm theo ý nghĩa, hỏi đáp và thẻ ôn tập, đang chờ thử tay). Kế hoạch chi tiết ở [`docs/PLAN.md`](docs/PLAN.md).
+> Đang chờ thử tay và đăng Chrome Web Store (v0–v3 đã xong, gồm OCR, tìm theo ý nghĩa, hỏi đáp, thẻ ôn tập, tiếng Anh và embedding chạy trên máy).
 
 ## Tính năng
 
@@ -98,8 +98,7 @@ Quy trình nhánh, commit và PR: [`docs/WORKFLOW.md`](docs/WORKFLOW.md). Danh s
 - PDF trên web khác origin có thể bị CORS chặn; khi đó hãy tải file về máy rồi mở bằng nút **Mở PDF**.
 - Tóm tắt AI chỉ chạy tối đa 100 trang mỗi lần “Tóm tắt toàn bộ”; chất lượng và chi phí phụ thuộc vào nhà cung cấp bạn chọn. PDF scan không tóm tắt được vì không có văn bản.
 - Tìm theo ý nghĩa và hỏi đáp cần key của nhà cung cấp có API embeddings (OpenAI, Gemini, hoặc OpenAI-compatible như Ollama); Anthropic không có embeddings nên không dùng được tìm theo ý nghĩa (hỏi đáp vẫn dùng được, tìm đoạn liên quan theo từ khoá).
-- **Embedding chạy hoàn toàn trên máy chưa có (đang hoãn).** Kế hoạch là chạy model đa ngôn ngữ nhỏ bằng `@huggingface/transformers`, nhưng thư viện này còn chứa sẵn chuỗi CDN (`cdn.jsdelivr.net`) trong bundle, trái với quy tắc không tham chiếu CDN của dự án, nên chưa đưa vào. Sẽ làm sau khi có cách xử lý được duyệt; hiện tìm theo ý nghĩa luôn đi qua API.
-- Chưa có bản tiếng Anh.
+- **Embedding chạy trên máy là tuỳ chọn:** cần tải model khoảng 129 MB từ Hugging Face một lần (có hộp xác nhận), chạy một luồng nên tài liệu dài có thể mất vài phút; chất lượng tìm tiếng Việt chưa được đánh giá. Xem `docs/PRIVACY.md`.
 
 ## Quyền riêng tư
 

@@ -3,9 +3,17 @@
 Thư mục làm việc chuẩn là `C:\dev\readfocus\readfocus`. Không làm việc trong OneDrive.
 
 ## Trạng thái
-- Nhánh hiện tại: `feat/v3-local-embed` (nhóm L, T31); PR #16 (npm audit) đã merge
-- Task đang làm: T31 — xong; đang mở PR `feat/v3-local-embed` → `main`
-- Bước tiếp theo chính xác: `gh pr checks --watch`, đăng bảng rà soát 12 mục lên PR, DỪNG chờ người dùng merge. Không merge, không tag.
+- v0–v3 và nhóm L (T1–T31) đã xong, không còn task mở. Nhánh làm việc: `docs/plan-sync` (chỉ đồng bộ tài liệu); `main` ở 3bf61a8.
+- Bước tiếp theo: không có việc cho agent; chờ người dùng quyết định (đăng store, thử tay, hay lập kế hoạch mới trong `docs/PLAN.md`).
+
+### Việc của người dùng
+- Đăng Chrome Web Store theo `store/checklist.md` (chưa tải gì lên store; ảnh quảng bá 440×280 và 1400×560 tuỳ chọn chưa làm; đối chiếu `store/data-usage.md` với form "Privacy practices" thật).
+- Thử tay các checklist của PR #9–#17 nếu chưa làm (mục "Cần người dùng thử thủ công" bên dưới): OCR (#9), hỏi đáp (#10), thẻ ôn tập (#11), tách App (#12), tiếng Anh/icon/giao diện (#13), ảnh và hồ sơ store (#14), phím mũi tên trên hàng tab (#15), embedding trên máy gồm tải, huỷ, offline, xoá (#17).
+
+### Rủi ro đã ghi nhận
+- `minimatch` 10.2.6 (GHSA-g3hv-75wg-m249, mức moderate) trong chuỗi eslint/typescript-eslint: chỉ ở công cụ dev, không vào `dist/`, chưa có bản sửa trong phạm vi semver; xem bảng "Rà lỗ hổng dependency". Xem lại khi eslint hoặc typescript-eslint nâng lên `minimatch ^11`.
+- Cảnh báo `Unknown project config "onnxruntime-node-install"` của npm 11 (`.npmrc`): sẽ ngừng hoạt động ở bản npm major kế tiếp; khi đó chuyển sang `ONNXRUNTIME_NODE_INSTALL=skip` trong workflow (phải hỏi người dùng vì sửa `.github/workflows/`).
+- Chất lượng tìm tiếng Việt của model embedding trên máy (`multilingual-e5-small` q8) chưa được đánh giá, mới xác nhận chạy đúng (vector 384 chiều, đã chuẩn hoá); model chạy một luồng nên máy yếu và tài liệu dài có thể chậm.
 
 ## Đã hoàn thành
 - [x] Bước 0 v3 — đo `src/viewer/App.tsx` = 2286 dòng (`wc -l`; 2104 dòng không rỗng), mục tiêu sau khi tách dưới ~300; baseline: typecheck, lint, 456 test, build, package đều pass.

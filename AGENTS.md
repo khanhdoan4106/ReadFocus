@@ -6,7 +6,7 @@
 
 ReadFocus là extension Chrome (Manifest V3), mã nguồn mở (MIT), giúp đọc tài liệu PDF như sách, paper hay slide bài giảng nhanh và tập trung hơn. Extension có các phần: mục lục tự động, tìm kiếm, ước tính thời gian đọc, hẹn giờ theo chương, focus mode. Từ v1 có thêm tóm tắt bằng AI, người dùng tự nhập API key của mình.
 
-- v0, v1 và v2 (OCR, tìm kiếm theo ý nghĩa, hỏi đáp có trích dẫn, flashcard) đã xong. Giai đoạn hiện tại là **v3: hoàn thiện (tách App.tsx, tiếng Anh, icon, hồ sơ Chrome Web Store)**. Dữ liệu chỉ rời máy khi người dùng chủ động dùng tính năng AI qua key của họ hoặc đồng ý tải model (xem mục 4).
+- v0, v1, v2 (OCR, tìm kiếm theo ý nghĩa, hỏi đáp có trích dẫn, flashcard) và v3 (tách App.tsx, tiếng Anh, icon, hồ sơ Chrome Web Store, embedding chạy trên máy) đã xong; không còn task mở. Việc còn lại là của người dùng: đăng Chrome Web Store và thử tay (xem `PROGRESS.md`). Làm thêm gì thì lập kế hoạch mới trong `docs/PLAN.md` trước. Dữ liệu chỉ rời máy khi người dùng chủ động dùng tính năng AI qua key của họ hoặc đồng ý tải model về chạy trên máy (xem mục 4).
 - Kế hoạch chi tiết nằm ở `docs/PLAN.md`. Tiến trình nằm ở `PROGRESS.md`.
 
 ## 2. Quy trình mỗi phiên (bắt buộc)
