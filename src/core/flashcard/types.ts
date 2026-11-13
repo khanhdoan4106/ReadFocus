@@ -1,7 +1,8 @@
 /** Hộp Leitner từ 1 (ôn thường xuyên nhất) đến 5. */
 export type Box = 1 | 2 | 3 | 4 | 5;
 
-export type CardSource = 'summary' | 'ai';
+/** `note`: tạo từ highlight/ghi chú của người dùng (không gọi API). */
+export type CardSource = 'summary' | 'ai' | 'note';
 
 export type Card = {
   id: string;

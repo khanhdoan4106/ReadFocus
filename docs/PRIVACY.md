@@ -13,7 +13,8 @@ Khi bạn mở một tài liệu, ReadFocus lưu vào IndexedDB của extension 
 - thống kê số phút, số trang theo ngày;
 - cài đặt như giao diện, tốc độ đọc, Pomodoro và chiều cao dải sáng;
 - bản tóm tắt AI đã tạo (cache, kèm nhà cung cấp và model đã dùng), nếu bạn từng tóm tắt;
-- vector tìm theo ý nghĩa, lịch sử hỏi đáp và thẻ ôn tập (kèm hộp và ngày ôn) của từng tài liệu, nếu bạn từng dùng các tính năng đó.
+- vector tìm theo ý nghĩa, lịch sử hỏi đáp và thẻ ôn tập (kèm hộp và ngày ôn) của từng tài liệu, nếu bạn từng dùng các tính năng đó;
+- ghi chú và highlight bạn tự tạo (store `annotations`): vị trí, đoạn chữ được tô, màu và nội dung ghi chú, nếu bạn từng dùng.
 
 Ngoài ra:
 
@@ -100,6 +101,14 @@ OCR chạy hoàn toàn trên máy: thư viện, file WebAssembly và dữ liệu
 ## Thẻ ôn tập
 
 Thẻ tạo từ các bản tóm tắt đã có không gọi mạng. **Tạo thêm bằng AI** gửi văn bản của mục đang đọc tới nhà cung cấp AI (một request), qua hộp đồng ý và quyền truy cập như tóm tắt. Thẻ lưu trong IndexedDB (store `flashcards`), xoá được từng thẻ hoặc tất cả trong tab Thẻ ôn tập, và bị xoá cùng dữ liệu tài liệu. **Xuất CSV** chỉ tạo file tải về trên máy bạn.
+
+## Ghi chú và highlight
+
+Ghi chú và highlight là nội dung bạn tự tạo. Chúng **chỉ lưu trên máy này** (IndexedDB, store `annotations`), không được gửi đi đâu, không đi qua nhà cung cấp AI và không đồng bộ qua tài khoản Chrome. Mỗi bản ghi gồm trang, vị trí (offset ký tự, đoạn trích kèm khoảng 32 ký tự ngữ cảnh hai bên, hình chữ nhật chuẩn hoá), màu, ghi chú và thời điểm tạo/sửa.
+
+- **Không bị xoá ngầm.** Xoá một highlight luôn hỏi lại. **Xoá dữ liệu của …** xoá cả ghi chú của tài liệu đó và hộp xác nhận nói rõ số lượng. **Xoá toàn bộ dữ liệu đọc** mặc định GIỮ ghi chú; chỉ khi bật riêng **Xoá cả ghi chú và highlight** và xác nhận lần hai thì mới xoá.
+- **Sao lưu.** Tab Ghi chú xuất Markdown hoặc JSON thành file tải về máy bạn và nhập lại file JSON (gộp theo mã, giữ bản mới hơn; file lỗi bị từ chối trọn vẹn). ReadFocus không gửi file đi đâu.
+- **Tạo thẻ ôn tập** từ highlight dùng chính văn bản đó, không gọi AI.
 
 ## Embedding chạy trên máy (tuỳ chọn)
 

@@ -353,3 +353,77 @@ Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (n
 Danh sách tự rà soát: 11 mục của v2, thêm mục 12 cho nhóm I: "không đổi hành vi".
 
 Đối chiếu với lịch sử merge (13/11/2026): nhóm A–C = PR #4–#6, D–E = #7–#8, F = #9, G = #10, H = #11, I = #12, J = #13, K = #14, L = #17 (kèm #15 phím cho hàng tab, #16 rà `npm audit`). T1–T31 đều đã xong; không còn task mở.
+
+---
+
+## v4 — Ghi chú, highlight và đồng bộ tiến độ
+
+Hai tính năng: ghi chú và highlight theo trang (nhóm M), đồng bộ tiến độ đọc giữa các máy (nhóm N). Luật như cũ: không merge, không tag, không phát hành, không force push, không rebase, không dùng key thật. Nhóm N chỉ bắt đầu sau khi nhóm M được merge.
+
+### Nhóm M: ghi chú và highlight (nhánh `feat/v4-annotations`)
+
+Ba loại chú thích:
+
+1. **Highlight đoạn chữ**: bôi đen chữ trên text layer, một thanh nổi hiện ra với 4 màu và nút "Thêm ghi chú". Ghi chú là tùy chọn.
+2. **Highlight vùng**: kéo khung chữ nhật trên trang. Dùng cho hình, công thức, bảng và trang scan chưa OCR. Nút bật chế độ vùng nằm trên thanh công cụ.
+3. **Ghi chú trang**: gắn với cả trang, không gắn với đoạn chữ nào.
+
+Neo vị trí (`src/core/annotate/`, logic thuần, có test):
+
+- Highlight đoạn chữ lưu nhiều lớp neo: `page`; offset ký tự trong text của trang (`start`, `end`); `quote` kèm `prefix` và `suffix` khoảng 32 ký tự (kiểu TextQuoteSelector của W3C); danh sách rect theo tọa độ trang, chuẩn hóa về 0..1.
+- Mở lại file: thử offset trước rồi kiểm tra quote; lệch thì tìm lại theo quote + prefix + suffix (so sánh sau chuẩn hóa NFC và khoảng trắng); vẫn không thấy thì đánh dấu "mồ côi": vẫn hiện trong danh sách, có nút xóa hoặc gắn lại.
+- Rect chuẩn hóa nên vẽ đúng ở mọi mức zoom. Chỉ vẽ highlight cho các trang đang render (virtualize như cũ).
+- Trang OCR: highlight đoạn chữ dùng hộp từ (word boxes) của OCR nếu chọn được; không chọn được thì dùng highlight vùng.
+- Test bắt buộc: neo lại đúng sau khi đổi zoom; sau khi lập chỉ mục lại; quote có dấu tiếng Việt; quote xuất hiện nhiều lần trong trang (prefix/suffix chọn đúng chỗ); text thay đổi thì thành mồ côi.
+
+Lưu trữ:
+
+- IndexedDB lên version 4, thêm store `annotations` (index `by-doc`). Mỗi bản ghi: `id` (UUID), `docId`, `page`, `kind`, `color`, `anchor`, `note`, `createdAt`, `updatedAt`.
+- Migration từ v1, v2, v3 giữ nguyên toàn bộ dữ liệu cũ, có test cho từng đường.
+- Xóa dữ liệu một tài liệu: hộp xác nhận nói rõ ghi chú sẽ bị xóa, kèm số lượng.
+- "Xóa toàn bộ dữ liệu đọc" KHÔNG xóa ghi chú. Có tùy chọn riêng "Xóa cả ghi chú và highlight", mặc định tắt, và phải xác nhận lần hai.
+
+Giao diện:
+
+- Tab mới "Ghi chú" trong thanh bên (giữ hàng tab không ngắt chữ, xem PR #14): danh sách theo trang có trích đoạn và ghi chú; lọc theo màu; tìm trong ghi chú, có dấu và không dấu (dùng lại chuẩn hóa sẵn có); bấm vào một mục thì nhảy trang và nháy highlight; sửa và xóa (xóa phải hỏi lại); khu "mồ côi" riêng.
+- Bấm vào highlight trên trang thì mở popover để sửa màu, sửa ghi chú, xóa.
+- Phím tắt: `H` highlight vùng chữ đang chọn; `N` thêm ghi chú trang. Không chạy khi đang gõ hoặc có hộp thoại. Cập nhật bảng phím tắt.
+- Trợ năng: popover và thanh nổi dùng được bằng bàn phím; highlight có `aria-label`; tab Ghi chú là cách truy cập thay thế cho người không nhìn được highlight trên canvas.
+- Màu highlight đủ tương phản với chữ ở cả chế độ sáng và tối. Dịch đủ vi và en.
+
+Xuất và nhập:
+
+- Xuất Markdown: tiêu đề tài liệu, nhóm theo trang, mỗi mục gồm quote dạng blockquote, ghi chú, màu.
+- Xuất và nhập JSON có version schema, để sao lưu hoặc chuyển máy. Khi nhập: gộp theo `id`, giữ bản có `updatedAt` mới hơn; file lỗi hoặc sai version thì báo rõ, không ghi dở dang. Có test.
+- Từ một highlight có thể "Tạo flashcard": mặt trước là ghi chú hoặc câu đã che, mặt sau là quote. Dùng lại core flashcard, không gọi API.
+
+Task nhóm M:
+
+- [x] **T32** Core neo vị trí + DB v4 + migration + xuất/nhập JSON và Markdown (logic thuần, có test).
+- [x] **T33** Lớp highlight trên trang, thanh nổi chọn màu, highlight vùng, popover, phím tắt.
+- [x] **T34** Tab Ghi chú, khu mồ côi, xóa an toàn, tạo flashcard từ highlight, i18n vi/en, docs (README, PRIVACY: ghi chú chỉ lưu trên máy).
+
+Task nào quá lớn thì tách nhỏ ngay trong file này.
+
+### Nhóm N: đồng bộ tiến độ (nhánh `feat/v4-sync`, tạo từ `main` SAU KHI nhóm M được merge)
+
+Cơ chế: `chrome.storage.sync`, đi theo tài khoản Chrome của người dùng. Không có server riêng, không thêm quyền (manifest đã có `storage`). Tra giới hạn hiện tại của `chrome.storage.sync` trong tài liệu chính thức (tổng dung lượng, dung lượng mỗi mục, số mục tối đa, số lần ghi mỗi phút/giờ), ghi nguồn vào `PROGRESS.md`, rồi thiết kế dưới các giới hạn đó. Tắt mặc định; Cài đặt có công tắc "Đồng bộ tiến độ đọc qua tài khoản Chrome" kèm một câu giải thích dữ liệu đi qua Chrome Sync của Google.
+
+Nội dung đồng bộ CHỈ gồm: khóa `p:<32 ký tự đầu của SHA-256 tài liệu>`, giá trị `{ page, pageCount, updatedAt }`. KHÔNG có tên file, văn bản, ghi chú hay key AI. Có test khẳng định giá trị đồng bộ chỉ có đúng các trường trên.
+
+Ghi: debounce khoảng 10 giây sau lần đổi trang cuối, ghi thêm khi tab bị ẩn hoặc đóng; không vượt giới hạn số lần ghi; gần đầy số mục thì bỏ các tài liệu cũ nhất (LRU). Lỗi quota hoặc mất mạng thì im lặng thử lại sau, không làm phiền việc đọc; lỗi kéo dài thì hiện trạng thái nhỏ trong Cài đặt.
+
+Đọc: khi mở một tài liệu, nếu bản đồng bộ mới hơn bản trên máy và khác trang thì hiện thông báo "Trên máy khác bạn đã đọc tới trang X" kèm nút "Đến trang X"; KHÔNG tự nhảy trang. Lắng nghe `storage.onChanged`: cùng tài liệu đang mở ở máy khác thì cập nhật thông báo, cũng không tự nhảy.
+
+Xung đột: bản có `updatedAt` mới hơn thắng (last-writer-wins), viết thành hàm thuần có test (đồng hồ lệch, trùng thời điểm, dữ liệu hỏng). Tắt đồng bộ thì hỏi giữ hay xóa dữ liệu đã đồng bộ; xóa chỉ xóa các khóa `p:*`. Môi trường không có `chrome.storage.sync` (test, preview) thì tính năng tự ẩn và không lỗi.
+
+Docs: PRIVACY (vi, en), `store/data-usage.md`, `store/permissions.md` (nhắc lại quyền `storage`), README. Test store-docs vẫn xanh.
+
+Task nhóm N:
+
+- [ ] **T35** Core đồng bộ: LWW, chọn khóa, LRU, giới hạn ghi, mock `chrome.storage.sync` có mô phỏng quota.
+- [ ] **T36** Cài đặt, thông báo "đến trang X", `onChanged`, docs.
+
+### Tự rà soát v4
+
+12 mục cũ, cộng: 13 — nội dung người dùng không bao giờ bị xóa mà không xác nhận; 14 — dữ liệu đồng bộ chỉ có đúng các trường đã cho phép (nhóm N); 15 — neo vị trí đúng qua zoom, lập chỉ mục lại và OCR (nhóm M).

@@ -2,6 +2,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { RefObject } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { computeVisiblePages, type PageOffset } from '../core/virtualize';
+import type { Annotation, Rect } from '../core/annotate/types';
 import type { OcrPageView } from '../core/ocr/types';
 import { PdfPage, type TextHighlight } from './PdfPage';
 
@@ -14,6 +15,14 @@ type PageListProps = {
   fallbackSize: PageSize;
   highlight: (TextHighlight & { page: number }) | null;
   ocrPages: ReadonlyMap<number, OcrPageView>;
+  annotations: ReadonlyMap<number, readonly Annotation[]>;
+  areaMode: boolean;
+  flashId: string | null;
+  pageTexts: ReadonlyMap<number, string>;
+  reflow: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
+  onReflow: (id: string, start: number, end: number, rects: Rect[]) => void;
+  onDrawArea: (page: number, rect: Rect, x: number, y: number) => void;
+  onOpenAnnotation: (id: string, x: number, y: number) => void;
   scrollerRef: RefObject<HTMLElement | null>;
   onMeasured: (page: number, size: PageSize) => void;
   onCurrentPageChange: (page: number) => void;
@@ -35,6 +44,14 @@ export function PageList({
   fallbackSize,
   highlight,
   ocrPages,
+  annotations,
+  areaMode,
+  flashId,
+  pageTexts,
+  reflow,
+  onReflow,
+  onDrawArea,
+  onOpenAnnotation,
   scrollerRef,
   onMeasured,
   onCurrentPageChange,
@@ -112,6 +129,14 @@ export function PageList({
                 scale={scale}
                 highlight={highlight && highlight.page === pageNumber ? highlight : null}
                 ocr={ocrPages.get(pageNumber) ?? null}
+                annotations={annotations.get(pageNumber)}
+                areaMode={areaMode}
+                flashId={flashId}
+                pageText={pageTexts.get(pageNumber)}
+                reflow={reflow.get(pageNumber)}
+                onReflow={onReflow}
+                onDrawArea={onDrawArea}
+                onOpenAnnotation={onOpenAnnotation}
                 onMeasured={onMeasured}
                 onRenderError={onRenderError}
               />

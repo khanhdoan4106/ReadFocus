@@ -9,6 +9,8 @@ import {
 } from '../core/stats';
 import { sanitizeCard } from '../core/flashcard/leitner';
 import type { Card } from '../core/flashcard/types';
+import { sanitizeAnnotation } from '../core/annotate/record';
+import type { Annotation } from '../core/annotate/types';
 import type { QaRecord } from '../core/ask/types';
 import type { EmbeddingRecord } from '../core/embed/types';
 import type { OcrPageRecord } from '../core/ocr/pages';
@@ -17,9 +19,10 @@ import { sanitizeSummaryRecord, type SummaryRecord } from '../core/summarize/rec
 const DB_NAME = 'readfocus';
 /**
  * Version 2 thêm store `summaries` (cache tóm tắt AI). Version 3 thêm `embeddings`,
- * `qa` và `flashcards` cho v2; store `pages` nhận thêm trường tuỳ chọn của OCR.
+ * `qa` và `flashcards` cho v2; store `pages` nhận thêm trường tuỳ chọn của OCR. Version 4 thêm
+ * `annotations` (ghi chú và highlight của người dùng).
  */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 export type DocumentMeta = {
   id: string;
@@ -135,6 +138,11 @@ interface ReadFocusDB extends DBSchema {
     value: FlashcardRecord;
     indexes: { 'by-doc': string };
   };
+  annotations: {
+    key: string;
+    value: Annotation;
+    indexes: { 'by-doc': string };
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<ReadFocusDB>> | null = null;
@@ -168,6 +176,9 @@ function getDb(): Promise<IDBPDatabase<ReadFocusDB>> {
         for (const name of ['embeddings', 'qa', 'flashcards'] as const) {
           db.createObjectStore(name, { keyPath: 'id' }).createIndex('by-doc', 'docId');
         }
+      }
+      if (oldVersion < 4) {
+        db.createObjectStore('annotations', { keyPath: 'id' }).createIndex('by-doc', 'docId');
       }
     },
   });
@@ -497,15 +508,84 @@ export async function clearFlashcardsForDoc(docId: string): Promise<void> {
   }
 }
 
+/** Ghi (thêm hoặc cập nhật) một lô ghi chú/highlight. Trả `false` nếu không lưu được. */
+export async function saveAnnotations(records: readonly Annotation[]): Promise<boolean> {
+  if (records.length === 0) return true;
+  try {
+    const db = await getDb();
+    const tx = db.transaction('annotations', 'readwrite');
+    for (const record of records) void tx.store.put(record);
+    await tx.done;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Ghi chú của một tài liệu; bản ghi hỏng bị bỏ qua (không xoá). Theo trang rồi theo thời gian tạo. */
+export async function loadAnnotations(docId: string): Promise<Annotation[]> {
+  try {
+    const db = await getDb();
+    const records = await db.getAllFromIndex('annotations', 'by-doc', docId);
+    return records
+      .map(sanitizeAnnotation)
+      .filter((record): record is Annotation => record !== null)
+      .sort((a, b) => a.page - b.page || a.createdAt - b.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function countAnnotationsForDoc(docId: string): Promise<number> {
+  try {
+    const db = await getDb();
+    return await db.countFromIndex('annotations', 'by-doc', docId);
+  } catch {
+    return 0;
+  }
+}
+
+export async function countAllAnnotations(): Promise<number> {
+  try {
+    const db = await getDb();
+    return await db.count('annotations');
+  } catch {
+    return 0;
+  }
+}
+
+/** Xoá một ghi chú. Giao diện phải hỏi xác nhận trước khi gọi. */
+export async function deleteAnnotation(id: string): Promise<boolean> {
+  try {
+    const db = await getDb();
+    await db.delete('annotations', id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Xoá mọi ghi chú và highlight của mọi tài liệu. Chỉ gọi sau xác nhận hai lần. */
+export async function clearAllAnnotations(): Promise<boolean> {
+  try {
+    const db = await getDb();
+    await db.clear('annotations');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Xoá dữ liệu của một tài liệu: metadata, văn bản từng trang (kể cả OCR), mục
- * lục, chỉ mục tìm kiếm, tiến độ, tóm tắt AI, embedding, hỏi đáp và flashcard. Thống kê ngày và cài đặt được giữ nguyên.
+ * lục, chỉ mục tìm kiếm, tiến độ, tóm tắt AI, embedding, hỏi đáp, flashcard và ghi chú/highlight
+ * của tài liệu đó (giao diện phải nói rõ và hỏi xác nhận trước). Thống kê ngày và cài đặt được giữ nguyên.
  */
 export async function deleteDocumentData(docId: string): Promise<boolean> {
   try {
     const db = await getDb();
     const tx = db.transaction(
-      ['documents', 'pages', 'toc', 'searchIndex', 'progress', ...DOC_SCOPED_STORES],
+      ['documents', 'pages', 'toc', 'searchIndex', 'progress', 'annotations', ...DOC_SCOPED_STORES],
       'readwrite',
     );
     await Promise.all([
@@ -519,7 +599,7 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
       await cursor.delete();
       cursor = await cursor.continue();
     }
-    for (const name of DOC_SCOPED_STORES) {
+    for (const name of [...DOC_SCOPED_STORES, 'annotations'] as const) {
       let docCursor = await tx
         .objectStore(name)
         .index('by-doc')
@@ -538,8 +618,9 @@ export async function deleteDocumentData(docId: string): Promise<boolean> {
 
 /**
  * Xoá toàn bộ dữ liệu đọc đã lưu trên máy: tài liệu, văn bản, mục lục, chỉ mục
- * tìm kiếm, tiến độ, thống kê, tóm tắt AI, embedding, hỏi đáp và flashcard. Cài đặt giao diện/tốc độ đọc và
- * API key được giữ nguyên.
+ * tìm kiếm, tiến độ, thống kê, tóm tắt AI, embedding, hỏi đáp và flashcard. Cài đặt giao diện/tốc độ đọc,
+ * API key và GHI CHÚ/HIGHLIGHT được giữ nguyên (đó là nội dung người dùng tự tạo; xoá riêng bằng
+ * `clearAllAnnotations`).
  */
 export async function clearAllData(): Promise<boolean> {
   try {

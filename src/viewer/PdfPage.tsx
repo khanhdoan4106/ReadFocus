@@ -1,11 +1,14 @@
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
-import { useEffect, useMemo, useRef } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ocrHighlightRects } from '../core/ocr/highlight';
 import { isLowConfidence } from '../core/ocr/pages';
 import type { OcrPageView } from '../core/ocr/types';
+import type { Annotation, Rect } from '../core/annotate/types';
 import { matchesQuery, spanInQuote } from '../core/search';
 import { t } from '../i18n';
+import { AnnotationLayer, hitTest } from './AnnotationLayer';
 import type { PageSize } from './PageList';
+import { reflowRects } from './text-layer-rects';
 
 export type TextHighlight = {
   query: string;
@@ -21,6 +24,16 @@ type PdfPageProps = {
   highlight?: TextHighlight | null;
   /** Trang có chữ do OCR nhận dạng: tô kết quả tìm kiếm bằng lớp phủ riêng và hiện nhãn. */
   ocr?: OcrPageView | null;
+  /** Ghi chú và highlight của trang này (không gồm highlight chữ đã mồ côi). */
+  annotations?: readonly Annotation[];
+  areaMode?: boolean;
+  flashId?: string | null;
+  /** Văn bản đã trích của trang và các highlight `moved` cần tính lại rect từ text layer. */
+  pageText?: string;
+  reflow?: readonly { id: string; start: number; end: number }[];
+  onReflow?: (id: string, start: number, end: number, rects: Rect[]) => void;
+  onDrawArea?: (page: number, rect: Rect, x: number, y: number) => void;
+  onOpenAnnotation?: (id: string, x: number, y: number) => void;
   onMeasured: (page: number, size: PageSize) => void;
   onRenderError: () => void;
 };
@@ -42,12 +55,22 @@ export function PdfPage({
   scale,
   highlight,
   ocr,
+  annotations = [],
+  areaMode = false,
+  flashId = null,
+  pageText,
+  reflow,
+  onReflow,
+  onDrawArea,
+  onOpenAnnotation,
   onMeasured,
   onRenderError,
 }: PdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  // Tăng mỗi lần text layer dựng xong: lúc đó mới tính lại được rect của highlight đã `moved`.
+  const [layerVersion, setLayerVersion] = useState(0);
   const measuredRef = useRef(onMeasured);
   const errorHandlerRef = useRef(onRenderError);
   measuredRef.current = onMeasured;
@@ -103,6 +126,7 @@ export function PdfPage({
           viewport,
         });
         await textLayer.render();
+        if (!cancelled) setLayerVersion((value) => value + 1);
       } catch (error) {
         const name = error instanceof Error ? error.name : '';
         if (!cancelled && name !== 'RenderingCancelledException') {
@@ -117,6 +141,19 @@ export function PdfPage({
       textLayer?.cancel();
     };
   }, [doc, pageNumber, scale]);
+
+  // Highlight `moved`: tính lại rect từ khoảng ký tự mới trên text layer rồi báo để lưu đè.
+  // Chưa có text layer hoặc ánh xạ thất bại thì không báo gì (và không vẽ rect cũ).
+  useEffect(() => {
+    const textElement = textRef.current;
+    const pageElement = pageRef.current;
+    if (layerVersion === 0 || !reflow || reflow.length === 0 || !pageText) return;
+    if (!textElement || !pageElement || !onReflow) return;
+    for (const item of reflow) {
+      const rects = reflowRects(textElement, pageElement, pageText, item.start, item.end);
+      if (rects !== null) onReflow(item.id, item.start, item.end, rects);
+    }
+  }, [layerVersion, reflow, pageText, onReflow]);
 
   // Text layer được dựng bất đồng bộ, nên vừa tô ngay vừa theo dõi thay đổi của nó.
   useEffect(() => {
@@ -140,8 +177,30 @@ export function PdfPage({
   );
 
   return (
-    <div class="pdf-page" ref={pageRef}>
+    <div
+      class="pdf-page"
+      ref={pageRef}
+      tabIndex={-1}
+      onClick={(event) => {
+        // Bấm vào highlight (không phải bôi đen chữ) thì mở popover của nó.
+        if (areaMode || !onOpenAnnotation || !pageRef.current) return;
+        if (window.getSelection()?.isCollapsed === false) return;
+        const box = pageRef.current.getBoundingClientRect();
+        const hit = hitTest(annotations, {
+          x: (event.clientX - box.left) / box.width,
+          y: (event.clientY - box.top) / box.height,
+        });
+        if (hit) onOpenAnnotation(hit.id, event.clientX, event.clientY);
+      }}
+    >
       <canvas ref={canvasRef} />
+      <AnnotationLayer
+        annotations={annotations}
+        areaMode={areaMode}
+        flashId={flashId}
+        onDrawArea={(rect, x, y) => onDrawArea?.(pageNumber, rect, x, y)}
+        onOpen={(id, x, y) => onOpenAnnotation?.(id, x, y)}
+      />
       <div class="textLayer" ref={textRef} />
       {ocr && (
         <>

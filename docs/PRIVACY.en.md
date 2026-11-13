@@ -14,6 +14,7 @@ When you open a document, ReadFocus stores the following in the extension's Inde
 - the page you are on and the time you have read;
 - reading statistics: minutes and pages per day;
 - settings such as theme, interface language, reading speed, Pomodoro and the focus band height;
+- notes and highlights you create (store `annotations`): position, the highlighted text, color and note text, if you use them;
 - AI summaries you generated (cached, with the provider and model used), if any;
 - semantic-search vectors, question history and flashcards (with box and review date) per document, if you used those features.
 
@@ -104,6 +105,14 @@ OCR runs entirely on your computer. The library, the WebAssembly files and the l
 ## Flashcards
 
 Cards built from existing summaries make no network request. **Create more with AI** sends the text of the section you are reading to your AI provider (one request) after the same consent dialog and access request as summaries. Cards are stored in IndexedDB (store `flashcards`), can be deleted one by one or all at once in the Flashcards tab, and are deleted with the document's data. **Export CSV** only creates a file on your computer.
+
+## Notes and highlights
+
+Notes and highlights are content you create. They are **stored only on this computer** (IndexedDB, store `annotations`), are never sent anywhere, don't pass through an AI provider and aren't synced through your Chrome account. Each record holds the page, the position (character offsets, the quoted text with about 32 characters of context on each side, normalized rectangles), the color, the note and the created/updated times.
+
+- **Never deleted silently.** Deleting a highlight always asks first. **Delete data for …** also deletes that document's notes, and the confirmation states how many. **Delete all reading data** KEEPS notes by default; only if you turn on **Also delete notes and highlights** and confirm a second time are they deleted.
+- **Backup.** The Notes tab exports Markdown or JSON as a file downloaded to your computer and imports JSON back (merged by id, newer version wins; a faulty file is rejected entirely). ReadFocus doesn't send the file anywhere.
+- **Make flashcard** from a highlight uses that text itself, with no AI call.
 
 ## On-device embeddings (optional)
 

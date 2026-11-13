@@ -3,7 +3,7 @@ import { generateCardsForSection } from '../core/flashcard/ai';
 import { ankiTag, cardsToAnkiCsv } from '../core/flashcard/csv';
 import { draftsFromSummary, freshCards } from '../core/flashcard/from-summary';
 import { boxCounts, dueCards, reviewCard } from '../core/flashcard/leitner';
-import type { Box, Card } from '../core/flashcard/types';
+import type { Box, Card, CardDraft } from '../core/flashcard/types';
 import { isLLMError } from '../core/llm/errors';
 import { getProvider } from '../core/llm';
 import { resolveModel } from '../core/llm/models';
@@ -34,6 +34,8 @@ export type FlashcardsApi = {
   error: string | null;
   notice: FlashcardNotice;
   createFromSummaries: () => void;
+  /** Thêm thẻ từ highlight/ghi chú; trả số thẻ mới (0 nếu đã có thẻ giống hệt). */
+  addDrafts: (drafts: CardDraft[]) => Promise<number>;
   /** Gọi trực tiếp trong thao tác bấm: `permissions.request` phải đứng đầu. */
   generateWithAi: () => void;
   cancel: () => void;
@@ -127,6 +129,17 @@ export function useFlashcards({
     setNotice({ type: 'created', count: fresh.length });
     void addCards(fresh, scopeRef.current);
   }, [docId, summaries, cards, addCards]);
+
+  /** Thêm thẻ từ nháp (highlight/ghi chú); trả số thẻ mới (0 nếu đã có thẻ giống hệt). */
+  const addDrafts = useCallback(
+    async (drafts: CardDraft[]): Promise<number> => {
+      if (docId === null) return 0;
+      const fresh = freshCards(docId, drafts, cards, localDateKey(), Date.now());
+      if (fresh.length > 0) await addCards(fresh, scopeRef.current);
+      return fresh.length;
+    },
+    [docId, cards, addCards],
+  );
 
   const run = useCallback(async () => {
     if (docId === null || section === null) return;
@@ -241,6 +254,7 @@ export function useFlashcards({
     error,
     notice,
     createFromSummaries,
+    addDrafts,
     generateWithAi,
     cancel,
     review,

@@ -1,3 +1,5 @@
+import type { ImportError } from '../core/annotate/exchange';
+import type { AnnotationColor } from '../core/annotate/types';
 import type { LLMErrorKind, ProviderId } from '../core/llm/types';
 
 export const vi = {
@@ -358,7 +360,7 @@ export const vi = {
     `Xoá dữ liệu đã lưu của “${name}”? File PDF trên máy không bị ảnh hưởng.`,
   deleteAll: 'Xoá toàn bộ dữ liệu đọc',
   deleteAllConfirm:
-    'Xoá toàn bộ dữ liệu đọc trên máy này? Tiến độ, mục lục, chỉ mục tìm kiếm và thống kê sẽ mất; cài đặt được giữ nguyên.',
+    'Xoá toàn bộ dữ liệu đọc trên máy này? Tiến độ, mục lục, chỉ mục tìm kiếm và thống kê sẽ mất; cài đặt, ghi chú và highlight được giữ nguyên.',
   deleteDocumentDone: 'Đã xoá dữ liệu của tài liệu.',
   deleteAllDone: 'Đã xoá toàn bộ dữ liệu đọc.',
   deleteFailed: 'Không xoá được dữ liệu. Thử lại sau.',
@@ -368,9 +370,89 @@ export const vi = {
     { keys: 'F', label: 'Bật hoặc tắt chế độ tập trung' },
     { keys: 'T', label: 'Ẩn hoặc hiện thanh bên' },
     { keys: '← →', label: 'Trang trước, trang sau' },
+    { keys: 'H', label: 'Highlight đoạn chữ đang chọn' },
+    { keys: 'N', label: 'Thêm ghi chú cho trang đang đọc' },
     { keys: 'Space', label: 'Bắt đầu hoặc tạm dừng hẹn giờ' },
     { keys: 'Esc', label: 'Thoát chế độ tập trung' },
   ],
+
+  notesTab: 'Ghi chú',
+  notesDataHint: 'Ghi chú và highlight chỉ lưu trên máy này. Xuất JSON để sao lưu hoặc chuyển máy.',
+  notesEmpty:
+    'Chưa có ghi chú hay highlight nào. Bôi đen chữ trên trang rồi chọn một màu, hoặc bấm N để ghi chú trang.',
+  notesFilterColor: 'Lọc theo màu',
+  notesColorAll: 'Tất cả màu',
+  notesSearchPlaceholder: 'Tìm trong ghi chú',
+  notesCount: (count: number) => `${count} mục`,
+  notesNoMatch: 'Không có mục nào khớp.',
+  notesPage: (page: number) => `Trang ${page}`,
+  notesKindArea: 'Vùng đã đánh dấu',
+  notesKindPage: 'Ghi chú trang',
+  notesEdit: 'Sửa',
+  notesRelocating: 'Đang cập nhật vị trí',
+  notesFlashcard: 'Tạo thẻ ôn tập',
+  notesFlashcardDone: 'Đã tạo thẻ ôn tập. Xem ở tab Thẻ ôn tập.',
+  notesFlashcardExists: 'Đã có thẻ giống hệt.',
+  notesFlashcardNeedNote:
+    'Không che được câu này thành chỗ trống. Thêm ghi chú để làm mặt trước của thẻ.',
+  notesOrphanTitle: 'Không tìm lại được vị trí',
+  notesOrphanHint:
+    'Văn bản của trang đã đổi (ví dụ sau khi nhận dạng chữ). Bôi đen lại đoạn chữ rồi bấm Gắn lại, hoặc xoá.',
+  notesReattach: 'Gắn lại vào đoạn đang chọn',
+  notesReattachDone: 'Đã gắn lại vào đoạn đang chọn.',
+  notesExportMarkdown: 'Xuất Markdown',
+  notesExportJson: 'Xuất JSON (sao lưu)',
+  notesImportJson: 'Nhập JSON',
+  notesExportEmpty: 'Chưa có gì để xuất.',
+  notesImportDone: (added: number, updated: number) =>
+    `Đã nhập: thêm ${added}, cập nhật ${updated}.`,
+  notesImportErrors: {
+    'invalid-json': 'Không đọc được file: đây không phải file JSON hợp lệ. Chưa nhập gì.',
+    'wrong-schema': 'File này không phải file ghi chú của ReadFocus. Chưa nhập gì.',
+    'wrong-version':
+      'File ghi chú này thuộc phiên bản khác mà bản này chưa đọc được. Chưa nhập gì.',
+    'invalid-data': 'File ghi chú bị hỏng hoặc thiếu dữ liệu. Chưa nhập gì.',
+    'other-document': 'File này là ghi chú của tài liệu khác. Hãy mở đúng tài liệu rồi nhập lại.',
+  } satisfies Record<ImportError, string>,
+  deleteDocumentNotes: (count: number) =>
+    ` Gồm ${count} ghi chú và highlight của bạn: những mục này cũng bị xoá và không khôi phục được (nên xuất JSON trước).`,
+  deleteAllNotesOption: 'Xoá cả ghi chú và highlight',
+  deleteAllNotesHint:
+    'Mặc định ghi chú và highlight được giữ lại vì do bạn tự tạo. Chỉ bật khi muốn xoá hết.',
+  deleteAllNotesConfirm: (count: number) =>
+    `Xác nhận lần cuối: xoá cả ${count} ghi chú và highlight của mọi tài liệu? Việc này không khôi phục được.`,
+  deleteAllNotesDone: 'Đã xoá cả ghi chú và highlight.',
+  annotColors: {
+    yellow: 'Vàng',
+    green: 'Xanh lá',
+    blue: 'Xanh dương',
+    pink: 'Hồng',
+  } satisfies Record<AnnotationColor, string>,
+  annotBarLabel: 'Đánh dấu đoạn đã chọn',
+  annotColorAction: (color: string) => `Tô màu ${color}`,
+  annotAddNote: 'Thêm ghi chú',
+  annotAreaMode: 'Đánh dấu vùng',
+  annotAreaModeHint: 'Kéo chuột trên trang để chọn một vùng (hình, công thức, bảng, trang scan).',
+  annotAreaLayer: 'Kéo để chọn vùng cần đánh dấu',
+  annotPopoverLabel: 'Sửa highlight và ghi chú',
+  annotColorGroup: 'Màu',
+  annotColorOption: (color: string) => color,
+  annotNoteLabel: 'Ghi chú',
+  annotNotePlaceholder: 'Viết ghi chú (không bắt buộc)',
+  annotDelete: 'Xoá',
+  annotDone: 'Xong',
+  annotDeleteTitle: 'Xoá ghi chú này?',
+  annotDeleteBody: 'Highlight và ghi chú này sẽ bị xoá khỏi máy này và không khôi phục được.',
+  annotDeleteConfirm: 'Xoá',
+  annotDeleteCancel: 'Giữ lại',
+  annotTextAria: (color: string, quote: string) => `Highlight ${color}: ${quote}`,
+  annotAreaAria: (color: string) => `Vùng đã đánh dấu ${color}`,
+  annotPageNoteAria: (preview: string) => `Ghi chú của trang: ${preview}`,
+  annotPageNoteEmpty: '(chưa có nội dung)',
+  annotSaveFailed: 'Không lưu được ghi chú trên máy này. Thử lại sau.',
+  annotNoSelection: 'Hãy bôi đen một đoạn chữ trước. Với hình hoặc trang scan, bật Đánh dấu vùng.',
+  annotFallbackArea:
+    'Không xác định được đoạn chữ trong văn bản của trang, nên đã đánh dấu theo vùng.',
 
   focusTab: 'Tập trung',
   chapterTimerTitle: 'Đọc theo chương',

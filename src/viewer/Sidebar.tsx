@@ -6,18 +6,20 @@ import { t } from '../i18n';
 import { AskPanel, type AskPanelProps } from './AskPanel';
 import { FlashcardPanel, type FlashcardPanelProps } from './FlashcardPanel';
 import { FocusPanel, type FocusPanelProps } from './FocusPanel';
+import { NotesPanel, type NotesPanelProps } from './NotesPanel';
 import { SearchPanel } from './SearchPanel';
 import type { SemanticApi } from './semantic';
 import { SettingsPanel, type SettingsPanelProps } from './SettingsPanel';
 import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
-type SidebarTab = 'toc' | 'summary' | 'ask' | 'flash' | 'search' | 'focus' | 'settings';
+type SidebarTab = 'toc' | 'summary' | 'ask' | 'flash' | 'notes' | 'search' | 'focus' | 'settings';
 
 const TAB_ORDER: readonly SidebarTab[] = [
   'toc',
   'summary',
   'ask',
   'flash',
+  'notes',
   'search',
   'focus',
   'settings',
@@ -33,6 +35,8 @@ function tabLabel(id: SidebarTab): string {
       return t.askTab;
     case 'flash':
       return t.flashTab;
+    case 'notes':
+      return t.notesTab;
     case 'search':
       return t.searchTab;
     case 'focus':
@@ -54,6 +58,7 @@ type SidebarProps = {
   semantic: SemanticApi;
   askPanel: AskPanelProps;
   flashPanel: FlashcardPanelProps;
+  notesPanel: NotesPanelProps;
   summarizedSpans: ReadonlySet<string>;
   searchRequest: number;
   onSelectPage: (page: number) => void;
@@ -72,6 +77,7 @@ export function Sidebar({
   semantic,
   askPanel,
   flashPanel,
+  notesPanel,
   summarizedSpans,
   searchRequest,
   onSelectPage,
@@ -197,6 +203,10 @@ export function Sidebar({
       ) : tab === 'flash' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={t.flashTab}>
           <FlashcardPanel {...flashPanel} onOpenSettings={() => setTab('settings')} />
+        </div>
+      ) : tab === 'notes' ? (
+        <div class="sidebar__panel" role="tabpanel" aria-label={t.notesTab}>
+          <NotesPanel {...notesPanel} />
         </div>
       ) : tab === 'search' ? (
         <div class="sidebar__panel" role="tabpanel" aria-label={t.searchTab}>

@@ -44,7 +44,8 @@ export type SettingsPanelProps = {
   onToggleAutoOpen: (enabled: boolean) => void;
   documentName: string | null;
   onDeleteDocument: () => void;
-  onDeleteAll: () => void;
+  /** `includeNotes`: xoá cả ghi chú và highlight (mặc định tắt, có xác nhận lần hai). */
+  onDeleteAll: (includeNotes: boolean) => void;
 };
 
 function languageOptions(): ReadonlyArray<{ value: LanguagePreference; label: string }> {
@@ -173,6 +174,7 @@ export function SettingsPanel({
   onDeleteAll,
 }: SettingsPanelProps) {
   const aiDisabled = !ai.supported;
+  const [includeNotes, setIncludeNotes] = useState(false);
   const providerId = ai.settings.providerId;
 
   return (
@@ -441,7 +443,20 @@ export function SettingsPanel({
             {t.deleteDocument(documentName)}
           </button>
         )}
-        <button type="button" class="settings-button settings-button--danger" onClick={onDeleteAll}>
+        <label class="settings-radio">
+          <input
+            type="checkbox"
+            checked={includeNotes}
+            onChange={(event) => setIncludeNotes(event.currentTarget.checked)}
+          />
+          <span>{t.deleteAllNotesOption}</span>
+        </label>
+        <p class="settings-card__hint">{t.deleteAllNotesHint}</p>
+        <button
+          type="button"
+          class="settings-button settings-button--danger"
+          onClick={() => onDeleteAll(includeNotes)}
+        >
           {t.deleteAll}
         </button>
       </section>

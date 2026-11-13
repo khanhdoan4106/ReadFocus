@@ -1,4 +1,6 @@
 import type { TocItem } from '../storage/db';
+import { draftFromAnnotation } from '../core/annotate/flashcard';
+import type { Annotation } from '../core/annotate/types';
 import { aiConfigProblem } from '../core/llm/settings';
 import { clampBandHeight, clampMinutes } from '../core/focus';
 import { t } from '../i18n';
@@ -8,6 +10,8 @@ import type { useFocusTimer } from './hooks/useFocusTimer';
 import type { useReadingStats } from './hooks/useReadingStats';
 import type { useSettings } from './hooks/useSettings';
 import type { useAiSettings } from './hooks/useAiSettings';
+import type { AnnotationUi } from './hooks/useAnnotationUi';
+import type { AnnotationsApi } from './hooks/useAnnotations';
 import type { LocalModelApi } from './hooks/useLocalModel';
 import type { useSummaries } from './hooks/useSummaries';
 import type { useExtraction } from './hooks/useExtraction';
@@ -18,6 +22,7 @@ import type { useSemanticIndex } from './semantic';
 type Props = {
   ready: boolean;
   pageNumber: number;
+  totalPages: number;
   docId: string | null;
   fileName: string;
   wordsPerMinute: number;
@@ -30,12 +35,16 @@ type Props = {
   settings: ReturnType<typeof useSettings>;
   ai: ReturnType<typeof useAiSettings>;
   localModel: LocalModelApi;
+  annotations: AnnotationsApi;
+  annotationUi: AnnotationUi;
+  showToast: (message: string) => void;
+  onJumpNote: (annotation: Annotation) => void;
   summarize: ReturnType<typeof useSummaries>;
   semantic: ReturnType<typeof useSemanticIndex>;
   flashcards: ReturnType<typeof useFlashcards>;
   ask: ReturnType<typeof useAsk>;
   onDeleteDocument: () => void;
-  onDeleteAll: () => void;
+  onDeleteAll: (includeNotes: boolean) => void;
   onSelectPage: (page: number) => void;
   onSelectCitation: (page: number, quote: string) => void;
   onSelectResult: (page: number, query: string, ignoreDiacritics: boolean) => void;
@@ -45,6 +54,7 @@ type Props = {
 export function ViewerSidebar({
   ready,
   pageNumber,
+  totalPages,
   docId,
   fileName,
   wordsPerMinute,
@@ -57,6 +67,10 @@ export function ViewerSidebar({
   settings,
   ai,
   localModel,
+  annotations,
+  annotationUi,
+  showToast,
+  onJumpNote,
   summarize,
   semantic,
   flashcards,
@@ -133,6 +147,26 @@ export function ViewerSidebar({
       }}
       summary={summarize.panel}
       semantic={semantic}
+      notesPanel={{
+        api: annotations,
+        ui: annotationUi,
+        docId,
+        documentName: fileName,
+        pageCount: totalPages,
+        onJump: onJumpNote,
+        onReattach: annotationUi.reattach,
+        showToast,
+        onCreateCard: (annotation) => {
+          const draft = draftFromAnnotation(annotation);
+          if (draft === null) {
+            showToast(t.notesFlashcardNeedNote);
+            return;
+          }
+          void flashcards.addDrafts([draft]).then((created) => {
+            showToast(created > 0 ? t.notesFlashcardDone : t.notesFlashcardExists);
+          });
+        },
+      }}
       flashPanel={{
         flashcards,
         hasDocument: docId !== null,

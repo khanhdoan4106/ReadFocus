@@ -44,9 +44,10 @@ describe.each(CATALOGS)('hàng tab thanh bên: phím ($code)', ({ code, text }) 
 
   it('chỉ tab đang chọn có tabindex=0', async () => {
     await open();
-    expect(tabs()).toHaveLength(7);
+    expect(tabs()).toHaveLength(8);
     expect(tabs().map((x) => x.getAttribute('tabindex'))).toEqual([
       '0',
+      '-1',
       '-1',
       '-1',
       '-1',
@@ -60,6 +61,7 @@ describe.each(CATALOGS)('hàng tab thanh bên: phím ($code)', ({ code, text }) 
       '-1',
       '-1',
       '0',
+      '-1',
       '-1',
       '-1',
       '-1',
@@ -75,8 +77,8 @@ describe.each(CATALOGS)('hàng tab thanh bên: phím ($code)', ({ code, text }) 
     expect(document.activeElement).toBe(tabs()[1]);
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowLeft' });
-    expect(selected()).toBe(6); // vòng về cuối
-    expect(document.activeElement).toBe(tabs()[6]);
+    expect(selected()).toBe(7); // vòng về cuối
+    expect(document.activeElement).toBe(tabs()[7]);
     fireEvent.keyDown(document.activeElement!, { key: 'ArrowRight' });
     expect(selected()).toBe(0); // vòng về đầu
     expect(list.getAttribute('role')).toBe('tablist');
@@ -88,7 +90,7 @@ describe.each(CATALOGS)('hàng tab thanh bên: phím ($code)', ({ code, text }) 
     fireEvent.click(tabs()[3]!);
     tabs()[3]!.focus();
     fireEvent.keyDown(tabs()[3]!, { key: 'End' });
-    expect(selected()).toBe(6);
+    expect(selected()).toBe(7);
     fireEvent.keyDown(document.activeElement!, { key: 'Home' });
     expect(selected()).toBe(0);
     expect(document.activeElement).toBe(tabs()[0]);
