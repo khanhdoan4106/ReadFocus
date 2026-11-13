@@ -341,8 +341,8 @@ Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (n
 
 ### Danh sách task v3
 
-- [ ] **T24** Lưới an toàn: test component cho các luồng chính, pass trên code hiện tại
-- [ ] **T25** Tách `App.tsx` theo miền (mỗi miền một commit)
+- [x] **T24** Lưới an toàn: test component cho các luồng chính, pass trên code hiện tại
+- [x] **T25** Tách `App.tsx` theo miền (mỗi miền một commit)
 - [ ] **T26** Đa ngôn ngữ vi/en, `chrome.i18n`
 - [ ] **T27** Icon thật
 - [ ] **T28** Rà giao diện hai ngôn ngữ
