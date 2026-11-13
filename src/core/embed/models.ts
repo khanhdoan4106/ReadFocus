@@ -1,7 +1,8 @@
 import { normalizeBaseUrl } from '../llm/http';
 import { GEMINI_BASE_URL, OPENAI_BASE_URL, OPENAI_COMPATIBLE_BASE_URL } from '../llm/models';
 import type { ProviderId } from '../llm/types';
-import type { EmbedKind, EmbedProviderId, EmbedSource } from './types';
+import { LOCAL_MODEL_ID } from './local';
+import type { EmbedKind, EmbedProviderId, EmbedSource, RemoteEmbedProviderId } from './types';
 
 /**
  * Model embedding mặc định, kiểm tra ngày 12/11/2026:
@@ -16,6 +17,7 @@ export const EMBED_DEFAULT_MODELS: Record<EmbedProviderId, string> = {
   openai: 'text-embedding-3-small',
   gemini: 'gemini-embedding-001',
   'openai-compatible': 'nomic-embed-text',
+  local: LOCAL_MODEL_ID,
 };
 
 export const GEMINI_EMBED_DIMENSIONS = 768;
@@ -23,17 +25,18 @@ export const GEMINI_EMBED_DIMENSIONS = 768;
 /** Tăng khi cách chia đoạn hoặc tiền tố đổi, để vector cũ không dùng lẫn. */
 export const EMBED_VERSION = 1;
 
-export function embedSupported(providerId: ProviderId): providerId is EmbedProviderId {
+export function embedSupported(providerId: ProviderId): providerId is RemoteEmbedProviderId {
   return providerId !== 'anthropic';
 }
 
 /** Model rỗng thì dùng model mặc định của provider. */
-export function resolveEmbedModel(providerId: EmbedProviderId, model: string): string {
+export function resolveEmbedModel(providerId: RemoteEmbedProviderId, model: string): string {
   const trimmed = model.trim();
   return trimmed === '' ? EMBED_DEFAULT_MODELS[providerId] : trimmed;
 }
 
 export function embedBaseUrl(source: EmbedSource): string {
+  if (source.providerId === 'local') return '';
   if (source.providerId === 'openai') return OPENAI_BASE_URL;
   if (source.providerId === 'gemini') return GEMINI_BASE_URL;
   return normalizeBaseUrl(source.baseUrl, OPENAI_COMPATIBLE_BASE_URL);
@@ -64,4 +67,21 @@ export function embedPrefix(model: string, kind: EmbedKind): string {
     return kind === 'query' ? 'search_query: ' : 'search_document: ';
   }
   return '';
+}
+
+/** Nguồn đang chọn trong Cài đặt: `null` khi provider không có embeddings và không chọn "Trên máy". */
+export function resolveEmbedSource(settings: {
+  providerId: ProviderId;
+  embedSource: 'provider' | 'local';
+  embedModel: string;
+  baseUrl: string;
+}): EmbedSource | null {
+  if (settings.embedSource === 'local') return { providerId: 'local', model: LOCAL_MODEL_ID };
+  const { providerId } = settings;
+  if (!embedSupported(providerId)) return null;
+  return {
+    providerId,
+    model: resolveEmbedModel(providerId, settings.embedModel),
+    baseUrl: providerId === 'openai-compatible' ? settings.baseUrl : undefined,
+  };
 }
