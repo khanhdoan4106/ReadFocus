@@ -22,7 +22,9 @@ function ortUrl(file: string): string {
   return new URL(`/${ORT_DIR}/${file}`, self.location.href).href;
 }
 
-env.allowLocalModels = false;
+// Phải bật: transformers.js từ chối khi cả hai nguồn cùng tắt. Địa chỉ model là URL nên
+// không bao giờ đọc đường dẫn cục bộ; nguồn từ xa chỉ bật trong lúc tải (xem `load`).
+env.allowLocalModels = true;
 env.useBrowserCache = true; // Cache API: tải một lần, các lần sau dùng offline.
 env.useWasmCache = false; // Tránh nạp runtime qua blob URL (CSP của extension chặn).
 const onnx = env.backends.onnx;
@@ -49,6 +51,7 @@ async function load(id: number, download: boolean): Promise<void> {
       revision: LOCAL_MODEL_REVISION,
       dtype: LOCAL_MODEL_DTYPE,
       device: 'wasm',
+      local_files_only: !download,
       progress_callback: (event: unknown) => {
         const { loaded, total } = tracker.update(event);
         post({ type: 'progress', id, loaded, total });

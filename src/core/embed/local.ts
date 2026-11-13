@@ -46,16 +46,27 @@ export function localModelFileUrl(file: LocalModelFile): string {
   return `${LOCAL_MODEL_HOST}${LOCAL_MODEL_ID}/resolve/${LOCAL_MODEL_REVISION}/${file.path}`;
 }
 
+/**
+ * transformers.js còn lưu thêm `config.json` theo nhánh `main` (không theo commit đã ghim);
+ * file nhỏ này cũng phải bị xoá cùng model. Kiểm chứng bằng Chromium thật ngày 13/11/2026.
+ */
+export function localModelCacheUrls(): string[] {
+  return [
+    ...LOCAL_MODEL_FILES.map(localModelFileUrl),
+    `${LOCAL_MODEL_HOST}${LOCAL_MODEL_ID}/resolve/main/config.json`,
+  ];
+}
+
 /** Phần cần của Cache API mà code dùng; `Cache` thật thoả mãn kiểu này. */
 export type CacheLike = {
   match(request: string): Promise<Response | undefined>;
   delete(request: string): Promise<boolean>;
 };
 
-/** Đủ mọi file thì model dùng được offline. */
+/** Đủ mọi file (kể cả `config.json` theo nhánh main) thì model dùng được offline. */
 export async function isModelCached(cache: CacheLike): Promise<boolean> {
-  for (const file of LOCAL_MODEL_FILES) {
-    if ((await cache.match(localModelFileUrl(file))) === undefined) return false;
+  for (const url of localModelCacheUrls()) {
+    if ((await cache.match(url)) === undefined) return false;
   }
   return true;
 }
@@ -63,8 +74,8 @@ export async function isModelCached(cache: CacheLike): Promise<boolean> {
 /** Xoá mọi file của model; trả về số file đã xoá. */
 export async function deleteModelFiles(cache: CacheLike): Promise<number> {
   let removed = 0;
-  for (const file of LOCAL_MODEL_FILES) {
-    if (await cache.delete(localModelFileUrl(file))) removed += 1;
+  for (const url of localModelCacheUrls()) {
+    if (await cache.delete(url)) removed += 1;
   }
   return removed;
 }
