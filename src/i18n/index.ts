@@ -44,6 +44,7 @@ export function mirrorPreference(preference: LanguagePreference): void {
 }
 
 let current: Locale = resolveLocale(readMirroredPreference(), browserLanguage());
+if (typeof document !== 'undefined') document.documentElement.lang = current;
 const listeners = new Set<() => void>();
 
 export function getLocale(): Locale {

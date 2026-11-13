@@ -10,7 +10,7 @@ export const en: Messages = {
   openFile: 'Open PDF',
   chooseFile: 'Choose a PDF',
   dropHint: 'Drag and drop a PDF here',
-  dropActive: 'Drop the file to open it',
+  dropActive: 'Drop to open',
 
   loading: 'Opening document…',
   emptyTitle: 'No document open',
@@ -38,6 +38,7 @@ export const en: Messages = {
     'Chrome doesn’t let extensions read file:// addresses directly. Open the file with “Open PDF” or drag it into the window. To open it by address, turn on “Allow access to file URLs” for ReadFocus in chrome://extensions.',
   retry: 'Choose another file',
 
+  toolbarLabel: 'Document controls',
   fileNameUnknown: 'Untitled document',
 
   profileBook: 'Book',
@@ -86,11 +87,11 @@ export const en: Messages = {
   sidebarLabel: 'Sidebar',
   tocTitle: 'Contents',
   tocEmpty: 'This document has no table of contents yet.',
-  tocBuilding: 'Building the table of contents…',
+  tocBuilding: 'Building contents…',
   tocPageRange: (start: number, end: number) =>
     start === end ? `Page ${start}` : `Pages ${start}–${end}`,
 
-  readingSectionLabel: 'Left in this section',
+  readingSectionLabel: 'Left in section',
   readingTotalLabel: 'Left in the document',
   readingMinutes: (minutes: number) => `${minutes} min`,
 
@@ -129,8 +130,8 @@ export const en: Messages = {
   contextMenuOpen: 'Open with ReadFocus',
 
   settingsTab: 'Settings',
-  autoOpenPdfTitle: 'Open PDFs with ReadFocus automatically',
-  autoOpenPdfToggle: 'Open PDFs automatically',
+  autoOpenPdfTitle: 'Auto-open PDFs in ReadFocus',
+  autoOpenPdfToggle: 'Auto-open PDFs',
   autoOpenPdfHint:
     'When on, PDF links on the web open in ReadFocus. This needs access to websites to recognize PDF links, and it doesn’t apply to links without a .pdf ending.',
   autoOpenPdfFileHint:
@@ -178,7 +179,7 @@ export const en: Messages = {
   aiClearKey: 'Remove key',
   aiKeyHint: 'The key is stored unencrypted on this computer and isn’t synced to your account.',
   aiKeySaveFailed: "Couldn't save the key. Check the extension's storage permission and try again.",
-  aiSaveKey: 'Keep the key on this computer',
+  aiSaveKey: 'Keep key on this computer',
   aiSaveKeyHint: 'Turn off to keep the key only until you close the browser.',
   aiLanguageLabel: 'AI output language',
   aiLanguageVi: 'Vietnamese',
@@ -239,7 +240,7 @@ export const en: Messages = {
   flashReveal: 'Show answer',
   flashRemembered: 'Got it',
   flashForgot: 'Missed it',
-  flashStop: 'Stop reviewing',
+  flashStop: 'End review',
   flashSessionDone: 'Done for today.',
   flashBack: 'Back',
 
@@ -287,7 +288,7 @@ export const en: Messages = {
   summaryCurrentSectionTitle: (title: string) => `Section: ${title}`,
   summarySectionRange: (start: number, end: number) =>
     start === end ? `Page ${start}` : `Pages ${start}–${end}`,
-  summarizeCurrentSection: 'Summarize this section',
+  summarizeCurrentSection: 'Summarize section',
   summarizeAllSections: 'Summarize everything',
   summarizeAllConfirmTitle: 'Summarize the whole document?',
   summarizeAllConfirmBody: (
@@ -336,7 +337,7 @@ export const en: Messages = {
   deleteDocumentDone: 'Deleted the document’s data.',
   deleteAllDone: 'Deleted all reading data.',
   deleteFailed: "Couldn't delete the data. Try again later.",
-  shortcutsTitle: 'Keyboard shortcuts',
+  shortcutsTitle: 'Shortcuts',
   shortcuts: [
     { keys: '/', label: 'Search' },
     { keys: 'F', label: 'Turn focus mode on or off' },

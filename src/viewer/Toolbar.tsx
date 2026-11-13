@@ -53,7 +53,7 @@ export function Toolbar({
   onToggleSidebar,
 }: Props) {
   return (
-    <header class="toolbar" role="group" aria-label="Điều khiển tài liệu">
+    <header class="toolbar" role="group" aria-label={t.toolbarLabel}>
       <button
         type="button"
         class="toolbar__button toolbar__button--primary"

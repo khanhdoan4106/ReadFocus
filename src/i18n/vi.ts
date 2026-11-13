@@ -34,6 +34,7 @@ export const vi = {
     'Chrome không cho extension đọc trực tiếp file://. Hãy mở bằng nút “Mở PDF” hoặc kéo thả file vào cửa sổ. Nếu muốn mở theo địa chỉ, bật “Cho phép truy cập URL tệp” cho ReadFocus trong chrome://extensions.',
   retry: 'Chọn file khác',
 
+  toolbarLabel: 'Điều khiển tài liệu',
   fileNameUnknown: 'Tài liệu không tên',
 
   profileBook: 'Sách',
