@@ -7,7 +7,6 @@ import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { chapterEstimate } from '../core/reading-time';
-import { formatTimer } from '../core/focus';
 import { vi } from '../i18n/vi';
 import {
   clearAllData,
@@ -33,9 +32,10 @@ import { useSettings } from './hooks/useSettings';
 import { useSummaries } from './hooks/useSummaries';
 import { useShortcuts } from './hooks/useShortcuts';
 import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
+import { Toolbar } from './Toolbar';
 import { ViewerSidebar } from './ViewerSidebar';
 
-import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
+import { errorMessage, type ErrorReason } from './labels';
 
 type Status = 'empty' | 'opening' | 'ready' | 'error';
 const FALLBACK_PAGE_SIZE: PageSize = { width: 612, height: 792 };
@@ -522,129 +522,28 @@ export function App() {
         if (file) void handleFile(file);
       }}
     >
-      <header class="toolbar" role="group" aria-label="Điều khiển tài liệu">
-        <button
-          type="button"
-          class="toolbar__button toolbar__button--primary"
-          onClick={() => inputRef.current?.click()}
-        >
-          {vi.openFile}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          hidden
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0];
-            if (file) void handleFile(file);
-            event.currentTarget.value = '';
-          }}
-        />
-
-        <span class="toolbar__name" title={fileName}>
-          {fileName || vi.fileNameUnknown}
-        </span>
-
-        {status === 'ready' && analysis.phase === 'done' && (
-          <span class="toolbar__profile">{profileLabel(analysis.profile.kind)}</span>
-        )}
-
-        {timer.status !== 'idle' && (
-          <button
-            type="button"
-            class={`toolbar__button toolbar__timer${
-              timer.status === 'paused' ? ' toolbar__timer--paused' : ''
-            }`}
-            aria-label={vi.timerToggleAria(
-              timerModeLabel(timer.mode),
-              formatTimer(remainingTimerMs),
-            )}
-            onClick={toggleTimer}
-          >
-            <span class="toolbar__timer-mode">{timerModeLabel(timer.mode)}</span>
-            <span class="toolbar__timer-time">{formatTimer(remainingTimerMs)}</span>
-          </button>
-        )}
-
-        <div class="toolbar__group">
-          <button
-            type="button"
-            class="toolbar__button"
-            aria-label={vi.previousPage}
-            disabled={status !== 'ready' || pageNumber <= 1}
-            onClick={() => goToPage(pageNumberRef.current - 1)}
-          >
-            ←
-          </button>
-          <input
-            class="toolbar__page"
-            type="number"
-            min={1}
-            max={totalPages}
-            aria-label={vi.pageInputLabel}
-            value={pageDraft}
-            disabled={status !== 'ready'}
-            onInput={(event) => setPageDraft(event.currentTarget.value)}
-            onBlur={commitPageDraft}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commitPageDraft();
-            }}
-          />
-          <span class="toolbar__total">{vi.pageLabel(pageNumber, Math.max(totalPages, 1))}</span>
-          <button
-            type="button"
-            class="toolbar__button"
-            aria-label={vi.nextPage}
-            disabled={status !== 'ready' || pageNumber >= totalPages}
-            onClick={() => goToPage(pageNumberRef.current + 1)}
-          >
-            →
-          </button>
-        </div>
-
-        <div class="toolbar__group">
-          <button
-            type="button"
-            class="toolbar__button"
-            aria-label={vi.zoomOut}
-            disabled={status !== 'ready'}
-            onClick={() => handleZoom(-1)}
-          >
-            −
-          </button>
-          <span class="toolbar__zoom">{vi.zoomLabel(Math.round(scale * 100))}</span>
-          <button
-            type="button"
-            class="toolbar__button"
-            aria-label={vi.zoomIn}
-            disabled={status !== 'ready'}
-            onClick={() => handleZoom(1)}
-          >
-            +
-          </button>
-          <button
-            type="button"
-            class="toolbar__button"
-            disabled={status !== 'ready'}
-            onClick={handleFitWidth}
-          >
-            {vi.zoomFitWidth}
-          </button>
-        </div>
-
-        <button
-          type="button"
-          class="toolbar__button"
-          aria-label={vi.tocTitle}
-          aria-expanded={sidebarOpen}
-          aria-controls="viewer-sidebar"
-          disabled={status !== 'ready'}
-          onClick={() => setSidebarOpen((open) => !open)}
-        >
-          {vi.tocTitle}
-        </button>
-      </header>
+      <Toolbar
+        ready={status === 'ready'}
+        fileName={fileName}
+        profileKind={status === 'ready' && analysis.phase === 'done' ? analysis.profile.kind : null}
+        timer={timer}
+        remainingMs={remainingTimerMs}
+        pageNumber={pageNumber}
+        pageDraft={pageDraft}
+        totalPages={totalPages}
+        scale={scale}
+        sidebarOpen={sidebarOpen}
+        inputRef={inputRef}
+        onOpenFile={(file) => void handleFile(file)}
+        onPrevious={() => goToPage(pageNumberRef.current - 1)}
+        onNext={() => goToPage(pageNumberRef.current + 1)}
+        onChangePageDraft={setPageDraft}
+        onCommitPageDraft={commitPageDraft}
+        onZoom={handleZoom}
+        onFitWidth={handleFitWidth}
+        onToggleTimer={toggleTimer}
+        onToggleSidebar={handleToggleSidebar}
+      />
 
       {showNotice && (
         <section class="notice" aria-live="polite">
