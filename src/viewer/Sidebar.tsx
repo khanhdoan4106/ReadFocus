@@ -13,6 +13,35 @@ import { SummaryPanel, type SummaryPanelProps } from './SummaryPanel';
 
 type SidebarTab = 'toc' | 'summary' | 'ask' | 'flash' | 'search' | 'focus' | 'settings';
 
+const TAB_ORDER: readonly SidebarTab[] = [
+  'toc',
+  'summary',
+  'ask',
+  'flash',
+  'search',
+  'focus',
+  'settings',
+];
+
+function tabLabel(id: SidebarTab): string {
+  switch (id) {
+    case 'toc':
+      return t.tocTitle;
+    case 'summary':
+      return t.summaryTab;
+    case 'ask':
+      return t.askTab;
+    case 'flash':
+      return t.flashTab;
+    case 'search':
+      return t.searchTab;
+    case 'focus':
+      return t.focusTab;
+    case 'settings':
+      return t.settingsTab;
+  }
+}
+
 type SidebarProps = {
   toc: TocResult | null;
   currentPage: number;
@@ -57,72 +86,45 @@ export function Sidebar({
     if (searchRequest > 0) setTab('search');
   }, [searchRequest]);
 
+  /** Mẫu WAI-ARIA Tabs: ←/→ vòng quanh, Home/End về đầu/cuối, chọn và focus tab mới ngay. */
+  const onTabsKeyDown = (event: KeyboardEvent) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const from = TAB_ORDER.indexOf(tab);
+    let to: number;
+    if (event.key === 'ArrowRight') to = (from + 1) % TAB_ORDER.length;
+    else if (event.key === 'ArrowLeft') to = (from - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+    else if (event.key === 'Home') to = 0;
+    else if (event.key === 'End') to = TAB_ORDER.length - 1;
+    else return;
+    event.preventDefault();
+    const next = TAB_ORDER[to];
+    if (next === undefined) return;
+    setTab(next);
+    document.getElementById(`sidebar-tab-${next}`)?.focus();
+  };
+
   return (
     <aside class="sidebar" id="viewer-sidebar">
-      <div class="sidebar__tabs" role="tablist" aria-label={t.sidebarLabel}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'toc'}
-          class={`sidebar__tab${tab === 'toc' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('toc')}
-        >
-          {t.tocTitle}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'summary'}
-          class={`sidebar__tab${tab === 'summary' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('summary')}
-        >
-          {t.summaryTab}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'ask'}
-          class={`sidebar__tab${tab === 'ask' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('ask')}
-        >
-          {t.askTab}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'flash'}
-          class={`sidebar__tab${tab === 'flash' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('flash')}
-        >
-          {t.flashTab}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'search'}
-          class={`sidebar__tab${tab === 'search' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('search')}
-        >
-          {t.searchTab}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'focus'}
-          class={`sidebar__tab${tab === 'focus' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('focus')}
-        >
-          {t.focusTab}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'settings'}
-          class={`sidebar__tab${tab === 'settings' ? ' sidebar__tab--active' : ''}`}
-          onClick={() => setTab('settings')}
-        >
-          {t.settingsTab}
-        </button>
+      <div
+        class="sidebar__tabs"
+        role="tablist"
+        aria-label={t.sidebarLabel}
+        onKeyDown={onTabsKeyDown}
+      >
+        {TAB_ORDER.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            id={`sidebar-tab-${id}`}
+            aria-selected={tab === id}
+            tabIndex={tab === id ? 0 : -1}
+            class={`sidebar__tab${tab === id ? ' sidebar__tab--active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {tabLabel(id)}
+          </button>
+        ))}
       </div>
 
       {tab === 'toc' ? (
