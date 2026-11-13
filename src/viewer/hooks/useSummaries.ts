@@ -18,7 +18,7 @@ import { summarizeSection } from '../../core/summarize/run';
 import { pagesInSpan, type WorkEstimate } from '../../core/summarize/work';
 import type { SummaryRecord } from '../../core/summarize/record';
 import { type TocResult } from '../../core/toc';
-import { vi } from '../../i18n/vi';
+import { t } from '../../i18n';
 import { loadSummariesForDoc, saveSummary, type TocItem } from '../../storage/db';
 import { aiErrorMessage } from '../ai-errors';
 
@@ -51,7 +51,10 @@ export function useSummaries({
   analysis,
   onSelectPage,
 }: Input) {
-  const aiSettings = ai.settings;
+  const aiSettings = useMemo(
+    () => ({ ...ai.settings, language: ai.effectiveLanguage }),
+    [ai.settings, ai.effectiveLanguage],
+  );
   const aiKey = ai.apiKey;
   const aiModel = ai.model;
   const setAiNotice = ai.setNotice;
@@ -140,14 +143,14 @@ export function useSummaries({
       const granted = await chromeApi.permissions.request({ origins: [origin] });
       if (scope.generationRef.current !== generation) return;
       if (!granted) {
-        setSummaryError({ kind: 'network', message: vi.aiPermissionDenied });
+        setSummaryError({ kind: 'network', message: t.aiPermissionDenied });
         return;
       }
     }
 
     const pages = pagesInSpan(extractedPages, section);
     if (pages.length === 0 || !pages.some((page) => page.text.trim().length > 0)) {
-      setSummaryError({ kind: 'bad-response', message: vi.summarizeNoText });
+      setSummaryError({ kind: 'bad-response', message: t.summarizeNoText });
       return;
     }
 
@@ -211,11 +214,11 @@ export function useSummaries({
     } catch (error) {
       if (!isActive()) return;
       if (abortCtrl.signal.aborted) {
-        setSummaryError({ kind: 'cancelled', message: vi.aiErrorMessages.cancelled });
+        setSummaryError({ kind: 'cancelled', message: t.aiErrorMessages.cancelled });
       } else if (isLLMError(error)) {
         setSummaryError({ kind: error.kind, message: aiErrorMessage(error, aiSettings) });
       } else {
-        setSummaryError({ kind: 'unknown', message: vi.aiErrorMessages.unknown });
+        setSummaryError({ kind: 'unknown', message: t.aiErrorMessages.unknown });
       }
     } finally {
       if (scope.summaryAbortRef.current === abortCtrl) {
@@ -230,7 +233,7 @@ export function useSummaries({
     if (!currentSection || !docId) return;
 
     if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      setAiNotice({ tone: 'error', message: t.aiMissingKey });
       return;
     }
 
@@ -248,7 +251,7 @@ export function useSummaries({
   const handleSummarizeAllClick = useCallback(() => {
     if (!toc || !docId) return;
     if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      setAiNotice({ tone: 'error', message: t.aiMissingKey });
       return;
     }
     setBatchOutcome(null);
@@ -256,7 +259,7 @@ export function useSummaries({
     if (plan.todo.length === 0) {
       setSummaryError({
         kind: 'bad-response',
-        message: plan.cachedCount > 0 ? vi.summarizeAllNothingToDo : vi.summarizeAllNoText,
+        message: plan.cachedCount > 0 ? t.summarizeAllNothingToDo : t.summarizeAllNoText,
       });
       return;
     }
@@ -284,7 +287,7 @@ export function useSummaries({
         if (!granted) {
           setBatchOutcome({
             failed: [],
-            error: { kind: 'network', message: vi.aiPermissionDenied },
+            error: { kind: 'network', message: t.aiPermissionDenied },
           });
           return;
         }
@@ -362,7 +365,7 @@ export function useSummaries({
             ? null
             : isLLMError(result.fatal)
               ? { kind: result.fatal.kind, message: aiErrorMessage(result.fatal, aiSettings) }
-              : { kind: 'unknown', message: vi.aiErrorMessages.unknown },
+              : { kind: 'unknown', message: t.aiErrorMessages.unknown },
       });
     },
     [docId, aiSettings, aiKey, aiModel, analysis, extractedPages],

@@ -11,7 +11,7 @@ import type { AiSettings } from '../core/llm/settings';
 import type { TextPage } from '../core/summarize/chunk';
 import { searchIndex as runSearch, type SearchIndex } from '../core/search';
 import { clearQaForDoc, deleteQa, loadQa, saveQa } from '../storage/db';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { aiErrorMessage } from './ai-errors';
 import type { SemanticApi } from './semantic';
 
@@ -95,7 +95,7 @@ export function useAsk({
         });
         if (scopeRef.current !== scope) return;
         if (!granted) {
-          setError(vi.aiPermissionDenied);
+          setError(t.aiPermissionDenied);
           return;
         }
       }
@@ -143,7 +143,7 @@ export function useAsk({
         if (!isActive()) return;
 
         if (record === null) {
-          setError(vi.askNoContext);
+          setError(t.askNoContext);
           return;
         }
         await saveQa(record);
@@ -152,7 +152,7 @@ export function useAsk({
       } catch (caught) {
         if (!isActive()) return;
         if (isLLMError(caught) && caught.kind === 'cancelled')
-          setError(vi.aiErrorMessages.cancelled);
+          setError(t.aiErrorMessages.cancelled);
         else setError(aiErrorMessage(caught, settings));
       } finally {
         if (runRef.current === current) {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { type PageRange } from '../core/ocr/pages';
 import { chapterEstimate } from '../core/reading-time';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { PageList } from './PageList';
 import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
@@ -257,24 +257,24 @@ export function App() {
         <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
           {status === 'empty' && (
             <div class="empty">
-              <h1>{vi.appName}</h1>
-              <p class="empty__title">{vi.emptyTitle}</p>
-              <p class="empty__hint">{vi.emptyHint}</p>
+              <h1>{t.appName}</h1>
+              <p class="empty__title">{t.emptyTitle}</p>
+              <p class="empty__hint">{t.emptyHint}</p>
               <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-                {vi.chooseFile}
+                {t.chooseFile}
               </button>
-              <p class="empty__drop">{vi.dropHint}</p>
+              <p class="empty__drop">{t.dropHint}</p>
             </div>
           )}
 
-          {status === 'opening' && <p class="status">{vi.loading}</p>}
+          {status === 'opening' && <p class="status">{t.loading}</p>}
 
           {status === 'error' && (
             <div class="empty" role="alert">
-              <h1>{vi.errorTitle}</h1>
+              <h1>{t.errorTitle}</h1>
               <p class="empty__hint">{errorMessage(error)}</p>
               <button type="button" class="empty__action" onClick={() => inputRef.current?.click()}>
-                {vi.retry}
+                {t.retry}
               </button>
             </div>
           )}
@@ -345,7 +345,7 @@ export function App() {
         />
       )}
 
-      {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}
+      {isDragging && <div class="drop-overlay">{t.dropActive}</div>}
     </div>
   );
 }

@@ -41,7 +41,10 @@ describe('sanitizeAiSettings', () => {
     expect(sanitizeAiSettings(null)).toEqual(defaultAiSettings());
     expect(sanitizeAiSettings('abc')).toEqual(defaultAiSettings());
     expect(sanitizeAiSettings({ providerId: 'khác' }).providerId).toBe('openai');
-    expect(sanitizeAiSettings({ language: 'en' }).language).toBe('vi');
+    expect(sanitizeAiSettings({ language: 'khác' }).language).toBe('vi');
+    expect(sanitizeAiSettings({ language: 'en' }).language).toBe('en');
+    expect(sanitizeAiSettings({ language: 'ui' }).language).toBe('ui');
+    expect(sanitizeAiSettings({ language: 'document' }).language).toBe('document');
   });
 
   it('model rỗng dùng model mặc định của provider đã chọn', () => {

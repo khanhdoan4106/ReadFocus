@@ -1,6 +1,6 @@
 import { formatTimer, MAX_BAND_HEIGHT, MIN_BAND_HEIGHT, type FocusTimer } from '../core/focus';
 import { totalReading, type DayStats } from '../core/stats';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 
 export type FocusPanelProps = {
   timer: FocusTimer;
@@ -26,22 +26,22 @@ export type FocusPanelProps = {
 function modeLabel(mode: FocusTimer['mode']): string {
   switch (mode) {
     case 'chapter':
-      return vi.timerModeChapter;
+      return t.timerModeChapter;
     case 'focus':
-      return vi.timerModeFocus;
+      return t.timerModeFocus;
     case 'break':
-      return vi.timerModeBreak;
+      return t.timerModeBreak;
   }
 }
 
 function statusLabel(timer: FocusTimer): string | null {
   switch (timer.status) {
     case 'running':
-      return vi.timerStatusRunning;
+      return t.timerStatusRunning;
     case 'paused':
-      return vi.timerStatusPaused;
+      return t.timerStatusPaused;
     case 'finished':
-      return vi.timerStatusFinished;
+      return t.timerStatusFinished;
     case 'idle':
       return null;
   }
@@ -74,26 +74,26 @@ export function FocusPanel({
   return (
     <div class="focus-panel">
       <section class="focus-card">
-        <h3 class="focus-card__title">{vi.chapterTimerTitle}</h3>
-        <p class="focus-card__hint">{vi.chapterTimerHint}</p>
+        <h3 class="focus-card__title">{t.chapterTimerTitle}</h3>
+        <p class="focus-card__hint">{t.chapterTimerHint}</p>
         <button
           type="button"
           class="focus-button focus-button--primary"
           disabled={chapterMinutes <= 0}
           onClick={onStartChapter}
         >
-          {vi.chapterTimerStart}
-          {chapterMinutes > 0 ? ` · ${vi.readingMinutes(chapterMinutes)}` : ''}
+          {t.chapterTimerStart}
+          {chapterMinutes > 0 ? ` · ${t.readingMinutes(chapterMinutes)}` : ''}
         </button>
-        {chapterMinutes <= 0 && <p class="focus-card__hint">{vi.chapterTimerUnavailable}</p>}
+        {chapterMinutes <= 0 && <p class="focus-card__hint">{t.chapterTimerUnavailable}</p>}
       </section>
 
       <section class="focus-card">
-        <h3 class="focus-card__title">{vi.pomodoroTitle}</h3>
-        <p class="focus-card__hint">{vi.pomodoroHint}</p>
+        <h3 class="focus-card__title">{t.pomodoroTitle}</h3>
+        <p class="focus-card__hint">{t.pomodoroHint}</p>
         <div class="focus-fields">
           <label class="focus-field">
-            <span>{vi.focusMinutesLabel}</span>
+            <span>{t.focusMinutesLabel}</span>
             <input
               type="number"
               min={1}
@@ -106,7 +106,7 @@ export function FocusPanel({
             />
           </label>
           <label class="focus-field">
-            <span>{vi.breakMinutesLabel}</span>
+            <span>{t.breakMinutesLabel}</span>
             <input
               type="number"
               min={1}
@@ -130,7 +130,7 @@ export function FocusPanel({
               class="focus-timer__progress"
               value={timer.durationMs - remainingMs}
               max={timer.durationMs}
-              aria-label={vi.timerModeFocus}
+              aria-label={t.timerModeFocus}
             />
           )}
           {status !== null && <p class="focus-timer__status">{status}</p>}
@@ -139,26 +139,26 @@ export function FocusPanel({
         <div class="focus-actions">
           {active ? (
             <button type="button" class="focus-button" onClick={onToggleTimer}>
-              {timer.status === 'running' ? vi.timerPause : vi.timerResume}
+              {timer.status === 'running' ? t.timerPause : t.timerResume}
             </button>
           ) : (
             <button type="button" class="focus-button" onClick={onStartPomodoro}>
-              {vi.pomodoroStart}
+              {t.pomodoroStart}
             </button>
           )}
           {timer.status !== 'idle' && (
             <button type="button" class="focus-button" onClick={onStopTimer}>
-              {vi.timerStop}
+              {t.timerStop}
             </button>
           )}
         </div>
       </section>
 
       <section class="focus-card">
-        <h3 class="focus-card__title">{vi.focusModeTitle}</h3>
-        <p class="focus-card__hint">{vi.focusModeHint}</p>
+        <h3 class="focus-card__title">{t.focusModeTitle}</h3>
+        <p class="focus-card__hint">{t.focusModeHint}</p>
         <label class="focus-field focus-field--range">
-          <span>{vi.focusBandLabel}</span>
+          <span>{t.focusBandLabel}</span>
           <input
             type="range"
             min={MIN_BAND_HEIGHT}
@@ -167,7 +167,7 @@ export function FocusPanel({
             value={bandHeight}
             onInput={(event) => onChangeBandHeight(Number(event.currentTarget.value))}
           />
-          <span class="focus-field__value">{vi.focusBandValue(bandHeight)}</span>
+          <span class="focus-field__value">{t.focusBandValue(bandHeight)}</span>
         </label>
         <div class="focus-actions">
           <button
@@ -175,28 +175,28 @@ export function FocusPanel({
             class="focus-button focus-button--primary"
             onClick={onToggleFocusMode}
           >
-            {vi.focusModeOn}
+            {t.focusModeOn}
           </button>
           <button type="button" class="focus-button" onClick={onToggleFullscreen}>
-            {fullscreen ? vi.focusExitFullscreen : vi.focusFullscreen}
+            {fullscreen ? t.focusExitFullscreen : t.focusFullscreen}
           </button>
         </div>
       </section>
 
       <section class="focus-card">
-        <h3 class="focus-card__title">{vi.statsTitle}</h3>
+        <h3 class="focus-card__title">{t.statsTitle}</h3>
         <dl class="focus-stats">
           <div class="focus-stats__row">
-            <dt>{vi.statsToday}</dt>
-            <dd>{vi.statsSummary(Math.round(statsToday.minutes), statsToday.pages)}</dd>
+            <dt>{t.statsToday}</dt>
+            <dd>{t.statsSummary(Math.round(statsToday.minutes), statsToday.pages)}</dd>
           </div>
           <div class="focus-stats__row">
-            <dt>{vi.statsRecent}</dt>
-            <dd>{vi.statsSummary(Math.round(week.minutes), week.pages)}</dd>
+            <dt>{t.statsRecent}</dt>
+            <dd>{t.statsSummary(Math.round(week.minutes), week.pages)}</dd>
           </div>
         </dl>
         {statsToday.pages === 0 && statsRecent.length === 0 && (
-          <p class="focus-card__hint">{vi.statsEmpty}</p>
+          <p class="focus-card__hint">{t.statsEmpty}</p>
         )}
       </section>
     </div>

@@ -4,7 +4,7 @@ import { looksVietnamese } from './tokens';
 /** Tăng mỗi khi sửa prompt, để cache cũ không bị dùng lại. */
 export const PROMPT_VERSION = 1;
 
-export type SummaryLanguageSetting = 'vi' | 'document';
+export type SummaryLanguageSetting = 'vi' | 'en' | 'document';
 export type OutputLanguage = 'vi' | 'en';
 
 const KIND_DESCRIPTION: Record<DocKind, string> = {
@@ -32,6 +32,7 @@ export function resolveOutputLanguage(
   sampleText: string,
 ): OutputLanguage {
   if (setting === 'vi') return 'vi';
+  if (setting === 'en') return 'en';
   return looksVietnamese(sampleText) ? 'vi' : 'en';
 }
 

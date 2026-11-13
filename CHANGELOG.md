@@ -5,6 +5,7 @@
 ## [Unreleased]
 
 ### Thêm
+- Giao diện tiếng Anh: Cài đặt → Ngôn ngữ (theo trình duyệt, Tiếng Việt, English), đổi ngay không cần tải lại; tên và mô tả extension, mục menu chuột phải theo ngôn ngữ trình duyệt (`_locales`). Ngôn ngữ đầu ra của AI thêm lựa chọn English và "Theo ngôn ngữ giao diện".
 - Khung dự án, quy trình làm việc và CI.
 - Tóm tắt bằng AI (tuỳ chọn, người dùng tự nhập key): OpenAI, Google Gemini, Anthropic và OpenAI-compatible (Ollama, LM Studio).
 - Cài đặt → AI: chọn nhà cung cấp và model, kiểm tra kết nối, tuỳ chọn không lưu key, xoá key, hộp xác nhận gửi dữ liệu lần đầu, xin quyền truy cập đúng địa chỉ API khi cần.

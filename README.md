@@ -19,6 +19,8 @@ Extension Chrome giúp đọc PDF dễ chịu hơn: tự lập mục lục, tìm
 - **Thẻ ôn tập**: tạo thẻ từ các bản tóm tắt (không gọi AI) hoặc nhờ AI tạo thêm cho một mục, ôn theo 5 hộp Leitner, xuất CSV nhập vào Anki.
 - **Cài đặt**: giao diện sáng/tối/theo hệ thống, tốc độ đọc, tự mở PDF trên web, xoá dữ liệu đã lưu.
 
+Giao diện có tiếng Việt và English; chọn ở Cài đặt → Ngôn ngữ (mặc định theo trình duyệt).
+
 ## Cài đặt
 
 Cần Node 22 và Chrome có hỗ trợ Manifest V3.

@@ -10,7 +10,7 @@ import {
 } from '../../core/ocr/pages';
 import { runOcr, withOcrEngine } from '../../core/ocr/run';
 import type { OcrPageView } from '../../core/ocr/types';
-import { vi } from '../../i18n/vi';
+import { t } from '../../i18n';
 import { loadOcrPages, savePageTexts } from '../../storage/db';
 import { type OcrReport } from '../OcrPanel';
 import { readTextLayers, renderPageForOcr } from '../ocr';
@@ -61,7 +61,7 @@ export function useOcr({
           cancelled: false,
           failedPages: [],
           lowConfidencePages: [],
-          error: vi.ocrEngineError,
+          error: t.ocrEngineError,
         });
         return;
       }
@@ -126,7 +126,7 @@ export function useOcr({
         if (error instanceof DOMException && error.name === 'AbortError') {
           report.cancelled = true;
         } else {
-          report.error = vi.ocrEngineError;
+          report.error = t.ocrEngineError;
         }
       } finally {
         if (isActive()) {

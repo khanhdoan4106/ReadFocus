@@ -5,7 +5,7 @@ import { clampPage, fitWidthScale, stepZoom } from '../../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../../core/pdf-url';
 import { readRequestedPdfUrl } from '../../core/pdf-redirect';
 import { acceptPageReport, canPersistProgress } from '../../core/progress';
-import { vi } from '../../i18n/vi';
+import { t } from '../../i18n';
 import {
   clearAllData,
   deleteDocumentData,
@@ -285,11 +285,11 @@ export function useDocument({ lifecycle, showToast }: Input) {
 
   const handleDeleteDocument = useCallback(async () => {
     if (docId === null) return;
-    if (!window.confirm(vi.deleteDocumentConfirm(fileName))) return;
+    if (!window.confirm(t.deleteDocumentConfirm(fileName))) return;
 
     const ok = await deleteDocumentData(docId);
     if (!ok) {
-      showToast(vi.deleteFailed);
+      showToast(t.deleteFailed);
       return;
     }
 
@@ -300,21 +300,21 @@ export function useDocument({ lifecycle, showToast }: Input) {
     lifecycle.current.forgetSummaries();
     lifecycle.current.forgetOcr();
     lifecycle.current.stopBackground();
-    showToast(vi.deleteDocumentDone);
+    showToast(t.deleteDocumentDone);
   }, [docId, fileName, showToast]);
 
   const handleDeleteAll = useCallback(async () => {
-    if (!window.confirm(vi.deleteAllConfirm)) return;
+    if (!window.confirm(t.deleteAllConfirm)) return;
 
     const ok = await clearAllData();
     if (!ok) {
-      showToast(vi.deleteFailed);
+      showToast(t.deleteFailed);
       return;
     }
 
     await resetDocument();
     lifecycle.current.resetStats();
-    showToast(vi.deleteAllDone);
+    showToast(t.deleteAllDone);
   }, [resetDocument, showToast]);
 
   const previousScaleRef = useRef(scale);

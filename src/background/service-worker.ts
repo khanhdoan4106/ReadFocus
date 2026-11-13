@@ -4,7 +4,7 @@ import {
   PDF_REDIRECT_REGEX,
   PDF_REDIRECT_RULE_ID,
 } from '../core/pdf-redirect';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 
 const MENU_ID = 'readfocus-open';
 const AUTO_OPEN_KEY = 'autoOpenPdf';
@@ -76,7 +76,8 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU_ID,
-      title: vi.contextMenuOpen,
+      // Theo ngôn ngữ trình duyệt (cùng nguồn với tên extension); dự phòng bằng bảng chữ của viewer.
+      title: chrome.i18n.getMessage('contextMenuOpen') || t.contextMenuOpen,
       contexts: ['page', 'link'],
     });
   });

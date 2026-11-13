@@ -5,7 +5,7 @@ import {
   validateOcrRange,
   type PageRange,
 } from '../core/ocr/pages';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 
 export type OcrReport = {
   recognized: number;
@@ -53,10 +53,10 @@ export function OcrPanel({
     if (!result.ok) {
       setRangeError(
         result.error === 'too-long'
-          ? vi.ocrRangeTooLong(OCR_MAX_PAGES)
+          ? t.ocrRangeTooLong(OCR_MAX_PAGES)
           : result.error === 'out-of-bounds'
-            ? vi.ocrRangeOutOfBounds(pageCount)
-            : vi.ocrRangeInvalid,
+            ? t.ocrRangeOutOfBounds(pageCount)
+            : t.ocrRangeInvalid,
       );
       return;
     }
@@ -66,20 +66,20 @@ export function OcrPanel({
 
   return (
     <div class="ocr-panel">
-      <p class="notice__text">{vi.ocrHint}</p>
+      <p class="notice__text">{t.ocrHint}</p>
 
       {running ? (
         <div class="notice__progress">
           <progress value={running.done} max={running.total} />
-          <span>{vi.ocrRunning(running.done, running.total)}</span>
+          <span>{t.ocrRunning(running.done, running.total)}</span>
           <button type="button" class="notice__button" onClick={onCancel}>
-            {vi.ocrCancel}
+            {t.ocrCancel}
           </button>
         </div>
       ) : (
         <form class="notice__form" onSubmit={submit}>
           <label class="notice__field">
-            {vi.indexFrom}
+            {t.indexFrom}
             <input
               type="number"
               min={1}
@@ -89,7 +89,7 @@ export function OcrPanel({
             />
           </label>
           <label class="notice__field">
-            {vi.indexTo}
+            {t.indexTo}
             <input
               type="number"
               min={1}
@@ -99,7 +99,7 @@ export function OcrPanel({
             />
           </label>
           <button type="submit" class="notice__button">
-            {vi.ocrStart}
+            {t.ocrStart}
           </button>
         </form>
       )}
@@ -113,23 +113,23 @@ export function OcrPanel({
       {report && !running && (
         <div class="ocr-panel__report" role="status">
           {report.error && <p class="notice__error">{report.error}</p>}
-          {report.nothingToDo && <p class="notice__text">{vi.ocrNothingToDo}</p>}
-          {report.cancelled && <p class="notice__text">{vi.ocrCancelled}</p>}
+          {report.nothingToDo && <p class="notice__text">{t.ocrNothingToDo}</p>}
+          {report.cancelled && <p class="notice__text">{t.ocrCancelled}</p>}
           {!report.error && !report.nothingToDo && report.recognized > 0 && (
-            <p class="notice__text">{vi.ocrDone(report.recognized)}</p>
+            <p class="notice__text">{t.ocrDone(report.recognized)}</p>
           )}
           {report.failedPages.length > 0 && (
-            <p class="notice__error">{vi.ocrFailedPages(listPages(report.failedPages))}</p>
+            <p class="notice__error">{t.ocrFailedPages(listPages(report.failedPages))}</p>
           )}
           {report.lowConfidencePages.length > 0 && (
             <p class="notice__text notice__text--warning">
-              {vi.ocrLowConfidence(listPages(report.lowConfidencePages))}
+              {t.ocrLowConfidence(listPages(report.lowConfidencePages))}
             </p>
           )}
         </div>
       )}
 
-      {hasOcrPages && !running && <p class="notice__text">{vi.ocrReviewNote}</p>}
+      {hasOcrPages && !running && <p class="notice__text">{t.ocrReviewNote}</p>}
     </div>
   );
 }

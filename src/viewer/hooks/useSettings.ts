@@ -7,7 +7,18 @@ import {
   type ReadingSpeed,
 } from '../../core/reading-time';
 import { parseThemePreference, THEME_SETTING_KEY, type ThemePreference } from '../../core/theme';
-import { vi } from '../../i18n/vi';
+import {
+  browserLanguage,
+  LANGUAGE_SETTING_KEY,
+  mirrorPreference,
+  parseLanguagePreference,
+  readMirroredPreference,
+  resolveLocale,
+  setLocale,
+  subscribeLocale,
+  t,
+  type LanguagePreference,
+} from '../../i18n';
 import { loadSetting, saveSetting } from '../../storage/db';
 import { applyTheme, watchSystemTheme } from '../theme';
 
@@ -20,6 +31,10 @@ export function useSettings({ showToast }: Input) {
   const [speed, setSpeed] = useState<ReadingSpeed>(emptyReadingSpeed);
   const [autoOpenPdf, setAutoOpenPdf] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>('system');
+  const [language, setLanguage] = useState<LanguagePreference>(readMirroredPreference);
+  // Đổi ngôn ngữ thì render lại cả viewer để chữ đổi ngay.
+  const [, setLocaleTick] = useState(0);
+  useEffect(() => subscribeLocale(() => setLocaleTick((tick) => tick + 1)), []);
   const autoOpenSupported =
     typeof chrome !== 'undefined' &&
     chrome.permissions !== undefined &&
@@ -59,6 +74,23 @@ export function useSettings({ showToast }: Input) {
     void saveSetting(THEME_SETTING_KEY, value);
   }, []);
 
+  // Nạp ngôn ngữ giao diện đã chọn; "theo trình duyệt" thì tuỳ ngôn ngữ của trình duyệt.
+  useEffect(() => {
+    void loadSetting<unknown>(LANGUAGE_SETTING_KEY).then((value) => {
+      const preference = parseLanguagePreference(value);
+      setLanguage(preference);
+      mirrorPreference(preference);
+      setLocale(resolveLocale(preference, browserLanguage()));
+    });
+  }, []);
+
+  const handleLanguage = useCallback((value: LanguagePreference) => {
+    setLanguage(value);
+    mirrorPreference(value);
+    setLocale(resolveLocale(value, browserLanguage()));
+    void saveSetting(LANGUAGE_SETTING_KEY, value);
+  }, []);
+
   const handleWordsPerMinute = useCallback((value: number) => {
     setSpeed(speedFromWordsPerMinute(value));
   }, []);
@@ -93,13 +125,13 @@ export function useSettings({ showToast }: Input) {
         const granted = await chromeApi.permissions.request({ origins: ['*://*/*'] });
         if (!granted) {
           setAutoOpenPdf(false);
-          showToast(vi.autoOpenPermissionDenied);
+          showToast(t.autoOpenPermissionDenied);
           return;
         }
         await chromeApi.storage.sync.set({ autoOpenPdf: true });
         setAutoOpenPdf(true);
         await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
-        showToast(vi.autoOpenEnabled);
+        showToast(t.autoOpenEnabled);
         return;
       }
 
@@ -107,10 +139,10 @@ export function useSettings({ showToast }: Input) {
       setAutoOpenPdf(false);
       await chromeApi.runtime.sendMessage({ type: 'sync-auto-open-pdf' });
       await chromeApi.permissions.remove({ origins: ['*://*/*'] });
-      showToast(vi.autoOpenDisabled);
+      showToast(t.autoOpenDisabled);
     } catch {
       setAutoOpenPdf(false);
-      showToast(vi.autoOpenPermissionDenied);
+      showToast(t.autoOpenPermissionDenied);
     }
   }, []);
 
@@ -122,6 +154,8 @@ export function useSettings({ showToast }: Input) {
     wordsPerMinute: readingWordsPerMinute,
     autoOpenPdf,
     autoOpenSupported,
+    language,
+    onChangeLanguage: handleLanguage,
     onChangeTheme: handleTheme,
     onChangeWordsPerMinute: handleWordsPerMinute,
     onToggleAutoOpen: handleAutoOpenPdf,

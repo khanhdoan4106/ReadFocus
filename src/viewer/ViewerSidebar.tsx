@@ -1,7 +1,7 @@
 import type { TocItem } from '../storage/db';
 import { aiConfigProblem } from '../core/llm/settings';
 import { clampBandHeight, clampMinutes } from '../core/focus';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { Sidebar } from './Sidebar';
 
 import type { useFocusTimer } from './hooks/useFocusTimer';
@@ -114,6 +114,8 @@ export function ViewerSidebar({
         onToggleFullscreen: toggleFullscreen,
       }}
       settings={{
+        language: settings.language,
+        onChangeLanguage: settings.onChangeLanguage,
         theme: settings.theme,
         onChangeTheme: settings.onChangeTheme,
         ai: ai.panel,
@@ -136,7 +138,7 @@ export function ViewerSidebar({
         aiConfigured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
         sectionLabel: currentSection
           ? currentSection.title ||
-            vi.summarySectionRange(currentSection.startPage, currentSection.endPage)
+            t.summarySectionRange(currentSection.startPage, currentSection.endPage)
           : null,
         onOpenSettings: () => {},
         onSelectPage: onSelectPage,

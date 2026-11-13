@@ -16,7 +16,7 @@ import {
   type FocusTimer,
   type TimerMode,
 } from '../../core/focus';
-import { vi } from '../../i18n/vi';
+import { t } from '../../i18n';
 import { loadSetting, saveSetting } from '../../storage/db';
 
 const IDLE_TIMER: FocusTimer = {
@@ -129,13 +129,13 @@ export function useFocusTimer({ showToast, chapterMinutes }: Input) {
     (mode: TimerMode) => {
       switch (mode) {
         case 'chapter':
-          notify(vi.notifyChapterTitle, vi.notifyChapterBody);
+          notify(t.notifyChapterTitle, t.notifyChapterBody);
           break;
         case 'focus':
-          notify(vi.notifyFocusTitle, vi.notifyFocusBody);
+          notify(t.notifyFocusTitle, t.notifyFocusBody);
           break;
         case 'break':
-          notify(vi.notifyBreakTitle, vi.notifyBreakBody);
+          notify(t.notifyBreakTitle, t.notifyBreakBody);
           break;
       }
     },
@@ -227,11 +227,11 @@ export function useFocusTimer({ showToast, chapterMinutes }: Input) {
       return;
     }
     if (typeof document.documentElement.requestFullscreen !== 'function') {
-      showToast(vi.focusFullscreenFailed);
+      showToast(t.focusFullscreenFailed);
       return;
     }
     void document.documentElement.requestFullscreen().catch(() => {
-      showToast(vi.focusFullscreenFailed);
+      showToast(t.focusFullscreenFailed);
     });
   }, []);
 

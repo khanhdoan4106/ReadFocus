@@ -1,6 +1,6 @@
 import type { useExtraction } from './hooks/useExtraction';
 import type { useOcr } from './hooks/useOcr';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { INDEX_PAGE_LIMIT } from './extract';
 import { OcrPanel } from './OcrPanel';
 
@@ -54,9 +54,9 @@ export function NoticeBar({
             onStartIndexing();
           }}
         >
-          <p class="notice__text">{vi.longDocWarning(INDEX_PAGE_LIMIT)}</p>
+          <p class="notice__text">{t.longDocWarning(INDEX_PAGE_LIMIT)}</p>
           <label class="notice__field">
-            {vi.indexFrom}
+            {t.indexFrom}
             <input
               type="number"
               min={1}
@@ -66,7 +66,7 @@ export function NoticeBar({
             />
           </label>
           <label class="notice__field">
-            {vi.indexTo}
+            {t.indexTo}
             <input
               type="number"
               min={1}
@@ -76,7 +76,7 @@ export function NoticeBar({
             />
           </label>
           <button type="submit" class="notice__button">
-            {vi.indexStart}
+            {t.indexStart}
           </button>
           {rangeError && (
             <p class="notice__error" role="alert">
@@ -89,12 +89,12 @@ export function NoticeBar({
       {analysis.phase === 'extracting' && (
         <div class="notice__progress">
           <progress value={analysis.done} max={analysis.total} />
-          <span>{vi.extracting(analysis.done, analysis.total)}</span>
+          <span>{t.extracting(analysis.done, analysis.total)}</span>
         </div>
       )}
 
       {analysis.phase === 'done' && analysis.profile.isScanned && (
-        <p class="notice__text notice__text--warning">{vi.scannedWarning}</p>
+        <p class="notice__text notice__text--warning">{t.scannedWarning}</p>
       )}
 
       {(showOcrPanel || ocrProgress !== null) && (
@@ -111,7 +111,7 @@ export function NoticeBar({
 
       {analysis.phase === 'error' && (
         <p class="notice__text notice__text--warning" role="alert">
-          {vi.extractFailed}
+          {t.extractFailed}
         </p>
       )}
     </section>

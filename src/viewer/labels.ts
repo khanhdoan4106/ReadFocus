@@ -1,6 +1,6 @@
 import type { DocKind } from '../core/profile';
 import type { FocusTimer } from '../core/focus';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import { MAX_FILE_BYTES } from './pdf';
 
 export type ErrorReason =
@@ -9,43 +9,43 @@ export type ErrorReason =
 export function profileLabel(kind: DocKind): string {
   switch (kind) {
     case 'book':
-      return vi.profileBook;
+      return t.profileBook;
     case 'paper':
-      return vi.profilePaper;
+      return t.profilePaper;
     case 'slides':
-      return vi.profileSlides;
+      return t.profileSlides;
     case 'unknown':
-      return vi.profileUnknown;
+      return t.profileUnknown;
   }
 }
 
 export function timerModeLabel(mode: FocusTimer['mode']): string {
   switch (mode) {
     case 'chapter':
-      return vi.timerModeChapter;
+      return t.timerModeChapter;
     case 'focus':
-      return vi.timerModeFocus;
+      return t.timerModeFocus;
     case 'break':
-      return vi.timerModeBreak;
+      return t.timerModeBreak;
   }
 }
 
 export function errorMessage(reason: ErrorReason): string {
   switch (reason) {
     case 'not-pdf':
-      return vi.errorNotPdf;
+      return t.errorNotPdf;
     case 'too-large':
-      return vi.errorTooLarge(Math.round(MAX_FILE_BYTES / (1024 * 1024)));
+      return t.errorTooLarge(Math.round(MAX_FILE_BYTES / (1024 * 1024)));
     case 'password':
-      return vi.errorPassword;
+      return t.errorPassword;
     case 'invalid':
     case 'render':
-      return vi.errorInvalid;
+      return t.errorInvalid;
     case 'fetch':
-      return vi.errorFetch;
+      return t.errorFetch;
     case 'file-url':
-      return vi.errorFileUrl;
+      return t.errorFileUrl;
     case 'unknown':
-      return vi.errorGeneric;
+      return t.errorGeneric;
   }
 }

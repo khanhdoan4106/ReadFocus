@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks';
 import { formatQaClipboard } from '../core/ask/format';
 import type { QaRecord } from '../core/ask/types';
 import type { ProviderId } from '../core/llm/types';
-import { vi } from '../i18n/vi';
+import { t } from '../i18n';
 import type { AskApi } from './ask';
 
 export type AskPanelProps = {
@@ -16,11 +16,18 @@ export type AskPanelProps = {
   onSelectCitation: (page: number, quote: string) => void;
 };
 
+/** Đọc chữ lúc cần để theo kịp ngôn ngữ giao diện đang chọn. */
 const copyLabels = {
-  question: vi.askQuestionLabel,
-  answer: vi.askAnswerLabel,
-  citations: vi.askCitationsTitle,
-  page: (page: number) => vi.summarySectionRange(page, page),
+  get question() {
+    return t.askQuestionLabel;
+  },
+  get answer() {
+    return t.askAnswerLabel;
+  },
+  get citations() {
+    return t.askCitationsTitle;
+  },
+  page: (page: number) => t.summarySectionRange(page, page),
 };
 
 export function AskPanel({
@@ -36,16 +43,16 @@ export function AskPanel({
   const [question, setQuestion] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  if (!hasDocument) return <p class="sidebar__empty">{vi.askNoDoc}</p>;
+  if (!hasDocument) return <p class="sidebar__empty">{t.askNoDoc}</p>;
 
   if (!configured) {
     return (
       <div class="summary-panel">
         <div class="summary-card">
-          <p class="settings-card__hint">{vi.askNotConfiguredHint}</p>
+          <p class="settings-card__hint">{t.askNotConfiguredHint}</p>
           <div class="summary-actions">
             <button type="button" class="settings-button" onClick={onOpenSettings}>
-              {vi.summaryOpenSettings}
+              {t.summaryOpenSettings}
             </button>
           </div>
         </div>
@@ -70,7 +77,7 @@ export function AskPanel({
       .catch(() => {});
   };
 
-  const providerLabel = vi.aiProviders[providerId];
+  const providerLabel = t.aiProviders[providerId];
 
   return (
     <div class="summary-panel ask">
@@ -79,8 +86,8 @@ export function AskPanel({
           class="ask__input"
           rows={3}
           maxLength={1000}
-          placeholder={vi.askPlaceholder}
-          aria-label={vi.askPlaceholder}
+          placeholder={t.askPlaceholder}
+          aria-label={t.askPlaceholder}
           value={question}
           disabled={!hasText}
           onInput={(event) => setQuestion(event.currentTarget.value)}
@@ -94,7 +101,7 @@ export function AskPanel({
         <div class="summary-actions">
           {ask.asking ? (
             <button type="button" class="settings-button" onClick={ask.cancel}>
-              {vi.askCancel}
+              {t.askCancel}
             </button>
           ) : (
             <button
@@ -102,19 +109,19 @@ export function AskPanel({
               class="settings-button settings-button--primary"
               disabled={!hasText || question.trim() === ''}
             >
-              {vi.askSubmit}
+              {t.askSubmit}
             </button>
           )}
         </div>
       </form>
 
-      {!hasText && <p class="settings-card__hint">{vi.askNoText}</p>}
-      <p class="settings-card__hint">{vi.askScopeNote(semanticReady)}</p>
-      <p class="settings-card__hint">{vi.askSendNote(providerLabel)}</p>
+      {!hasText && <p class="settings-card__hint">{t.askNoText}</p>}
+      <p class="settings-card__hint">{t.askScopeNote(semanticReady)}</p>
+      <p class="settings-card__hint">{t.askSendNote(providerLabel)}</p>
 
       {ask.asking && (
         <p class="settings-card__hint" role="status">
-          {vi.askAsking}
+          {t.askAsking}
         </p>
       )}
       {ask.error !== null && (
@@ -124,7 +131,7 @@ export function AskPanel({
       )}
 
       {ask.history.length === 0 ? (
-        <p class="settings-card__hint">{vi.askHistoryEmpty}</p>
+        <p class="settings-card__hint">{t.askHistoryEmpty}</p>
       ) : (
         <>
           <ul class="ask__history">
@@ -134,19 +141,19 @@ export function AskPanel({
                 {record.found ? (
                   <p class="summary-text ask__answer">{record.answer}</p>
                 ) : (
-                  <p class="summary-text ask__answer">{vi.askNotFound}</p>
+                  <p class="summary-text ask__answer">{t.askNotFound}</p>
                 )}
 
                 {record.citations.length > 0 && (
                   <div class="ask__citations">
-                    <span class="summary-card__meta">{vi.askCitationsTitle}</span>
+                    <span class="summary-card__meta">{t.askCitationsTitle}</span>
                     <ul class="ask__citation-list">
                       {record.citations.map((citation, index) => (
                         <li key={`${citation.page}-${index}`}>
                           <button
                             type="button"
                             class="summary-page-btn"
-                            aria-label={vi.askCitationOpen(citation.page)}
+                            aria-label={t.askCitationOpen(citation.page)}
                             onClick={() => onSelectCitation(citation.page, citation.quote)}
                           >
                             {citation.page}
@@ -159,13 +166,13 @@ export function AskPanel({
                 )}
 
                 {record.unverified && (
-                  <p class="settings-notice settings-notice--error">{vi.askUnverified}</p>
+                  <p class="settings-notice settings-notice--error">{t.askUnverified}</p>
                 )}
 
                 <div class="summary-card__header">
                   <span class="summary-card__meta">
-                    {vi.askModelInfo(
-                      vi.aiProviders[record.providerId as ProviderId] ?? record.providerId,
+                    {t.askModelInfo(
+                      t.aiProviders[record.providerId as ProviderId] ?? record.providerId,
                       record.model,
                     )}
                   </span>
@@ -177,17 +184,17 @@ export function AskPanel({
                     disabled={ask.asking}
                     onClick={() => ask.ask(record.question)}
                   >
-                    {vi.askRetry}
+                    {t.askRetry}
                   </button>
                   <button type="button" class="settings-button" onClick={() => copy(record)}>
-                    {copiedId === record.id ? vi.askCopied : vi.askCopy}
+                    {copiedId === record.id ? t.askCopied : t.askCopy}
                   </button>
                   <button
                     type="button"
                     class="settings-button"
                     onClick={() => ask.remove(record.id)}
                   >
-                    {vi.askDelete}
+                    {t.askDelete}
                   </button>
                 </div>
               </li>
@@ -195,7 +202,7 @@ export function AskPanel({
           </ul>
           <div class="summary-actions">
             <button type="button" class="settings-button" onClick={ask.clear}>
-              {vi.askClearHistory}
+              {t.askClearHistory}
             </button>
           </div>
         </>

@@ -9,7 +9,7 @@ import {
   type SummaryLanguage,
 } from '../../core/llm/settings';
 import type { ProviderId } from '../../core/llm/types';
-import { vi } from '../../i18n/vi';
+import { getLocale, t } from '../../i18n';
 import {
   clearApiKey,
   keyScopeFor,
@@ -100,7 +100,7 @@ export function useAiSettings() {
     void (aiKey.trim() === ''
       ? clearApiKey(store)
       : saveApiKey(store, aiKey).catch(() =>
-          setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }),
+          setAiNotice({ tone: 'error', message: t.aiKeySaveFailed }),
         ));
   }, [aiKey, aiSettings.saveKey]);
 
@@ -123,19 +123,19 @@ export function useAiSettings() {
       if (!previous || !next) return;
       void clearApiKey(previous)
         .then(() => (aiKey.trim() === '' ? undefined : saveApiKey(next, aiKey)))
-        .catch(() => setAiNotice({ tone: 'error', message: vi.aiKeySaveFailed }));
+        .catch(() => setAiNotice({ tone: 'error', message: t.aiKeySaveFailed }));
     },
     [aiKey],
   );
 
   const runAiConnectionTest = useCallback(async () => {
     if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      setAiNotice({ tone: 'error', message: t.aiMissingKey });
       return;
     }
     const chromeApi = typeof chrome === 'undefined' ? null : chrome;
     if (!chromeApi?.permissions?.request) {
-      setAiNotice({ tone: 'error', message: vi.aiUnsupported });
+      setAiNotice({ tone: 'error', message: t.aiUnsupported });
       return;
     }
 
@@ -146,14 +146,14 @@ export function useAiSettings() {
       const origin = providerOriginPattern(aiSettings.providerId, aiSettings.baseUrl);
       const granted = await chromeApi.permissions.request({ origins: [origin] });
       if (!granted) {
-        setAiNotice({ tone: 'error', message: vi.aiPermissionDenied });
+        setAiNotice({ tone: 'error', message: t.aiPermissionDenied });
         return;
       }
       await getProvider(aiSettings.providerId).checkConnection(
         { apiKey: aiKey.trim(), baseUrl: aiSettings.baseUrl },
         model,
       );
-      setAiNotice({ tone: 'ok', message: vi.aiTestOk });
+      setAiNotice({ tone: 'ok', message: t.aiTestOk });
     } catch (error) {
       setAiNotice({ tone: 'error', message: aiErrorMessage(error, aiSettings) });
     } finally {
@@ -163,7 +163,7 @@ export function useAiSettings() {
 
   const handleAiTestConnection = useCallback(() => {
     if (aiConfigProblem(aiSettings, aiKey) !== null) {
-      setAiNotice({ tone: 'error', message: vi.aiMissingKey });
+      setAiNotice({ tone: 'error', message: t.aiMissingKey });
       return;
     }
     if (aiSettings.consentGiven) {
@@ -199,6 +199,9 @@ export function useAiSettings() {
     [aiSettings.consentGiven],
   );
   const model = resolveModel(aiSettings.providerId, aiSettings.model);
+  // "Theo ngôn ngữ giao diện" được đổi thành ngôn ngữ cụ thể khi dùng.
+  const effectiveLanguage: Exclude<SummaryLanguage, 'ui'> =
+    aiSettings.language === 'ui' ? getLocale() : aiSettings.language;
   const configured = aiSupported && aiConfigProblem(aiSettings, aiKey) === null;
 
   return {
@@ -206,6 +209,7 @@ export function useAiSettings() {
     apiKey: aiKey,
     supported: aiSupported,
     configured,
+    effectiveLanguage,
     model,
     notice: aiNotice,
     setNotice: setAiNotice,
