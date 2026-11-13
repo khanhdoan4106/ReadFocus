@@ -304,15 +304,15 @@ Task nào quá lớn thì tách nhỏ (T19a, T19b…) ngay trong file này.
 
 - ~~Embedding chạy trên máy~~ — đã làm ở v3 nhóm L (T31); xem `PROGRESS.md`.
 - Chrome Side Panel API, Chrome built-in AI (Gemini Nano, Summarizer API).
-- Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật.
-- Đăng Chrome Web Store, Firefox.
+- ~~Bản tiếng Anh (`src/i18n/en.ts`), tách `App.tsx`, icon thật~~ — đã làm ở v3 (T25–T27).
+- Đăng Chrome Web Store (việc của người dùng, theo `store/checklist.md`), Firefox.
 - Hỏi đáp trên nhiều tài liệu.
 
 ---
 
 ## v3 — Hoàn thiện: dễ bảo trì và sẵn sàng cho Chrome Web Store
 
-Không thêm tính năng đọc hay AI mới (trừ nhóm L, chỉ làm khi người dùng bảo). Luật như cũ: không merge, không tag, không phát hành, không tải gì lên Chrome Web Store, không force push, không rebase, không dùng key thật.
+Không thêm tính năng đọc hay AI mới (trừ nhóm L, đã làm theo yêu cầu của người dùng). Luật như cũ: không merge, không tag, không phát hành, không tải gì lên Chrome Web Store, không force push, không rebase, không dùng key thật.
 
 ### Nhóm I: tách `App.tsx` (nhánh `refactor/v3-split-app`)
 
@@ -335,7 +335,7 @@ Chỉ chuẩn bị tài liệu và hình ảnh, KHÔNG tải lên store.
 - **T29 Ảnh chụp màn hình**: script Playwright chụp viewer với fixture tự tạo, đúng kích thước store yêu cầu (tra tài liệu hiện tại, ghi nguồn). Mỗi ngôn ngữ một bộ: đọc + mục lục, tìm kiếm, focus mode, tóm tắt (dữ liệu AI giả lập, ghi rõ là minh hoạ), OCR. Lưu trong `store/screenshots/`. Không dùng PDF có bản quyền.
 - **T30 Hồ sơ**: `store/listing.vi.md`, `store/listing.en.md` (tên, mô tả ngắn, mô tả dài, danh mục); `store/permissions.md` (lý do từng quyền theo form store, khớp `docs/PERMISSIONS.md`); `docs/PRIVACY.en.md`; mục khai báo dữ liệu (data usage) khớp hành vi thật của code; checklist các bước người dùng tự làm trên Developer Dashboard.
 
-### Nhóm L (tuỳ chọn, chỉ làm khi người dùng bảo): embedding chạy trên máy (nhánh `feat/v3-local-embed`)
+### Nhóm L (tuỳ chọn, làm theo yêu cầu của người dùng, đã xong ở PR #17): embedding chạy trên máy (nhánh `feat/v3-local-embed`)
 
 Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (như đã làm với tesseract.js); runtime ONNX và wasm bundle cục bộ. Trọng số model tải từ Hugging Face khi người dùng đồng ý: hộp xác nhận ghi dung lượng, lưu Cache API, nút xoá model, chạy trong Web Worker. Kiểm tra cần host permission hay không; quyền rộng hơn origin của Hugging Face thì hỏi người dùng. Ghi kích thước zip trước và sau.
 
@@ -343,11 +343,13 @@ Plugin build thay chuỗi CDN mặc định của `@huggingface/transformers` (n
 
 - [x] **T24** Lưới an toàn: test component cho các luồng chính, pass trên code hiện tại
 - [x] **T25** Tách `App.tsx` theo miền (mỗi miền một commit)
-- [ ] **T26** Đa ngôn ngữ vi/en, `chrome.i18n`
-- [ ] **T27** Icon thật
-- [ ] **T28** Rà giao diện hai ngôn ngữ
-- [ ] **T29** Ảnh chụp màn hình store
-- [ ] **T30** Hồ sơ store, PRIVACY.en
+- [x] **T26** Đa ngôn ngữ vi/en, `chrome.i18n`
+- [x] **T27** Icon thật
+- [x] **T28** Rà giao diện hai ngôn ngữ
+- [x] **T29** Ảnh chụp màn hình store
+- [x] **T30** Hồ sơ store, PRIVACY.en
 - [x] **T31** (tuỳ chọn) Embedding chạy trên máy
 
 Danh sách tự rà soát: 11 mục của v2, thêm mục 12 cho nhóm I: "không đổi hành vi".
+
+Đối chiếu với lịch sử merge (13/11/2026): nhóm A–C = PR #4–#6, D–E = #7–#8, F = #9, G = #10, H = #11, I = #12, J = #13, K = #14, L = #17 (kèm #15 phím cho hàng tab, #16 rà `npm audit`). T1–T31 đều đã xong; không còn task mở.
