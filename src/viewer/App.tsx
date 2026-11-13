@@ -21,7 +21,6 @@ import { INDEX_PAGE_LIMIT } from './extract';
 import { OcrPanel } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { openPdfData, readPdfFile } from './pdf';
-import { Dialog } from './Dialog';
 import { useAsk } from './ask';
 import { useFlashcards } from './flashcards';
 import { useSemanticIndex } from './semantic';
@@ -34,6 +33,7 @@ import { useRunScope } from './hooks/useRunScope';
 import { useSettings } from './hooks/useSettings';
 import { useSummaries } from './hooks/useSummaries';
 import { useShortcuts } from './hooks/useShortcuts';
+import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
 import { Sidebar } from './Sidebar';
 
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
@@ -848,68 +848,25 @@ export function App() {
       </div>
 
       {focusMode && (
-        <>
-          <div
-            class="focus-band"
-            style={{ top: `${bandTop}px`, height: `${bandHeight}px` }}
-            aria-hidden="true"
-          />
-          <div class="focus-controls" role="group" aria-label={vi.focusModeTitle}>
-            {timer.status !== 'idle' && (
-              <span class="focus-controls__timer">
-                {timerModeLabel(timer.mode)} · {formatTimer(remainingTimerMs)}
-              </span>
-            )}
-            <button type="button" class="focus-button" onClick={toggleFullscreen}>
-              {fullscreen ? vi.focusExitFullscreen : vi.focusFullscreen}
-            </button>
-            <button
-              type="button"
-              class="focus-button focus-button--primary"
-              onClick={toggleFocusMode}
-            >
-              {vi.focusModeOff}
-            </button>
-          </div>
-          <p class="focus-move-hint">{vi.focusMoveHint}</p>
-        </>
+        <FocusOverlay
+          bandTop={bandTop}
+          bandHeight={bandHeight}
+          timer={timer}
+          remainingMs={remainingTimerMs}
+          fullscreen={fullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onExit={toggleFocusMode}
+        />
       )}
 
-      {toast !== null && (
-        <div class="toast" role="status">
-          <span>{toast}</span>
-          <button
-            type="button"
-            class="toast__close"
-            aria-label={vi.toastDismiss}
-            onClick={() => setToast(null)}
-          >
-            ×
-          </button>
-        </div>
-      )}
+      {toast !== null && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
       {ai.consentOpen && (
-        <Dialog titleId="ai-consent-title" onClose={ai.cancelConsent}>
-          <h2 class="consent-dialog__title" id="ai-consent-title">
-            {vi.aiConsentTitle}
-          </h2>
-          <p class="consent-dialog__body">
-            {vi.aiConsentBody(vi.aiProviders[aiSettings.providerId])}
-          </p>
-          <div class="consent-dialog__actions">
-            <button
-              type="button"
-              class="settings-button settings-button--primary"
-              onClick={ai.acceptConsent}
-            >
-              {vi.aiConsentAccept}
-            </button>
-            <button type="button" class="settings-button" onClick={ai.cancelConsent}>
-              {vi.aiConsentCancel}
-            </button>
-          </div>
-        </Dialog>
+        <ConsentDialog
+          providerId={aiSettings.providerId}
+          onAccept={ai.acceptConsent}
+          onCancel={ai.cancelConsent}
+        />
       )}
 
       {isDragging && <div class="drop-overlay">{vi.dropActive}</div>}
