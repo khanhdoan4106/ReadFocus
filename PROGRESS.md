@@ -1,8 +1,6 @@
 # PROGRESS
 
 Thư mục làm việc chuẩn là `C:\dev\readfocus\readfocus`. Không làm việc trong OneDrive.
-eadfocus
-eadfocus`. Không làm việc trong OneDrive.
 
 ## Trạng thái
 - Nhánh hiện tại: `docs/v3-store` (nhóm K, T29–T30); nhóm J (PR #13) đã merge ở 54d01a6
