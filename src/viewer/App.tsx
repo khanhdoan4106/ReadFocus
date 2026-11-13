@@ -1,14 +1,13 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { sha256Hex } from '../core/hash';
-import { aiConfigProblem } from '../core/llm/settings';
 import { type PageRange } from '../core/ocr/pages';
 import { clampPage, fitWidthScale, stepZoom } from '../core/pagination';
 import { fileNameFromUrl, isFileUrl } from '../core/pdf-url';
 import { readRequestedPdfUrl } from '../core/pdf-redirect';
 import { acceptPageReport, canPersistProgress } from '../core/progress';
 import { chapterEstimate } from '../core/reading-time';
-import { clampBandHeight, clampMinutes, formatTimer } from '../core/focus';
+import { formatTimer } from '../core/focus';
 import { vi } from '../i18n/vi';
 import {
   clearAllData,
@@ -34,7 +33,7 @@ import { useSettings } from './hooks/useSettings';
 import { useSummaries } from './hooks/useSummaries';
 import { useShortcuts } from './hooks/useShortcuts';
 import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
-import { Sidebar } from './Sidebar';
+import { ViewerSidebar } from './ViewerSidebar';
 
 import { errorMessage, profileLabel, timerModeLabel, type ErrorReason } from './labels';
 
@@ -75,7 +74,6 @@ export function App() {
   const ai = useAiSettings();
   const aiSettings = ai.settings;
   const aiKey = ai.apiKey;
-  const aiSupported = ai.supported;
   const [searchRequest, setSearchRequest] = useState(0);
 
   // Văn bản OCR đã lưu, dùng thay cho lớp chữ trống khi lập chỉ mục.
@@ -419,26 +417,19 @@ export function App() {
   }, [resetDocument]);
 
   const chapterMinutes = chapterEstimate(toc, pageNumber, readingWordsPerMinute);
+  const focus = useFocusTimer({ showToast: setToast, chapterMinutes });
   const {
     timer,
     remainingMs: remainingTimerMs,
-    focusMinutes,
-    breakMinutes,
     bandHeight,
     bandTop,
     focusMode,
     fullscreen,
-    setFocusMinutes,
-    setBreakMinutes,
-    setBandHeight,
-    startChapterTimer,
-    startPomodoroTimer,
     toggleTimer,
-    stopTimer: stopCurrentTimer,
     toggleFocusMode,
     toggleFullscreen,
     moveBand,
-  } = useFocusTimer({ showToast: setToast, chapterMinutes });
+  } = focus;
   const previousScaleRef = useRef(scale);
   const anchorPageRef = useRef<number | null>(null);
   useEffect(() => {
@@ -775,73 +766,28 @@ export function App() {
         </main>
 
         {status === 'ready' && sidebarOpen && !focusMode && (
-          <Sidebar
-            toc={toc}
-            currentPage={pageNumber}
-            building={analysis.phase === 'extracting'}
-            index={searchIndex}
+          <ViewerSidebar
+            ready
+            pageNumber={pageNumber}
+            docId={docId}
+            fileName={fileName}
             wordsPerMinute={readingWordsPerMinute}
-            focus={{
-              timer,
-              remainingMs: remainingTimerMs,
-              chapterMinutes,
-              focusMinutes,
-              breakMinutes,
-              bandHeight,
-              fullscreen,
-              statsToday: stats.today,
-              statsRecent: stats.recent,
-              onStartChapter: startChapterTimer,
-              onStartPomodoro: startPomodoroTimer,
-              onToggleTimer: toggleTimer,
-              onStopTimer: stopCurrentTimer,
-              onChangeFocusMinutes: (value) => setFocusMinutes(clampMinutes(value)),
-              onChangeBreakMinutes: (value) => setBreakMinutes(clampMinutes(value, 1, 60)),
-              onChangeBandHeight: (value) => setBandHeight(clampBandHeight(value)),
-              onToggleFocusMode: toggleFocusMode,
-              onToggleFullscreen: toggleFullscreen,
-            }}
-            settings={{
-              theme: settings.theme,
-              onChangeTheme: settings.onChangeTheme,
-              ai: ai.panel,
-              wordsPerMinute: readingWordsPerMinute,
-              onChangeWordsPerMinute: settings.onChangeWordsPerMinute,
-              autoOpenPdf: settings.autoOpenPdf,
-              autoOpenSupported: settings.autoOpenSupported,
-              onToggleAutoOpen: settings.onToggleAutoOpen,
-              documentName: status === 'ready' && docId !== null ? fileName : null,
-              onDeleteDocument: () => void handleDeleteDocument(),
-              onDeleteAll: () => void handleDeleteAll(),
-            }}
-            summary={summarize.panel}
-            semantic={semantic}
-            flashPanel={{
-              flashcards,
-              hasDocument: docId !== null,
-              documentName: fileName,
-              canGenerate: currentSection !== null,
-              aiConfigured: aiSupported && aiConfigProblem(aiSettings, aiKey) === null,
-              sectionLabel: currentSection
-                ? currentSection.title ||
-                  vi.summarySectionRange(currentSection.startPage, currentSection.endPage)
-                : null,
-              onOpenSettings: () => {},
-              onSelectPage: goToPage,
-            }}
-            askPanel={{
-              ask,
-              hasDocument: docId !== null,
-              hasText: extractedPages.some((page) => page.text.trim() !== ''),
-              configured: ai.configured,
-              semanticReady: semantic.state === 'ready',
-              providerId: aiSettings.providerId,
-              onOpenSettings: () => {},
-              onSelectCitation: handleCitation,
-            }}
-            summarizedSpans={summarize.summarizedSpans}
+            chapterMinutes={chapterMinutes}
+            currentSection={currentSection}
             searchRequest={searchRequest}
+            extraction={extraction}
+            focus={focus}
+            stats={stats}
+            settings={settings}
+            ai={ai}
+            summarize={summarize}
+            semantic={semantic}
+            flashcards={flashcards}
+            ask={ask}
+            onDeleteDocument={() => void handleDeleteDocument()}
+            onDeleteAll={() => void handleDeleteAll()}
             onSelectPage={goToPage}
+            onSelectCitation={handleCitation}
             onSelectResult={handleSearchResult}
           />
         )}
