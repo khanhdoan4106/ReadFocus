@@ -6,7 +6,7 @@
 
 ReadFocus là extension Chrome (Manifest V3), mã nguồn mở (MIT), giúp đọc tài liệu PDF như sách, paper hay slide bài giảng nhanh và tập trung hơn. Extension có các phần: mục lục tự động, tìm kiếm, ước tính thời gian đọc, hẹn giờ theo chương, focus mode. Từ v1 có thêm tóm tắt bằng AI, người dùng tự nhập API key của mình.
 
-- v0, v1, v2 (OCR, tìm kiếm theo ý nghĩa, hỏi đáp có trích dẫn, flashcard) và v3 (tách App.tsx, tiếng Anh, icon, hồ sơ Chrome Web Store, embedding chạy trên máy) đã xong; không còn task mở. Việc còn lại là của người dùng: đăng Chrome Web Store và thử tay (xem `PROGRESS.md`). Làm thêm gì thì lập kế hoạch mới trong `docs/PLAN.md` trước. Dữ liệu chỉ rời máy khi người dùng chủ động dùng tính năng AI qua key của họ hoặc đồng ý tải model về chạy trên máy (xem mục 4).
+- v0, v1, v2 (OCR, tìm kiếm theo ý nghĩa, hỏi đáp có trích dẫn, flashcard) và v3 (tách App.tsx, tiếng Anh, icon, hồ sơ Chrome Web Store, embedding chạy trên máy) đã xong (PR #4–#18). Giai đoạn hiện tại là **v4: ghi chú/highlight theo trang (nhóm M) và đồng bộ tiến độ đọc qua `chrome.storage.sync` (nhóm N)**. Dữ liệu chỉ rời máy khi người dùng chủ động dùng tính năng AI qua key của họ, đồng ý tải model về chạy trên máy, hoặc tự bật đồng bộ tiến độ (xem mục 4).
 - Kế hoạch chi tiết nằm ở `docs/PLAN.md`. Tiến trình nằm ở `PROGRESS.md`.
 
 ## 2. Quy trình mỗi phiên (bắt buộc)
@@ -69,7 +69,8 @@ Phiên có thể bị cắt bất cứ lúc nào. Vì vậy:
 - **Chỉ gửi dữ liệu ra mạng khi người dùng chủ động bấm tóm tắt hoặc kiểm tra kết nối**, và chỉ tới đúng nhà cung cấp AI người dùng đã chọn. Không analytics, không telemetry, không CDN, không gọi API ngầm. API key không bao giờ được ghi vào log, thông báo lỗi, test hay commit.
 - **Tải model AI chạy trên máy chỉ khi người dùng đồng ý**, tải một lần rồi lưu cache, chỉ từ nguồn đã ghi trong PLAN. Thư viện và file wasm phải bundle cục bộ, không tải từ CDN. OCR chạy hoàn toàn trên máy.
 - Quyền trong manifest giữ ở mức tối thiểu. Mỗi quyền phải ghi lý do trong `docs/PERMISSIONS.md`.
-- Logic thuần đặt trong `src/core/`, tách khỏi UI, và **phải có unit test Vitest**. Logic thuần gồm: trích mục lục, nhận diện loại tài liệu, đếm từ, ước tính thời gian, chuẩn hóa tiếng Việt, tìm kiếm, gọi và chuẩn hóa lỗi nhà cung cấp AI (`src/core/llm/`), tóm tắt, chia đoạn, cache và lập kế hoạch tóm tắt (`src/core/summarize/`), OCR (`src/core/ocr/`), embedding và tìm kiếm ngữ nghĩa (`src/core/embed/`), hỏi đáp (`src/core/ask/`), flashcard (`src/core/flashcard/`).
+- Logic thuần đặt trong `src/core/`, tách khỏi UI, và **phải có unit test Vitest**. Logic thuần gồm: trích mục lục, nhận diện loại tài liệu, đếm từ, ước tính thời gian, chuẩn hóa tiếng Việt, tìm kiếm, gọi và chuẩn hóa lỗi nhà cung cấp AI (`src/core/llm/`), tóm tắt, chia đoạn, cache và lập kế hoạch tóm tắt (`src/core/summarize/`), OCR (`src/core/ocr/`), embedding và tìm kiếm ngữ nghĩa (`src/core/embed/`), hỏi đáp (`src/core/ask/`), flashcard (`src/core/flashcard/`), ghi chú và highlight (`src/core/annotate/`), đồng bộ tiến độ (`src/core/sync/`).
+- Ghi chú và highlight là nội dung người dùng tự tạo: không bao giờ xóa mà không có xác nhận rõ ràng. Dữ liệu đồng bộ chỉ gồm những gì ghi trong PLAN, không bao giờ có văn bản PDF hay ghi chú.
 - Chỉ thêm dependency khi thật sự cần, và ghi lý do vào `PROGRESS.md`.
 - Chỉ sửa những gì thuộc task đang làm. Không refactor lớn ngoài kế hoạch.
 - Lỗi phải được báo rõ ràng cho người dùng, không để crash: PDF hỏng, PDF có mật khẩu, PDF không có lớp chữ (bản scan), file quá lớn.
