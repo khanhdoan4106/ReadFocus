@@ -40,6 +40,13 @@ export function useShortcuts({
       const target = event.target as HTMLElement | null;
       if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
       if (target?.isContentEditable) return;
+      // Đang ở hàng tab: ←/→/Home/End thuộc về tablist (xem Sidebar), không chuyển trang.
+      if (
+        target?.closest('[role="tablist"]') &&
+        ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+      ) {
+        return;
+      }
       // Hộp thoại đang mở: phím tắt của viewer không được chạy phía sau nó.
       if (document.querySelector('[aria-modal="true"]')) return;
       if (event.altKey || event.ctrlKey || event.metaKey) return;
