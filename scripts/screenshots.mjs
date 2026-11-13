@@ -40,6 +40,11 @@ const DOCS = {
           'Reading is a conversation between a page and a tired mind. Most people lose focus long before they lose interest, and a clear plan for the next twenty minutes helps more than willpower.',
           'Decide what you want from the chapter before you read it. Skim the headings first, then return to the parts that matter. Short sessions with a visible end are easier to start and to repeat.',
           'When the timer stops, write one sentence about what you learned. That sentence is the cheapest review you will ever do.',
+          '### Before you start',
+          'Pick one question the chapter should answer and write it at the top of a page. Reading with a question turns a long text into a search, and a search is easier to stay with than a duty.',
+          'Clear the desk of everything except the book and a pen. Put the phone in another room if you can; a notification costs far more than the seconds it takes to read.',
+          '### When your mind wanders',
+          'Wandering is normal, not a failure. Notice it, mark the line where you left, and return without scolding yourself. Each return is a small repetition of the skill you are building.',
         ],
       ],
       [
@@ -49,6 +54,11 @@ const DOCS = {
           'A focused session has a start, a target and a break. Choose a chapter, set a time, and leave the rest of the book alone.',
           'Take a real break when the session ends: stand up and look away. Five minutes of rest repays the effort of the next session.',
           'Keep a quiet record of pages and minutes, never a score to beat. Consistency matters more than a single heroic evening.',
+          '### Choosing the length',
+          'Twenty-five minutes suits most chapters, but dense material may need shorter blocks. Start small enough that you never dread the first minute, then lengthen the session as it gets easy.',
+          '### Ending well',
+          'Stop at a natural pause, not in the middle of a thought. Jot down where you will resume, so tomorrow begins with a step instead of a search for the place.',
+          'Over a week, the pattern matters more than any single session. Read at roughly the same time each day and let the habit carry the effort for you.',
         ],
       ],
       [
@@ -58,6 +68,11 @@ const DOCS = {
           'Memory prefers questions to highlights. After a section, close the book and say the main idea aloud.',
           'Turn each key point into a question you could answer next week, and review the questions after one day, three days and one week.',
           'Keep the source page next to every card so you can check it. A reliable habit is a small review, done often.',
+          '### Spacing your reviews',
+          'A card seen once is forgotten quickly; a card seen at growing intervals stays. Review the new ones tomorrow, the shaky ones in three days, and the solid ones next month.',
+          '### Writing good questions',
+          'Ask for one fact or one reason per card. If an answer needs a paragraph, split it. Questions that begin with why or how test understanding better than those that ask for a name.',
+          'Be honest when you grade yourself. A card you almost knew belongs back in the next review, not in the pile of finished ones.',
         ],
       ],
     ],
@@ -72,6 +87,11 @@ const DOCS = {
           'Đọc sách là cuộc trò chuyện giữa trang giấy và một cái đầu đang mệt. Phần lớn chúng ta mất tập trung trước khi mất hứng thú, và một kế hoạch rõ cho hai mươi phút tới giúp nhiều hơn ý chí.',
           'Hãy quyết định bạn cần gì từ chương này trước khi đọc. Lướt qua các đề mục trước, rồi quay lại những phần quan trọng. Buổi đọc ngắn có điểm kết thúc nhìn thấy được thì dễ bắt đầu hơn.',
           'Khi hết giờ, hãy viết một câu về điều bạn vừa học được. Câu đó là cách ôn tập rẻ nhất mà bạn có thể làm.',
+          '### Trước khi bắt đầu',
+          'Chọn một câu hỏi mà chương này cần trả lời và viết lên đầu trang giấy. Đọc để tìm câu trả lời biến một văn bản dài thành cuộc tìm kiếm, và cuộc tìm kiếm dễ theo đuổi hơn một nghĩa vụ.',
+          'Dọn bàn, chỉ để lại cuốn sách và một cây bút. Nếu được, hãy để điện thoại ở phòng khác; một thông báo tốn nhiều hơn rất nhiều so với vài giây đọc nó.',
+          '### Khi đầu óc đi lạc',
+          'Đi lạc là chuyện bình thường, không phải thất bại. Hãy nhận ra, đánh dấu dòng đang đọc rồi quay lại mà không tự trách. Mỗi lần quay lại là một lần luyện kỹ năng bạn đang xây.',
         ],
       ],
       [
@@ -81,6 +101,11 @@ const DOCS = {
           'Một phiên tập trung có điểm bắt đầu, mục tiêu và giờ nghỉ. Chọn một chương, đặt thời gian và tạm gác phần còn lại của cuốn sách.',
           'Hết phiên thì nghỉ thật: đứng dậy và nhìn ra xa. Năm phút nghỉ đền lại công sức của phiên tiếp theo.',
           'Ghi lặng lẽ số trang và số phút, đừng biến thành điểm phải vượt. Đều đặn quan trọng hơn một buổi tối nước rút.',
+          '### Chọn độ dài phiên',
+          'Hai mươi lăm phút hợp với phần lớn các chương, nhưng tài liệu dày đặc có thể cần phiên ngắn hơn. Bắt đầu đủ nhỏ để không ngại phút đầu tiên, rồi kéo dài dần khi đã quen.',
+          '### Kết thúc cho tốt',
+          'Dừng ở chỗ ngắt tự nhiên, đừng dừng giữa một ý. Ghi nhanh chỗ sẽ đọc tiếp, để ngày mai bắt đầu bằng một bước đi thay vì đi tìm lại vị trí.',
+          'Trong một tuần, nhịp đều quan trọng hơn từng phiên riêng lẻ. Đọc vào khoảng cùng một giờ mỗi ngày và để thói quen gánh bớt công sức cho bạn.',
         ],
       ],
       [
@@ -90,6 +115,11 @@ const DOCS = {
           'Trí nhớ thích câu hỏi hơn là đoạn tô sáng. Đọc xong một mục, hãy gấp sách và nói to ý chính.',
           'Biến mỗi ý chính thành câu hỏi mà tuần sau bạn vẫn trả lời được, rồi ôn lại sau một ngày, ba ngày và một tuần.',
           'Giữ trang nguồn bên cạnh mỗi thẻ để có thể kiểm tra. Một thói quen đáng tin là ôn ít, ôn thường xuyên.',
+          '### Giãn cách các lần ôn',
+          'Thẻ chỉ xem một lần thì quên nhanh; thẻ xem với khoảng cách tăng dần thì ở lại. Ôn thẻ mới vào ngày mai, thẻ còn lung lay sau ba ngày, thẻ đã chắc vào tháng sau.',
+          '### Viết câu hỏi tốt',
+          'Mỗi thẻ chỉ hỏi một dữ kiện hoặc một lý do. Nếu câu trả lời cần cả đoạn văn, hãy tách ra. Câu hỏi bắt đầu bằng vì sao hay như thế nào kiểm tra hiểu biết tốt hơn câu hỏi chỉ đòi một cái tên.',
+          'Chấm điểm cho chính mình thật thà. Thẻ bạn gần nhớ ra thì nên quay lại lần ôn sau, đừng bỏ vào chồng đã xong.',
         ],
       ],
     ],
@@ -101,13 +131,13 @@ function docHtml(doc) {
     .map(
       ([heading, subtitle, paragraphs], index) =>
         `<section style="page-break-before:${index === 0 ? 'auto' : 'always'}">
-<h1>${heading}</h1><h2>${subtitle}</h2>${paragraphs.map((p) => `<p>${p}</p>`).join('')}</section>`,
+<h1>${heading}</h1><h2>${subtitle}</h2>${paragraphs.map((p) => (p.startsWith('### ') ? `<h3>${p.slice(4)}</h3>` : `<p>${p}</p>`)).join('')}</section>`,
     )
     .join('');
   return `<!doctype html><html><head><meta charset="utf-8"><title>${doc.title}</title><style>
 body{font-family:'Segoe UI',Arial,'DejaVu Sans',sans-serif;color:#1d1d1b;font-size:13pt;line-height:1.6;margin:0}
 h1{font:700 30pt Arial,sans-serif;margin:0 0 6pt}h2{font:400 17pt Arial,sans-serif;color:#555;margin:0 0 22pt}
-p{margin:0 0 14pt}</style></head><body>${body}</body></html>`;
+h3{font:700 15pt Arial,sans-serif;margin:18pt 0 8pt}p{margin:0 0 14pt}</style></head><body>${body}</body></html>`;
 }
 
 /** Tạo PDF có lớp chữ thật bằng chính Chromium (không cần file PDF bản quyền). */
