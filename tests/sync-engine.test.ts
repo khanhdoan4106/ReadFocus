@@ -192,11 +192,8 @@ describe('lỗi quota và mất mạng', () => {
     time = (first as { retryAt: number }).retryAt + 1;
     area.failNext = new Error('offline');
     const second = await engine.flush();
-    const gap1 =
-      (first as { retryAt: number }).retryAt -
-      (time - ((first as { retryAt: number }).retryAt + 1 - 0) + 0);
-    expect(gap1).toBeDefined();
-    expect((second as { retryAt: number }).retryAt - time).toBeGreaterThan(30_000);
+    // Lần lỗi thứ hai: chờ lâu hơn lần đầu (30 giây nhân đôi).
+    expect((second as { retryAt: number }).retryAt - time).toBeGreaterThanOrEqual(60_000);
 
     // Phục hồi: ghi được và mọi trạng thái lỗi được xoá.
     time = (second as { retryAt: number }).retryAt + 1;
