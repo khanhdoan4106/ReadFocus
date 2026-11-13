@@ -226,6 +226,16 @@ export function App() {
     }
     return map;
   }, [annotations.moved]);
+  // Highlight `moved` mà text layer đã dựng nhưng ánh xạ vẫn thất bại: tab Ghi chú cho gắn lại.
+  const [reflowFailed, setReflowFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const handleReflowFailed = useCallback((id: string) => {
+    setReflowFailed((current) => (current.has(id) ? current : new Set(current).add(id)));
+  }, []);
+  const stuckAnnotations = useMemo(
+    () => new Set(annotations.moved.filter((m) => reflowFailed.has(m.id)).map((m) => m.id)),
+    [annotations.moved, reflowFailed],
+  );
+  useEffect(() => setReflowFailed(new Set()), [docId]);
   const annotationItems = annotations.items;
   const changeAnnotation = annotations.change;
   const handleReflow = useCallback(
@@ -349,6 +359,7 @@ export function App() {
               pageTexts={annotations.textByPage}
               reflow={reflowByPage}
               onReflow={handleReflow}
+              onReflowFailed={handleReflowFailed}
               onDrawArea={annotationUi.addAreaNote}
               onOpenAnnotation={annotationUi.openPopover}
               scrollerRef={contentRef}
@@ -364,6 +375,7 @@ export function App() {
             localModel={localModel}
             annotations={annotations}
             annotationUi={annotationUi}
+            stuckAnnotations={stuckAnnotations}
             showToast={setToast}
             onJumpNote={handleJumpNote}
             ready

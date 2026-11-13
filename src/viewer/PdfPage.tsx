@@ -32,6 +32,8 @@ type PdfPageProps = {
   pageText?: string;
   reflow?: readonly { id: string; start: number; end: number }[];
   onReflow?: (id: string, start: number, end: number, rects: Rect[]) => void;
+  /** Text layer đã dựng nhưng không ánh xạ được highlight này: người dùng cần cách gắn lại. */
+  onReflowFailed?: (id: string) => void;
   onDrawArea?: (page: number, rect: Rect, x: number, y: number) => void;
   onOpenAnnotation?: (id: string, x: number, y: number) => void;
   onMeasured: (page: number, size: PageSize) => void;
@@ -61,6 +63,7 @@ export function PdfPage({
   pageText,
   reflow,
   onReflow,
+  onReflowFailed,
   onDrawArea,
   onOpenAnnotation,
   onMeasured,
@@ -152,8 +155,9 @@ export function PdfPage({
     for (const item of reflow) {
       const rects = reflowRects(textElement, pageElement, pageText, item.start, item.end);
       if (rects !== null) onReflow(item.id, item.start, item.end, rects);
+      else onReflowFailed?.(item.id);
     }
-  }, [layerVersion, reflow, pageText, onReflow]);
+  }, [layerVersion, reflow, pageText, onReflow, onReflowFailed]);
 
   // Text layer được dựng bất đồng bộ, nên vừa tô ngay vừa theo dõi thay đổi của nó.
   useEffect(() => {

@@ -37,6 +37,8 @@ type Props = {
   localModel: LocalModelApi;
   annotations: AnnotationsApi;
   annotationUi: AnnotationUi;
+  /** Highlight `moved` không ánh xạ được sang text layer (cần cho phép gắn lại). */
+  stuckAnnotations: ReadonlySet<string>;
   showToast: (message: string) => void;
   onJumpNote: (annotation: Annotation) => void;
   summarize: ReturnType<typeof useSummaries>;
@@ -69,6 +71,7 @@ export function ViewerSidebar({
   localModel,
   annotations,
   annotationUi,
+  stuckAnnotations,
   showToast,
   onJumpNote,
   summarize,
@@ -150,6 +153,7 @@ export function ViewerSidebar({
       notesPanel={{
         api: annotations,
         ui: annotationUi,
+        stuck: stuckAnnotations,
         docId,
         documentName: fileName,
         pageCount: totalPages,

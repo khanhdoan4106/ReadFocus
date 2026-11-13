@@ -98,6 +98,7 @@ export function fakePageListModule() {
       onCurrentPageChange: (page: number) => void;
       annotations?: ReadonlyMap<number, readonly { id: string }[]>;
       reflow?: ReadonlyMap<number, readonly { id: string; start: number; end: number }[]>;
+      onReflowFailed?: (id: string) => void;
       onReflow?: (
         id: string,
         start: number,
@@ -115,6 +116,16 @@ export function fakePageListModule() {
             </div>
           ))}
           <div data-testid="drawn-annotations">{drawn.join(',')}</div>
+          {pending.map((item) => (
+            <button
+              type="button"
+              key={`fail-${item.id}`}
+              data-testid={`reflow-fail-${item.id}`}
+              onClick={() => props.onReflowFailed?.(item.id)}
+            >
+              {`fail ${item.id}`}
+            </button>
+          ))}
           {pending.map((item) => (
             <button
               type="button"
