@@ -15,8 +15,6 @@ import {
   recordDocumentOpen,
   saveProgress,
 } from '../storage/db';
-import { INDEX_PAGE_LIMIT } from './extract';
-import { OcrPanel } from './OcrPanel';
 import { PageList, type PageSize } from './PageList';
 import { openPdfData, readPdfFile } from './pdf';
 import { useAsk } from './ask';
@@ -32,6 +30,7 @@ import { useSettings } from './hooks/useSettings';
 import { useSummaries } from './hooks/useSummaries';
 import { useShortcuts } from './hooks/useShortcuts';
 import { ConsentDialog, FocusOverlay, Toast } from './Overlays';
+import { NoticeBar } from './NoticeBar';
 import { Toolbar } from './Toolbar';
 import { ViewerSidebar } from './ViewerSidebar';
 
@@ -82,16 +81,7 @@ export function App() {
   const indexedRangeRef = useRef<PageRange | null>(null);
 
   const extraction = useExtraction({ ocrTextRef, indexedRangeRef });
-  const {
-    analysis,
-    indexRange,
-    setIndexRange,
-    rangeError,
-    toc,
-    searchIndex,
-    pageWords,
-    extractedPages,
-  } = extraction;
+  const { analysis, toc, searchIndex, pageWords, extractedPages } = extraction;
   const runExtraction = extraction.runExtraction;
   const stats = useReadingStats({
     ready: status === 'ready',
@@ -142,8 +132,6 @@ export function App() {
   const scope = useRunScope();
   const ocr = useOcr({ docRef, docId, scope, ocrTextRef, indexedRangeRef, runExtraction });
   const ocrPages = ocr.pages;
-  const ocrProgress = ocr.progress;
-  const ocrReport = ocr.report;
   const currentSection = useMemo(() => {
     if (!toc || toc.items.length === 0) return null;
     return (
@@ -487,22 +475,7 @@ export function App() {
   };
 
   const totalPages = doc?.numPages ?? 0;
-  // Có trang chưa có lớp chữ (bản scan) hoặc đã từng OCR thì cho nhận dạng chữ.
-  const showOcrPanel =
-    status === 'ready' &&
-    analysis.phase === 'done' &&
-    (analysis.profile.isScanned ||
-      ocrPages.size > 0 ||
-      extractedPages.some((page) => page.text.trim() === ''));
   const fallbackSize = pageSizes[1] ?? FALLBACK_PAGE_SIZE;
-  const showNotice =
-    status === 'ready' &&
-    (indexRange !== null ||
-      analysis.phase === 'extracting' ||
-      analysis.phase === 'error' ||
-      (analysis.phase === 'done' && analysis.profile.isScanned) ||
-      showOcrPanel ||
-      ocrProgress !== null);
 
   return (
     <div
@@ -545,82 +518,14 @@ export function App() {
         onToggleSidebar={handleToggleSidebar}
       />
 
-      {showNotice && (
-        <section class="notice" aria-live="polite">
-          {indexRange && (
-            <form
-              class="notice__form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                extraction.startIndexing(doc, docId);
-              }}
-            >
-              <p class="notice__text">{vi.longDocWarning(INDEX_PAGE_LIMIT)}</p>
-              <label class="notice__field">
-                {vi.indexFrom}
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={indexRange.from}
-                  onInput={(event) =>
-                    setIndexRange({ ...indexRange, from: event.currentTarget.value })
-                  }
-                />
-              </label>
-              <label class="notice__field">
-                {vi.indexTo}
-                <input
-                  type="number"
-                  min={1}
-                  max={totalPages}
-                  value={indexRange.to}
-                  onInput={(event) =>
-                    setIndexRange({ ...indexRange, to: event.currentTarget.value })
-                  }
-                />
-              </label>
-              <button type="submit" class="notice__button">
-                {vi.indexStart}
-              </button>
-              {rangeError && (
-                <p class="notice__error" role="alert">
-                  {rangeError}
-                </p>
-              )}
-            </form>
-          )}
-
-          {analysis.phase === 'extracting' && (
-            <div class="notice__progress">
-              <progress value={analysis.done} max={analysis.total} />
-              <span>{vi.extracting(analysis.done, analysis.total)}</span>
-            </div>
-          )}
-
-          {analysis.phase === 'done' && analysis.profile.isScanned && (
-            <p class="notice__text notice__text--warning">{vi.scannedWarning}</p>
-          )}
-
-          {(showOcrPanel || ocrProgress !== null) && (
-            <OcrPanel
-              currentPage={pageNumber}
-              pageCount={totalPages}
-              running={ocrProgress}
-              report={ocrReport}
-              hasOcrPages={ocrPages.size > 0}
-              onStart={(range) => void ocr.start(range)}
-              onCancel={ocr.cancel}
-            />
-          )}
-
-          {analysis.phase === 'error' && (
-            <p class="notice__text notice__text--warning" role="alert">
-              {vi.extractFailed}
-            </p>
-          )}
-        </section>
-      )}
+      <NoticeBar
+        ready={status === 'ready'}
+        pageNumber={pageNumber}
+        totalPages={totalPages}
+        extraction={extraction}
+        ocr={ocr}
+        onStartIndexing={() => extraction.startIndexing(doc, docId)}
+      />
 
       <div class="workspace">
         <main class={`content${status === 'ready' ? ' content--document' : ''}`} ref={contentRef}>
